@@ -4,7 +4,7 @@ import { TaskType, TaskObjective } from "@prisma/client";
 
 export const taskController = {
   list: async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.userId;
     const tasks = await taskService.getTasksForUser(request.server, userId);
     return reply.send(tasks);
   },
@@ -13,7 +13,7 @@ export const taskController = {
     request: FastifyRequest<{ Body: { taskId: string } }>,
     reply: FastifyReply,
   ) => {
-    const userId = (request.user as any).id;
+    const userId = request.user.userId;
     const { taskId } = request.body;
     const result = await taskService.claimTask(request.server, userId, taskId);
     return reply.send(result);
@@ -67,10 +67,10 @@ export const adminTaskController = {
     const task = await taskService.updateTask(
       request.server,
       request.params.id,
-      { 
-        ...request.body, 
+      {
+        ...request.body,
         type: request.body.type as TaskType | undefined,
-        objective: request.body.objective as TaskObjective | undefined
+        objective: request.body.objective as TaskObjective | undefined,
       },
     );
     return reply.send(task);

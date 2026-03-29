@@ -60,7 +60,6 @@ export async function claimTask(
   userId: string,
   taskId: string,
 ) {
-  console.log(userId);
   const task = await app.prisma.task.findUnique({ where: { id: taskId } });
   if (!task) throw new Error("Task not found");
 
