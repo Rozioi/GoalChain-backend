@@ -1,0 +1,73 @@
+import { FastifyRequest, FastifyReply } from "fastify";
+import * as adminService from "./admin.service";
+
+export const adminController = {
+  stats: async (request: FastifyRequest, reply: FastifyReply) => {
+    const stats = await adminService.getGlobalStats(request.server);
+    return reply.send(stats);
+  },
+
+  listUsers: async (
+    request: FastifyRequest<{
+      Querystring: { search?: string; skip?: string; take?: string };
+    }>,
+    reply: FastifyReply,
+  ) => {
+    const { search, skip, take } = request.query;
+    const result = await adminService.listUsers(request.server, {
+      search,
+      skip: skip ? parseInt(skip) : undefined,
+      take: take ? parseInt(take) : undefined,
+    });
+    return reply.send(result);
+  },
+
+  updateUser: async (
+    request: FastifyRequest<{
+      Params: { id: string };
+      Body: { coins?: number; reputation?: number; username?: string };
+    }>,
+    reply: FastifyReply,
+  ) => {
+    const user = await adminService.updateUser(
+      request.server,
+      request.params.id,
+      request.body,
+    );
+    return reply.send(user);
+  },
+
+  createSeason: async (
+    request: FastifyRequest<{
+      Body: {
+        name: string;
+        startDate: string;
+        endDate: string;
+        division: number;
+      };
+    }>,
+    reply: FastifyReply,
+  ) => {
+    const season = await adminService.createSeason(request.server, {
+      ...request.body,
+      startDate: new Date(request.body.startDate),
+      endDate: new Date(request.body.endDate),
+    });
+    return reply.status(201).send(season);
+  },
+
+  updateSeason: async (
+    request: FastifyRequest<{
+      Params: { id: string };
+      Body: { status: any };
+    }>,
+    reply: FastifyReply,
+  ) => {
+    const season = await adminService.updateSeasonStatus(
+      request.server,
+      request.params.id,
+      request.body.status,
+    );
+    return reply.send(season);
+  },
+};

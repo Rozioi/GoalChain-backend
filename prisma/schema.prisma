@@ -1,0 +1,485 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin-arm64"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USER & REFERRALS ──────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid())
+  telegramId    String   @unique
+  username      String?
+  firstName     String?
+  lastName      String?
+  coins               Int      @default(1000)
+  reputation          Int      @default(0) // legacy
+  points              Int      @default(0) // Division/Rank points
+  level               Int      @default(1)
+  experience          Int      @default(0)
+  referralCode        String   @unique
+  referredById        String?
+  referredBy          User?    @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals           User[]   @relation("UserReferrals")
+
+  dailyMatchesPlayed  Int      @default(0)
+  dailyMatchesResetAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teams          Team[]
+  referralsMade  Referral[]     @relation("ReferralInviter")
+  referralsUsed  Referral[]     @relation("ReferralInvitee")
+  scouts         Scout[]
+  trainings      Training[]
+  matchesAsHome  Match[]        @relation("HomeUser")
+  matchesAsAway  Match[]        @relation("AwayUser")
+  draftSessions  DraftSession[]
+  eventDrafts    EventDraft[]
+  userTasks      UserTask[]
+}
+
+model Referral {
+  id         String   @id @default(uuid())
+  inviterId  String
+  inviteeId  String
+  reward     Int      @default(500)
+  inviter    User     @relation("ReferralInviter", fields: [inviterId], references: [id])
+  invitee    User     @relation("ReferralInvitee", fields: [inviteeId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([inviterId, inviteeId])
+}
+
+// ─── PLAYERS ────────────────────────────────────────────────────
+
+enum Position {
+  GK
+  CB
+  LB
+  RB
+  CDM
+  CM
+  CAM
+  LW
+  RW
+  ST
+  CF
+}
+
+enum PlayerStyle {
+  SPEEDY
+  POWERFUL
+  TECHNICAL
+  ATTACKING
+  DEFENSIVE
+  POSITIONAL
+}
+
+enum PlayerRole {
+  GOALKEEPER
+  DEFENDER
+  MIDFIELDER
+  FORWARD
+}
+
+model Player {
+  id        String      @id @default(uuid())
+  name      String
+  ovr       Int
+  position  Position
+  role      PlayerRole
+  style     PlayerStyle
+
+  // Detailed stats (0-99)
+  pace          Int @default(50)
+  shooting      Int @default(50)
+  passing       Int @default(50)
+  dribbling     Int @default(50)
+  defending     Int @default(50)
+  physical      Int @default(50)
+  goalkeeping   Int @default(50)
+  form          Int @default(50)
+  fatigue       Int @default(0)
+
+  // Advanced production fields
+  country       String @default("RU")
+  potentialMin  Int    @default(80)
+  potentialMax  Int    @default(90)
+  height        String @default("180cm")
+  weight        String @default("75kg")
+  foot          String @default("Right")
+  skillMoves    Int    @default(3)
+  weakFoot      Int    @default(3)
+  
+  traumaType    String?
+  traumaEndsAt  DateTime?
+
+  isNft       Boolean @default(false)
+  age         Int     @default(22)
+  nationality String  @default("Unknown")
+  club        String  @default("Free Agent")
+
+  createdAt DateTime @default(now())
+
+  teamPlayers   TeamPlayer[]
+  trainings     Training[]
+  scoutResults  ScoutResult[]
+  draftOptions  DraftOption[]
+  matchEvents   MatchEvent[]
+}
+
+// ─── TEAMS ──────────────────────────────────────────────────────
+
+model Team {
+  id        String  @id @default(uuid())
+  name      String
+  rating    Float   @default(0)
+  formation String  @default("4-4-2")
+  userId    String
+  isEvent   Boolean @default(false)
+  eventId   String?
+
+  user    User   @relation(fields: [userId], references: [id])
+  event   Event? @relation(fields: [eventId], references: [id])
+
+  players      TeamPlayer[]
+  homeMatches  Match[]  @relation("HomeTeam")
+  awayMatches  Match[]  @relation("AwayTeam")
+
+  seasonStandings SeasonStanding[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamPlayer {
+  id         String   @id @default(uuid())
+  teamId     String
+  playerId   String
+  isStarter  Boolean  @default(false)
+  positionInFormation String?
+
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([teamId, playerId])
+}
+
+// ─── DRAFT ──────────────────────────────────────────────────────
+
+enum DraftStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum DraftStep {
+  GK
+  DEF
+  MID
+  FWD
+  RESERVE
+  DONE
+}
+
+model DraftSession {
+  id       String      @id @default(uuid())
+  userId   String
+  status   DraftStatus @default(IN_PROGRESS)
+  step     DraftStep   @default(GK)
+  teamId   String?
+
+  user    User          @relation(fields: [userId], references: [id])
+  options DraftOption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DraftOption {
+  id             String  @id @default(uuid())
+  draftSessionId String
+  playerId       String
+  step           DraftStep
+  isPicked       Boolean @default(false)
+
+  draftSession DraftSession @relation(fields: [draftSessionId], references: [id], onDelete: Cascade)
+  player       Player       @relation(fields: [playerId], references: [id])
+}
+
+// ─── MATCHES ────────────────────────────────────────────────────
+
+enum MatchType {
+  FRIENDLY
+  SEASON
+  EVENT
+}
+
+enum MatchStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PressingType {
+  SOFT
+  MEDIUM
+  INTENSIVE
+}
+
+model Match {
+  id          String      @id @default(uuid())
+  type        MatchType   @default(FRIENDLY)
+  status      MatchStatus @default(PENDING)
+
+  homeUserId  String?
+  awayUserId  String?
+  homeTeamId  String
+  awayTeamId  String
+  isBot       Boolean     @default(false)
+
+  homeScore   Int?
+  awayScore   Int?
+  seed        String?
+  overtime    Boolean     @default(false)
+
+  homePressingType PressingType @default(MEDIUM)
+  awayPressingType PressingType @default(MEDIUM)
+
+  // Rewards
+  homeCoins   Int @default(0)
+  awayCoins   Int @default(0)
+  homeExp     Int @default(0)
+  awayExp     Int @default(0)
+
+  seasonId    String?
+  eventId     String?
+
+  homeUser    User?   @relation("HomeUser", fields: [homeUserId], references: [id])
+  awayUser    User?   @relation("AwayUser", fields: [awayUserId], references: [id])
+  homeTeam    Team    @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam    Team    @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  season      Season? @relation(fields: [seasonId], references: [id])
+  event       Event?  @relation(fields: [eventId], references: [id])
+
+  events      MatchEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MatchEvent {
+  id          String   @id @default(uuid())
+  matchId     String
+  minute      Int
+  type        String   // GOAL, YELLOW_CARD, RED_CARD, INJURY, SUBSTITUTION, TACTIC_CHANGE
+  team        String   // home, away
+  playerId    String?
+  playerName  String?
+  description String
+
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player      Player?  @relation(fields: [playerId], references: [id])
+
+  createdAt   DateTime @default(now())
+}
+
+// ─── SEASONS & DIVISIONS ────────────────────────────────────────
+
+enum SeasonStatus {
+  UPCOMING
+  ACTIVE
+  PLAYOFFS
+  COMPLETED
+}
+
+model Season {
+  id         String       @id @default(uuid())
+  name       String
+  division   Int          @default(1)
+  status     SeasonStatus @default(UPCOMING)
+  startDate  DateTime
+  endDate    DateTime
+
+  matches    Match[]
+  standings  SeasonStanding[]
+
+  createdAt DateTime @default(now())
+}
+
+model SeasonStanding {
+  id        String @id @default(uuid())
+  seasonId  String
+  teamId    String
+
+  played    Int @default(0)
+  wins      Int @default(0)
+  draws     Int @default(0)
+  losses    Int @default(0)
+  goalsFor  Int @default(0)
+  goalsAgainst Int @default(0)
+  points    Int @default(0)
+
+  season Season @relation(fields: [seasonId], references: [id])
+  team   Team   @relation(fields: [teamId], references: [id])
+
+  @@unique([seasonId, teamId])
+}
+
+// ─── EVENTS ─────────────────────────────────────────────────────
+
+enum EventType {
+  WORLD_CUP
+  EURO
+  COPA_AMERICA
+  CHAMPIONS_LEAGUE
+}
+
+enum EventStatus {
+  UPCOMING
+  DRAFT_PHASE
+  ACTIVE
+  COMPLETED
+}
+
+model Event {
+  id        String      @id @default(uuid())
+  name      String
+  type      EventType
+  status    EventStatus @default(UPCOMING)
+  startDate DateTime
+  endDate   DateTime
+  rules     Json?       // Unique event rules
+
+  teams      Team[]
+  matches    Match[]
+  drafts     EventDraft[]
+
+  createdAt DateTime @default(now())
+}
+
+model EventDraft {
+  id       String      @id @default(uuid())
+  eventId  String
+  userId   String
+  status   DraftStatus @default(IN_PROGRESS)
+  step     DraftStep   @default(GK)
+  teamId   String?
+
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── SCOUTING ───────────────────────────────────────────────────
+
+enum ScoutStatus {
+  ACTIVE
+  COMPLETED
+  COLLECTED
+}
+
+model Scout {
+  id       String      @id @default(uuid())
+  userId   String
+  region   String
+  ageMin   Int         @default(16)
+  ageMax   Int         @default(35)
+  targetRole PlayerRole?
+  status   ScoutStatus @default(ACTIVE)
+  endsAt   DateTime
+
+  user    User          @relation(fields: [userId], references: [id])
+  results ScoutResult[]
+
+  createdAt DateTime @default(now())
+}
+
+model ScoutResult {
+  id        String  @id @default(uuid())
+  scoutId   String
+  playerId  String
+  isNft     Boolean @default(false)
+
+  scout  Scout  @relation(fields: [scoutId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// ─── TASKS ──────────────────────────────────────────────────────
+
+enum TaskType {
+  SEASON
+  DAILY
+  INTRO
+}
+
+enum TaskObjective {
+  GOALS
+  WINS
+  MATCHES
+  CLEAN_SHEETS
+  REFERRALS
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  type        TaskType
+  objective   TaskObjective @default(MATCHES)
+  reward      Int       // coins reward for completion
+  goal        Int       // target progress value
+  icon        String?   // optional icon key
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  userTasks   UserTask[]
+}
+
+model UserTask {
+  id        String    @id @default(uuid())
+  userId    String
+  taskId    String
+  progress  Int       @default(0)
+  claimed   Boolean   @default(false)
+  claimedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+  task Task @relation(fields: [taskId], references: [id])
+
+  @@unique([userId, taskId])
+}
+
+// ─── TRAINING ───────────────────────────────────────────────────
+
+enum TrainingStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Training {
+  id        String         @id @default(uuid())
+  userId    String
+  playerId  String
+  stat      String         // pace, shooting, passing, etc.
+  boost     Int            @default(1)
+  cost      Int
+  status    TrainingStatus @default(IN_PROGRESS)
+  endsAt    DateTime
+
+  user   User   @relation(fields: [userId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+
+  createdAt DateTime @default(now())
+}

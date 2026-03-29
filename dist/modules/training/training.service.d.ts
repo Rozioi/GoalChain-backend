@@ -1,0 +1,25 @@
+import { FastifyInstance } from "fastify";
+export declare function startTraining(app: FastifyInstance, userId: string, playerId: string, stat: string): Promise<{
+    training: {
+        id: string;
+        createdAt: Date;
+        userId: string;
+        status: import(".prisma/client").$Enums.TrainingStatus;
+        playerId: string;
+        stat: string;
+        boost: number;
+        cost: number;
+        endsAt: Date;
+    };
+    stat: string;
+    boost: number;
+    cost: number;
+    newStatValue: number;
+}>;
+export declare function getTrainingCost(app: FastifyInstance, userId: string, playerId: string): Promise<{
+    cost: number;
+    totalTrainings: number;
+    maxOvr: number;
+    currentOvr: number;
+    isNft: boolean;
+}>;
