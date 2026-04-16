@@ -25,7 +25,13 @@ export const adminController = {
   updateUser: async (
     request: FastifyRequest<{
       Params: { id: string };
-      Body: { coins?: number; reputation?: number; username?: string };
+      Body: {
+        coins?: number;
+        points?: number;
+        level?: number;
+        username?: string;
+        isAdmin?: boolean;
+      };
     }>,
     reply: FastifyReply,
   ) => {
@@ -69,5 +75,19 @@ export const adminController = {
       request.body.status,
     );
     return reply.send(season);
+  },
+  listSeasons: async (request: FastifyRequest, reply: FastifyReply) => {
+    const seasons = await adminService.listSeasons(request.server);
+    return reply.send(seasons);
+  },
+  endSeason: async (
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply,
+  ) => {
+    const result = await adminService.endSeason(
+      request.server,
+      request.params.id,
+    );
+    return reply.send(result);
   },
 };

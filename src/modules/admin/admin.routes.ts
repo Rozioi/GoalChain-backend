@@ -2,13 +2,22 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { adminController } from "./admin.controller";
 
 async function adminGuard(request: FastifyRequest, reply: FastifyReply) {
-  const adminToken = process.env.ADMIN_TOKEN;
-  if (!adminToken) {
-    return reply.status(403).send({ error: "Admin access not configured" });
+  // 1. Ensure authenticated
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    return reply.status(401).send({ error: "Unauthorized" });
   }
-  const provided = request.headers["x-admin-token"];
-  if (provided !== adminToken) {
-    return reply.status(403).send({ error: "Forbidden" });
+
+  // 2. Check isAdmin in DB
+  const userId = (request.user as any).userId;
+  const user = await (request.server as any).prisma.user.findUnique({
+    where: { id: userId },
+    select: { isAdmin: true },
+  });
+
+  if (!user || !user.isAdmin) {
+    return reply.status(403).send({ error: "Forbidden: Admin access only" });
   }
 }
 
@@ -18,12 +27,14 @@ async function adminRoutes(app: FastifyInstance) {
   app.get("/admin/stats", adminController.stats);
 
   app.get("/admin/users", adminController.listUsers);
+  app.get("/admin/seasons", adminController.listSeasons);
 
   app.put("/admin/users/:id", adminController.updateUser);
 
   app.post("/admin/season", adminController.createSeason);
 
   app.put("/admin/season/:id/status", adminController.updateSeason);
+  app.put("/admin/season/:id/end", adminController.endSeason);
 }
 
 export default adminRoutes;

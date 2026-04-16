@@ -78,7 +78,6 @@ function getLineStrength(
   const linePlayers = players.filter((p) => roles.includes(p.role));
   if (linePlayers.length === 0) return 30;
 
-  // Pressing multipliers (Increased for AGGRESSIVE impact)
   let pressingMult = 1.0;
   if (pressingType === "INTENSIVE") pressingMult = 1.4;
   if (pressingType === "SOFT") pressingMult = 0.75;
@@ -89,7 +88,6 @@ function getLineStrength(
       for (const [stat, weight] of Object.entries(weights)) {
         val += (p as any)[stat] * weight;
       }
-      // Apply form & fatigue (fatigue impact increases with intensive pressing)
       const fatigueFactor = pressingType === "INTENSIVE" ? 2.5 : 1.0;
       val *= (p.form / 100) * (1 - (p.fatigue * fatigueFactor) / 200);
       return sum + val * pressingMult;
@@ -144,6 +142,13 @@ export function simulateMatch(
     rating: number,
     pressing: PressingType,
   ) => {
+    const attackPlayers = activeStarters.filter((p) =>
+      ["FORWARD", "MIDFIELDER"].includes(p.role),
+    );
+    const defensePlayers = activeStarters.filter((p) =>
+      ["DEFENDER", "GOALKEEPER"].includes(p.role),
+    );
+
     const attack = getLineStrength(
       activeStarters,
       ["FORWARD", "MIDFIELDER"],
@@ -156,6 +161,7 @@ export function simulateMatch(
       },
       pressing,
     );
+
     const defense = getLineStrength(
       activeStarters,
       ["DEFENDER", "GOALKEEPER"],
@@ -168,17 +174,27 @@ export function simulateMatch(
       },
       pressing,
     );
+
+    let tacticalBonus = 0;
+    activeStarters.forEach((p) => {
+      if (p.position === "CDM") tacticalBonus += p.defending * 0.05;
+      if (p.position === "CAM") tacticalBonus += p.passing * 0.05;
+      if (["LW", "RW"].includes(p.position)) tacticalBonus += p.pace * 0.03;
+    });
+
     const shortagePenalty =
       activeStarters.length < 11 ? activeStarters.length / 11 : 1;
+
     return {
-      attack: attack * shortagePenalty,
-      defense: defense * shortagePenalty,
-      power: (attack * 0.6 + defense * 0.4 + rating * 0.1) * shortagePenalty,
+      attack: (attack + tacticalBonus * 0.6) * shortagePenalty,
+      defense: (defense + tacticalBonus * 0.4) * shortagePenalty,
+      power:
+        (attack * 0.6 + defense * 0.4 + rating * 0.1 + tacticalBonus) *
+        shortagePenalty,
     };
   };
 
   for (let minute = 1; minute <= totalMinutes; minute++) {
-    // 1. Apply scheduled changes for this minute
     const currentSubs = manualSubstitutions.filter((s) => s.minute === minute);
     for (const sub of currentSubs) {
       const active = sub.team === "home" ? homeActive : awayActive;
@@ -209,17 +225,15 @@ export function simulateMatch(
 
       events.push({
         minute,
-        type: "substitution", // Using substitution type for now as tactical change
+        type: "substitution",
         team: tactic.team,
         description: `Tactical change: Team switched to ${tactic.type} pressing.`,
       });
     }
 
-    // 2. Check for locked events
     const lockedThisMinute = lockedEvents.filter((e) => e.minute === minute);
     if (lockedThisMinute.length > 0) {
       for (const e of lockedThisMinute) {
-        // Apply side effects of locked events (cards, injuries)
         const teamActive = e.team === "home" ? homeActive : awayActive;
         const teamBench = e.team === "home" ? homeBench : awayBench;
         const teamCards = e.team === "home" ? homeYellowCards : awayYellowCards;
@@ -244,14 +258,10 @@ export function simulateMatch(
         }
         events.push(e);
       }
-      // Advance RNG anyway to keep it consistent if possible, but actually
-      // it's better to just skip RNG rolls for this minute to avoid side effects.
-      // Note: We don't advance RNG here because we want the "future" to be
-      // deterministic based on the seed from this point forward.
+
       continue;
     }
 
-    // 3. Roll for events (Skip if we are in historical/locked minutes)
     if (minute < skipUntilMinute) continue;
 
     const roll = rng();
@@ -293,7 +303,6 @@ export function simulateMatch(
           : 1.0;
 
     if (actionRoll < 0.03) {
-      // Injury (slightly higher chance with intensive pressing)
       const injuryChance = pressing === "INTENSIVE" ? 0.04 : 0.03;
       if (rng() < (injuryChance / 0.03) * actionRoll) {
         const playerIdx = Math.floor(rng() * active.length);
@@ -324,7 +333,6 @@ export function simulateMatch(
         }
       }
     } else if (actionRoll < 0.05) {
-      // Red card
       const cardRollMult = team === "home" ? cardMult : awayCardMult;
       if (rng() < cardRollMult) {
         const playerIdx = Math.floor(rng() * active.length);
@@ -342,7 +350,6 @@ export function simulateMatch(
         active.splice(playerIdx, 1);
       }
     } else if (actionRoll < 0.12) {
-      // Yellow card (higher chance with intensive pressing)
       const cardRollMult = team === "home" ? cardMult : awayCardMult;
       if (rng() < cardRollMult) {
         const playerIdx = Math.floor(rng() * active.length);
@@ -371,7 +378,6 @@ export function simulateMatch(
         }
       }
     } else if (actionRoll < 0.2) {
-      // Foul
       events.push({
         minute,
         type: "foul",
@@ -379,7 +385,6 @@ export function simulateMatch(
         description: `Foul by ${team === "home" ? "away" : "home"} player.`,
       });
     } else if (actionRoll < 0.6) {
-      // Shot
       if (isHomeAction) homeShots++;
       else awayShots++;
 
@@ -427,7 +432,6 @@ export function simulateMatch(
     }
   }
 
-  // Overtime if needed
   let overtime = false;
   if (forceOvertime && homeScore === awayScore) {
     overtime = true;
@@ -513,9 +517,6 @@ export function simulateMatch(
   };
 }
 
-/**
- * Calculates a risk rating (0-100) for a team based on their pressing and current cards.
- */
 export function calculateRiskRating(
   pressing: PressingType,
   activePlayers: PlayerStats[],
@@ -523,17 +524,14 @@ export function calculateRiskRating(
 ): number {
   let risk = 0;
 
-  // Base risk from pressing
   if (pressing === "INTENSIVE") risk += 40;
   else if (pressing === "MEDIUM") risk += 20;
   else risk += 10;
 
-  // Additional risk from players with yellow cards
   const playersOnYellow = activePlayers.filter(
     (p) => (yellowCards[p.id] || 0) > 0,
   );
   risk += playersOnYellow.length * 15;
 
-  // Cap at 100
   return Math.min(risk, 100);
 }

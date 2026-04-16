@@ -29,6 +29,18 @@ async function matchRoutes(app: FastifyInstance) {
   );
 
   app.post(
+    "/match/invite",
+    {
+      schema: {
+        tags: ["Match"],
+        summary: "Создать открытое приглашение на матч",
+        description: "Генерирует ссылку, по которой любой пользователь может присоединиться к матчу.",
+      },
+    },
+    matchController.createInvite,
+  );
+
+  app.post(
     "/match/invite/:friendId",
     {
       schema: {
@@ -86,12 +98,16 @@ async function matchRoutes(app: FastifyInstance) {
               enum: ["SOFT", "MEDIUM", "INTENSIVE"],
               description: "Новый уровень прессинга команды"
             },
-            substitution: {
-              type: "object",
-              description: "Детали ручной замены",
-              properties: {
-                outId: { type: "string", description: "ID игрока, покидающего поле" },
-                inId: { type: "string", description: "ID игрока, выходящего на поле" },
+            substitutions: {
+              type: "array",
+              description: "Список ручных замен",
+              items: {
+                type: "object",
+                properties: {
+                  outId: { type: "string", description: "ID игрока, покидающего поле" },
+                  inId: { type: "string", description: "ID игрока, выходящего на поле" },
+                },
+                required: ["outId", "inId"],
               },
             },
           },
@@ -110,6 +126,24 @@ async function matchRoutes(app: FastifyInstance) {
       },
     },
     matchController.history,
+  );
+  
+  app.get(
+    "/match/:matchId",
+    {
+      schema: {
+        tags: ["Match"],
+        summary: "Получить статус матча по ID",
+        params: {
+          type: "object",
+          required: ["matchId"],
+          properties: {
+            matchId: { type: "string" },
+          },
+        },
+      },
+    },
+    matchController.get,
   );
 }
 

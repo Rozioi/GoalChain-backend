@@ -21,6 +21,9 @@ model User {
   points              Int      @default(0) // Division/Rank points
   level               Int      @default(1)
   experience          Int      @default(0)
+  isAdmin             Boolean  @default(false)
+  scoutingLevel       Int      @default(1)
+  scoutingExp         Int      @default(0)
   referralCode        String   @unique
   referredById        String?
   referredBy          User?    @relation("UserReferrals", fields: [referredById], references: [id])
@@ -91,6 +94,7 @@ enum PlayerRole {
 model Player {
   id        String      @id @default(uuid())
   name      String
+  surname   String?     @default("")
   ovr       Int
   position  Position
   role      PlayerRole
@@ -111,8 +115,8 @@ model Player {
   country       String @default("RU")
   potentialMin  Int    @default(80)
   potentialMax  Int    @default(90)
-  height        String @default("180cm")
-  weight        String @default("75kg")
+  height        Int    @default(180)
+  weight        Int    @default(75)
   foot          String @default("Right")
   skillMoves    Int    @default(3)
   weakFoot      Int    @default(3)
@@ -123,7 +127,24 @@ model Player {
   isNft       Boolean @default(false)
   age         Int     @default(22)
   nationality String  @default("Unknown")
+  clubId      Int?    @default(0)
   club        String  @default("Free Agent")
+
+  // Training and Experience
+  trainingLevel             Int @default(1)
+  trainingLevelMax          Int @default(25)
+  trainingExperience        Int @default(0)
+  trainingExperienceRequired Int @default(200)
+
+  // Visual appearance
+  face        String? @default("face_1")
+  hairStyle   String? @default("short")
+  hairColor   String? @default("black")
+  skinColor   String? @default("light")
+  beardStyle  String? @default("none")
+  beardColor  String? @default("none")
+  emotion     String? @default("neutral")
+  rarity      String? @default("common")
 
   createdAt DateTime @default(now())
 
@@ -216,6 +237,7 @@ model DraftOption {
 
 enum MatchType {
   FRIENDLY
+  CHALLENGE
   SEASON
   EVENT
 }

@@ -6,6 +6,7 @@ import {
   getUserReferrals,
   getInviterInfoByCode,
 } from "./user.service";
+import { syncScoutStates } from "../scouting/scouting.service";
 
 export const userController = {
   async register(
@@ -36,6 +37,9 @@ export const userController = {
 
   async me(req: FastifyRequest, reply: FastifyReply) {
     try {
+      // Sync scouting states on every profile request for live updates
+      await syncScoutStates(req.server, req.user.userId);
+      
       const user = await getUserProfile(req.server, req.user.userId);
       if (!user) return reply.status(404).send({ error: "User not found" });
       reply.send(user);

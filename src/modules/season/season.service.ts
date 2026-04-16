@@ -105,3 +105,42 @@ export async function createSeason(
         },
     });
 }
+export async function endSeason(app: FastifyInstance, seasonId: string) {
+    const season = await app.prisma.season.findUnique({
+        where: { id: seasonId },
+        include: {
+            standings: {
+                orderBy: [{ points: "desc" }, { goalsFor: "desc" }],
+                take: 3,
+                include: { team: true },
+            },
+        },
+    });
+
+    if (!season) throw new Error("Season not found");
+    if (season.status === "COMPLETED") throw new Error("Season already completed");
+
+    // Distribute rewards
+    const rewards = [
+        SEASON.REWARDS.FIRST_PLACE,
+        SEASON.REWARDS.SECOND_PLACE,
+        SEASON.REWARDS.THIRD_PLACE,
+    ];
+
+    for (let i = 0; i < season.standings.length; i++) {
+        const standing = season.standings[i];
+        const reward = rewards[i];
+
+        if (standing && reward) {
+            await app.prisma.user.update({
+                where: { id: standing.team.userId },
+                data: { coins: { increment: reward } },
+            });
+        }
+    }
+
+    return app.prisma.season.update({
+        where: { id: seasonId },
+        data: { status: "COMPLETED" },
+    });
+}

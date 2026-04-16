@@ -22,6 +22,7 @@ interface GenerateOptions {
 
 export interface GeneratedPlayer {
     name: string;
+    surname: string;
     ovr: number;
     position: Position;
     role: PlayerRole;
@@ -35,8 +36,8 @@ export interface GeneratedPlayer {
     goalkeeping: number;
     potentialMin: number;
     potentialMax: number;
-    height: string;
-    weight: string;
+    height: number;
+    weight: number;
     foot: string;
     skillMoves: number;
     weakFoot: number;
@@ -45,7 +46,28 @@ export interface GeneratedPlayer {
     age: number;
     nationality: string;
     club: string;
+    clubId: number;
+    trainingLevel: number;
+    trainingLevelMax: number;
+    trainingExperience: number;
+    trainingExperienceRequired: number;
+    face: string;
+    hairStyle: string;
+    hairColor: string;
+    skinColor: string;
+    beardStyle: string;
+    beardColor: string;
+    emotion: string;
+    rarity: string;
 }
+
+const FACES = ["face_1", "face_2", "face_3", "face_4", "face_5", "face_6", "face_7", "face_8", "face_9", "face_10", "face_11"];
+const HAIR_STYLES = ["short", "long", "bald", "mohawk", "curly"];
+const HAIR_COLORS = ["black", "brown", "blonde", "red", "gray"];
+const SKIN_COLORS = ["light", "tan", "dark", "pale"];
+const BEARD_STYLES = ["none", "stubble", "full", "goatee"];
+const EMOTIONS = ["neutral", "serious", "happy", "angry"];
+const RARITIES = ["common", "rare", "epic", "legendary", "gold"];
 
 const POSITIONS_BY_ROLE: Record<PlayerRole, Position[]> = {
     GOALKEEPER: [Position.GK],
@@ -69,10 +91,10 @@ function pickRandom<T>(rng: seedrandom.PRNG, arr: T[]): T {
     return arr[Math.floor(rng() * arr.length)];
 }
 
-function generateName(rng: seedrandom.PRNG): string {
-    const first = pickRandom(rng, PLAYER_FIRST_NAMES);
-    const last = pickRandom(rng, PLAYER_LAST_NAMES);
-    return `${first} ${last}`;
+function generateName(rng: seedrandom.PRNG): { name: string; surname: string } {
+    const name = pickRandom(rng, PLAYER_FIRST_NAMES);
+    const surname = pickRandom(rng, PLAYER_LAST_NAMES);
+    return { name, surname };
 }
 
 function generateStatsForRole(
@@ -161,17 +183,31 @@ export function generatePlayer(options: GenerateOptions = {}): GeneratedPlayer {
     const age = randomInt(rng, 17, 34);
     const nationality = pickRandom(rng, PLAYER_NATIONALITIES);
     const club = pickRandom(rng, PLAYER_CLUBS);
+    const clubId = randomInt(rng, 1, 100);
     
     // Physicals and Skills
-    const height = randomInt(rng, 165, 205) + "cm";
-    const weight = randomInt(rng, 60, 95) + "kg";
+    const height = randomInt(rng, 165, 205);
+    const weight = randomInt(rng, 60, 95);
     const foot = rng() > 0.7 ? "Left" : "Right";
     const skillMoves = randomInt(rng, 1, 5);
     const weakFoot = randomInt(rng, 1, 5);
     const country = nationality || "RU";
 
+    // Visuals
+    const face = pickRandom(rng, FACES);
+    const hairStyle = pickRandom(rng, HAIR_STYLES);
+    const hairColor = pickRandom(rng, HAIR_COLORS);
+    const skinColor = pickRandom(rng, SKIN_COLORS);
+    const beardStyle = pickRandom(rng, BEARD_STYLES);
+    const beardColor = beardStyle === "none" ? "none" : hairColor;
+    const emotion = pickRandom(rng, EMOTIONS);
+    const rarity = ovr > 85 ? "gold" : pickRandom(rng, RARITIES);
+
+    const { name, surname } = generateName(rng);
+
     return {
-        name: generateName(rng),
+        name,
+        surname,
         ovr,
         position,
         role,
@@ -188,6 +224,19 @@ export function generatePlayer(options: GenerateOptions = {}): GeneratedPlayer {
         age,
         nationality,
         club,
+        clubId,
+        trainingLevel: 1,
+        trainingLevelMax: 25,
+        trainingExperience: 0,
+        trainingExperienceRequired: 200,
+        face,
+        hairStyle,
+        hairColor,
+        skinColor,
+        beardStyle,
+        beardColor,
+        emotion,
+        rarity,
         ...stats,
     };
 }

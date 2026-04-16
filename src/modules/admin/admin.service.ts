@@ -51,8 +51,10 @@ export async function updateUser(
   userId: string,
   data: {
     coins?: number;
-    reputation?: number;
+    points?: number;
+    level?: number;
     username?: string;
+    isAdmin?: boolean;
   },
 ) {
   return app.prisma.user.update({
@@ -87,4 +89,16 @@ export async function updateSeasonStatus(
     where: { id: seasonId },
     data: { status },
   });
+}
+
+export async function listSeasons(app: FastifyInstance) {
+  return app.prisma.season.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+import { endSeason as finishSeason } from "../season/season.service";
+
+export async function endSeason(app: FastifyInstance, seasonId: string) {
+  return finishSeason(app, seasonId);
 }

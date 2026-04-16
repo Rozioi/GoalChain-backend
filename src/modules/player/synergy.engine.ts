@@ -29,8 +29,20 @@ const ROLE_SYNERGY: Record<string, number> = {
     "DEFENDER-FORWARD": 1,
 };
 
-function getRoleSynergyKey(r1: PlayerRole, r2: PlayerRole): string {
-    const sorted = [r1, r2].sort();
+// Specialized Position Synergies
+const POSITION_SYNERGY: Record<string, number> = {
+    "CB-CDM": 4,   // Defensive cover
+    "CDM-CM": 3,   // Build-up
+    "CM-CAM": 3,   // Creativity
+    "CAM-ST": 4,   // Playmaking
+    "LW-ST": 3,    // Winger service
+    "RW-ST": 3,    // Winger service
+    "LW-CAM": 2,
+    "RW-CAM": 2,
+};
+
+function getPairKey(a: string, b: string): string {
+    const sorted = [a, b].sort();
     return `${sorted[0]}-${sorted[1]}`;
 }
 
@@ -54,10 +66,20 @@ export function calculateTeamSynergy(players: SynergyPlayer[]): SynergyResult {
             }
 
             // Role synergy
-            const roleKey = getRoleSynergyKey(p1.role, p2.role);
+            const roleKey = getPairKey(p1.role, p2.role);
             const roleBonus = ROLE_SYNERGY[roleKey] ?? 0;
             if (roleBonus > 0) {
                 totalBonus += roleBonus;
+            }
+
+            // Position synergy (More specific)
+            const posKey = getPairKey(p1.position, p2.position);
+            const posBonus = POSITION_SYNERGY[posKey] ?? 0;
+            if (posBonus > 0) {
+                totalBonus += posBonus;
+                details.push(
+                    `${p1.position} + ${p2.position}: +${posBonus} tactical synergy`,
+                );
             }
         }
     }

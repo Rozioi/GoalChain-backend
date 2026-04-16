@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { TRAINING } from "../../config/constants";
+import { calculateTeamRating } from "../player/synergy.engine";
 
 export async function startTraining(
     app: FastifyInstance,
@@ -100,6 +101,33 @@ export async function startTraining(
         }),
     ]);
 
+    // Recalculate team rating if the player is a starter
+    if (teamPlayer.isStarter) {
+        const team = await app.prisma.team.findUnique({
+            where: { id: teamPlayer.teamId },
+            include: {
+                players: {
+                    where: { isStarter: true },
+                    include: { player: true },
+                },
+            },
+        });
+
+        if (team) {
+            const starters = team.players.map((tp: any) => ({
+                position: tp.player.position,
+                role: tp.player.role,
+                style: tp.player.style,
+                ovr: tp.player.ovr,
+            }));
+            const rating = calculateTeamRating(starters);
+            await app.prisma.team.update({
+                where: { id: team.id },
+                data: { rating },
+            });
+        }
+    }
+
     return {
         training,
         stat,
@@ -133,11 +161,26 @@ export async function getTrainingCost(
         ? TRAINING.MAX_OVR_NFT
         : TRAINING.MAX_OVR_NORMAL;
 
+    // Check last training for cooldown
+    const lastTraining = await app.prisma.training.findFirst({
+        where: { userId, playerId, status: "COMPLETED" },
+        orderBy: { createdAt: "desc" },
+    });
+
+    let cooldownEndsAt: Date | null = null;
+    if (lastTraining) {
+        const potentialEnd = new Date(lastTraining.createdAt.getTime() + TRAINING.COOLDOWN_MS);
+        if (new Date() < potentialEnd) {
+            cooldownEndsAt = potentialEnd;
+        }
+    }
+
     return {
         cost,
         totalTrainings: trainingCount,
         maxOvr,
         currentOvr: teamPlayer?.player.ovr || 0,
         isNft: teamPlayer?.player.isNft || false,
+        cooldownEndsAt,
     };
 }
