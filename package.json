@@ -26,8 +26,10 @@
     "dotenv": "^17.3.1",
     "fastify": "^5.7.4",
     "fastify-plugin": "^5.1.0",
+    "grammy": "^1.42.0",
     "k6": "^0.0.0",
-    "seedrandom": "^3.0.5"
+    "seedrandom": "^3.0.5",
+    "telegraf": "^4.16.3"
   },
   "devDependencies": {
     "@types/node": "^25.3.2",

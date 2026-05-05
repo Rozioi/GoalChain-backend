@@ -107,6 +107,12 @@ async function rentPlayer(app, userId, playerId, days = 7) {
             where: { id: userId },
             data: { coins: { decrement: rentPrice } },
         });
+        if (player.ownerId) {
+            await app.prisma.user.update({
+                where: { id: player.ownerId },
+                data: { coins: { increment: rentPrice } },
+            });
+        }
     }
     // Add to team players list
     const renterTeam = await app.prisma.team.findFirst({
