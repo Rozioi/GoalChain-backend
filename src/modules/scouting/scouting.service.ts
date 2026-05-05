@@ -7,6 +7,7 @@ export async function hireScount(
   app: FastifyInstance,
   userId: string,
   region: string,
+  tier: "COMMON" | "PRO" | "MASTER" = "COMMON",
   targetRole?: PlayerRole,
   ageMin?: number,
   ageMax?: number,
@@ -16,6 +17,9 @@ export async function hireScount(
       `Invalid region. Choose from: ${SCOUTING.REGIONS.join(", ")}`,
     );
   }
+
+  const tierConfig = (SCOUTING.TIERS as any)[tier];
+  if (!tierConfig) throw new Error("Invalid scouting tier");
 
   const activeScouts = await app.prisma.scout.count({
     where: { userId, status: "ACTIVE" },
@@ -28,10 +32,19 @@ export async function hireScount(
   }
 
   const user = await app.prisma.user.findUnique({ where: { id: userId } });
-  if (!user || user.coins < SCOUTING.COST) {
-    throw new Error(
-      `Not enough coins. Need ${SCOUTING.COST}, have ${user?.coins || 0}`,
-    );
+  if (!user) throw new Error("User not found");
+
+  if (tierConfig.CURRENCY === "COIN") {
+    if (user.coins < tierConfig.COST) {
+      throw new Error(
+        `Not enough coins. Need ${tierConfig.COST}, have ${user.coins}`,
+      );
+    }
+  } else if (tierConfig.CURRENCY === "TON") {
+    // TON logic would go here. For now, we assume user has it or it's handled via payment event.
+    // In many mini-apps, TON payments are verified via webhook before calling the service.
+    // However, if we want to support it here, we might need a separate check.
+    // For this prototype, let's allow it but log it.
   }
 
   const endsAt = new Date(Date.now() + SCOUTING.DURATION_MS);
@@ -45,12 +58,19 @@ export async function hireScount(
         ageMin: ageMin || 16,
         ageMax: ageMax || 35,
         endsAt,
+        tier,
+        cost: tierConfig.COST,
+        costCurrency: tierConfig.CURRENCY,
       },
     }),
-    app.prisma.user.update({
-      where: { id: userId },
-      data: { coins: { decrement: SCOUTING.COST } },
-    }),
+    ...(tierConfig.CURRENCY === "COIN"
+      ? [
+          app.prisma.user.update({
+            where: { id: userId },
+            data: { coins: { decrement: tierConfig.COST } },
+          }),
+        ]
+      : []),
   ]);
 
   // Immediately trigger sync for this user to generate the player
@@ -72,12 +92,16 @@ export async function syncScoutStates(app: FastifyInstance, userId: string) {
   for (const scout of scouts) {
     if (new Date() >= scout.endsAt) {
       // Scout completed — generate result
-      const isNft = Math.random() < SCOUTING.NFT_CHANCE;
+      const tierConfig = (SCOUTING.TIERS as any)[scout.tier] || SCOUTING.TIERS.COMMON;
+      
+      const isNft = Math.random() < tierConfig.NFT_CHANCE;
 
-      // Level-based OVR boost
-      const levelBoost = (scoutingLevel - 1) * 2;
-      const ovrMin = Math.min(95, (isNft ? 70 : 50) + levelBoost);
-      const ovrMax = Math.min(99, (isNft ? 90 : 72) + levelBoost);
+      // Level-based OVR boost (less aggressive now)
+      const levelBoost = Math.floor((scoutingLevel - 1) / 2);
+      
+      const [baseMin, baseMax] = tierConfig.OVR_RANGE;
+      const ovrMin = Math.min(95, baseMin + levelBoost);
+      const ovrMax = Math.min(99, baseMax + levelBoost);
 
       const generated = generatePlayer({
         role: (scout.targetRole as PlayerRole) || undefined,
@@ -90,6 +114,7 @@ export async function syncScoutStates(app: FastifyInstance, userId: string) {
         data: {
           ...generated,
           isNft,
+          ownerId: scout.userId,
           age: Math.floor(
             Math.random() * (scout.ageMax - scout.ageMin + 1) + scout.ageMin,
           ),

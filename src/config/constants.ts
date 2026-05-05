@@ -23,11 +23,11 @@ export const DRAFT = {
 
 // ─── MATCH ──────────────────────────────────────────────────────
 export const MATCH = {
-  MATCHMAKING_RATING_RANGE: 0.1, // ±10% rating
+  MATCHMAKING_RATING_RANGE: 0.1,
   MATCHMAKING_TIMEOUT_MS: 30_000,
   DAILY_FRIENDLY_LIMIT: 10,
-  MATCH_ITERATIONS: 90, // 90 min simulation
-  OVERTIME_ITERATIONS: 10, // ~1 min extra time
+  MATCH_ITERATIONS: 90,
+  OVERTIME_ITERATIONS: 10,
 
   REWARDS: {
     WIN_COINS: 100,
@@ -36,27 +36,24 @@ export const MATCH = {
     WIN_EXP: 30,
     DRAW_EXP: 15,
     LOSS_EXP: 10,
-    DIMINISHING_FACTOR: 0.85, // reward multiplier per repeated match
+    DIMINISHING_FACTOR: 0.85,
   },
 };
 
 // ─── TRAINING ───────────────────────────────────────────────────
 export const TRAINING = {
   BASE_COST: 100,
-  COST_MULTIPLIER: 1.5, // cost increases per training
-  COOLDOWN_MS: 2 * 60 * 60 * 1000, // 2 hours
+  COST_MULTIPLIER: 1.5,
+  COOLDOWN_MS: 2 * 60 * 60 * 1000,
   BOOST_NORMAL: 1,
   BOOST_NFT: 2,
   MAX_OVR_NORMAL: 120,
   MAX_OVR_NFT: 150,
 };
 
-// ─── SCOUTING ───────────────────────────────────────────────────
 export const SCOUTING = {
   MAX_ACTIVE_SCOUTS: 3,
-  DURATION_MS: 0, // Instant
-  NFT_CHANCE: 0.1, // 10%
-  COST: 30_000,
+  DURATION_MS: 0,
   REGIONS: [
     "Europe",
     "South America",
@@ -65,6 +62,26 @@ export const SCOUTING = {
     "North America",
     "Oceania",
   ],
+  TIERS: {
+    COMMON: {
+      COST: 1000,
+      CURRENCY: "COIN",
+      OVR_RANGE: [45, 70],
+      NFT_CHANCE: 0.05,
+    },
+    PRO: {
+      COST: 5000,
+      CURRENCY: "COIN",
+      OVR_RANGE: [65, 82],
+      NFT_CHANCE: 0.15,
+    },
+    MASTER: {
+      COST: 1, // 1 TON
+      CURRENCY: "TON",
+      OVR_RANGE: [75, 95],
+      NFT_CHANCE: 0.5,
+    },
+  },
 };
 
 // ─── SEASONS ────────────────────────────────────────────────────
@@ -88,6 +105,11 @@ export const REFERRAL = {
 
 // ─── PLAYER NAMES ───────────────────────────────────────────────
 export const PLAYER_FIRST_NAMES = [
+  "Ivan",
+  "Vladimir",
+  "Andrey",
+  "Roman",
+  "Pedro",
   "Marco",
   "Luis",
   "Kevin",
@@ -156,6 +178,10 @@ export const PLAYER_FIRST_NAMES = [
 ];
 
 export const PLAYER_LAST_NAMES = [
+  "Mirol",
+  "Melnik",
+  "Zhalezny",
+  "Romanovsky",
   "Silva",
   "Fernandez",
   "Martinez",
@@ -219,82 +245,86 @@ export const PLAYER_LAST_NAMES = [
   "Van Dijk",
   "Alexander-Arnold",
   "Robertson",
+  "Lapkouski",
 ];
-
 export const PLAYER_NATIONALITIES = [
   // Европа (UEFA)
-  "France",
-  "Germany",
-  "England",
-  "Spain",
-  "Italy",
-  "Netherlands",
-  "Portugal",
-  "Belgium",
-  "Croatia",
-  "Norway",
-  "Denmark",
-  "Sweden",
-  "Switzerland",
-  "Austria",
-  "Poland",
-  "Ukraine",
-  "Turkey",
-  "Greece",
-  "Scotland",
-  "Wales",
-  "Ireland",
-  "Czech Republic",
-  "Slovakia",
-  "Hungary",
-  "Serbia",
-  "Slovenia",
-  "Georgia",
-  "Belarus",
-  "Lithuania",
-  "Latvia",
-  "Estonia",
-  "Finland",
+  "FR", // France
+  "DE", // Germany
+  "GB", // England
+  "ES", // Spain
+  "IT", // Italy
+  "NL", // Netherlands
+  "PT", // Portugal
+  "BE", // Belgium
+  "HR", // Croatia
+  "NO", // Norway
+  "DK", // Denmark
+  "SE", // Sweden
+  "CH", // Switzerland
+  "AT", // Austria
+  "PL", // Poland
+  "UA", // Ukraine
+  "TR", // Turkey
+  "GR", // Greece
+  "IE", // Ireland
+  "CZ", // Czech Republic
+  "SK", // Slovakia
+  "HU", // Hungary
+  "RS", // Serbia
+  "SI", // Slovenia
+  "GE", // Georgia
+  "BY", // Belarus
+  "LT", // Lithuania
+  "LV", //
+  "EE", // Estonia
+  "FI", // Finland
+
   // Южная Америка (CONMEBOL)
-  "Brazil",
-  "Argentina",
-  "Uruguay",
-  "Colombia",
-  "Chile",
-  "Ecuador",
-  "Paraguay",
-  "Peru",
-  "Bolivia",
-  "Venezuela",
+  "BR", // Brazil
+  "AR", // Argentina
+  "UY", // Uruguay
+  "CO", // Colombia
+  "CL", // Chile
+  "EC", // Ecuador
+  "PY", // Paraguay
+  "PE", // Peru
+  "BO", // Bolivia
+  "VE", // Venezuela
+
   // Африка (CAF)
-  "Senegal",
-  "Egypt",
-  "Morocco",
-  "Nigeria",
-  "Algeria",
-  "Cameroon",
-  "Ivory Coast",
-  "Ghana",
-  "Tunisia",
-  "Mali",
+  "SN", // Senegal
+  "EG", // Egypt
+  "MA", // Morocco
+  "NG", // Nigeria
+  "DZ", // Algeria
+  "CM", // Cameroon
+  "CI", // Ivory Coast
+  "GH", // Ghana
+  "TN", // Tunisia
+  "ML", // Mali
+
   // Азия (AFC)
-  "Japan",
-  "South Korea",
-  "Saudi Arabia",
-  "Iran",
-  "Australia",
-  "UAE",
-  "Qatar",
-  "Uzbekistan",
-  "China",
+  "JP", // Japan
+  "KR", // South Korea
+  "SA", // Saudi Arabia
+  "IR", // Iran
+  "AU", // Australia
+  "AE", // UAE
+  "QA", // Qatar
+  "UZ", // Uzbekistan
+  "CN", // China
+
   // Северная Америка (CONCACAF)
-  "USA",
-  "Mexico",
-  "Canada",
-  "Costa Rica",
-  "Jamaica",
-  "Panama",
-];
+  "US", // USA
+  "MX", // Mexico
+  "CA", // Canada
+  "CR", // Costa Rica
+  "JM", // Jamaica
+  "PA", // Panama
+] as const;
+
+export type NationalityCode = (typeof PLAYER_NATIONALITIES)[number];
 
 export const PLAYER_CLUBS = [
   "London Lions",
@@ -312,4 +342,6 @@ export const PLAYER_CLUBS = [
   "Dortmund Yellow",
   "Juventus Old",
   "Atletico Madrid",
+  "CSKA",
+  "Dinamo Brest",
 ];

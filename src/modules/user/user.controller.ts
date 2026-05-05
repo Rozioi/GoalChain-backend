@@ -16,18 +16,20 @@ export const userController = {
         username?: string;
         firstName?: string;
         lastName?: string;
+        photoUrl?: string;
       };
     }>,
     reply: FastifyReply,
   ) {
     try {
-      const { telegramId, username, firstName, lastName } = req.body;
+      const { telegramId, username, firstName, lastName, photoUrl } = req.body;
       const result = await registerUser(
         req.server,
         telegramId,
         username,
         firstName,
         lastName,
+        photoUrl,
       );
       reply.send(result);
     } catch (err: any) {
@@ -37,9 +39,9 @@ export const userController = {
 
   async me(req: FastifyRequest, reply: FastifyReply) {
     try {
-      // Sync scouting states on every profile request for live updates
+      // sync scouting states on every profile request for live updates
       await syncScoutStates(req.server, req.user.userId);
-      
+
       const user = await getUserProfile(req.server, req.user.userId);
       if (!user) return reply.status(404).send({ error: "User not found" });
       reply.send(user);
@@ -88,7 +90,10 @@ export const userController = {
     }
   },
 
-  async getInviterInfo(req: FastifyRequest<{ Params: { code: string } }>, reply: FastifyReply) {
+  async getInviterInfo(
+    req: FastifyRequest<{ Params: { code: string } }>,
+    reply: FastifyReply,
+  ) {
     try {
       const inviter = await getInviterInfoByCode(req.server, req.params.code);
       reply.send(inviter);

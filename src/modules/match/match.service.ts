@@ -20,7 +20,7 @@ async function getTeamForMatch(app: FastifyInstance, teamId: string) {
   const mapPlayer = (tp: any) => ({
     id: tp.player.id,
     name: tp.player.name,
-    ovr: tp.player.ovr,
+    overallRating: tp.player.overallRating,
     pace: tp.player.pace,
     shooting: tp.player.shooting,
     passing: tp.player.passing,
@@ -28,7 +28,7 @@ async function getTeamForMatch(app: FastifyInstance, teamId: string) {
     defending: tp.player.defending,
     physical: tp.player.physical,
     goalkeeping: tp.player.goalkeeping,
-    form: tp.player.form,
+    formValue: tp.player.formValue,
     fatigue: tp.player.fatigue,
     position: tp.player.position,
     role: tp.player.role,
@@ -43,7 +43,6 @@ async function getTeamForMatch(app: FastifyInstance, teamId: string) {
     pressingType: "MEDIUM" as PressingType,
   };
 }
-
 export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
   // Check daily limit
   const user = await app.prisma.user.findUnique({ where: { id: userId } });
@@ -80,7 +79,9 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
   });
 
   if (myExistingLobby) {
-    console.log(`Matchmaking: User ${userId} already has an active lobby ${myExistingLobby.id}. Reusing.`);
+    console.log(
+      `Matchmaking: User ${userId} already has an active lobby ${myExistingLobby.id}. Reusing.`,
+    );
     // Re-run the wait loop for this existing lobby
     return waitForOpponent(app, userId, myExistingLobby);
   }
@@ -198,7 +199,11 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
   }
 }
 
-async function waitForOpponent(app: FastifyInstance, userId: string, lobby: any) {
+async function waitForOpponent(
+  app: FastifyInstance,
+  userId: string,
+  lobby: any,
+) {
   const waitStart = Date.now();
   const timeout = 12000; // Wait up to 12 seconds
 
@@ -209,6 +214,8 @@ async function waitForOpponent(app: FastifyInstance, userId: string, lobby: any)
       where: { id: lobby.id },
       include: {
         events: { orderBy: { minute: "asc" } },
+        homeUser: true,
+        awayUser: true,
       },
     });
 
@@ -247,9 +254,11 @@ async function waitForOpponent(app: FastifyInstance, userId: string, lobby: any)
   console.log(
     `Matchmaking: User ${userId} lobby ${lobby.id} timed out. Falling back to bot.`,
   );
-  
+
   // Verify match hasn't been completed at the very last second
-  const finalCheck = await app.prisma.match.findUnique({ where: { id: lobby.id } });
+  const finalCheck = await app.prisma.match.findUnique({
+    where: { id: lobby.id },
+  });
   if (finalCheck?.status === "COMPLETED") return playBotMatch(app, userId); // Should technically return the match but bot is safe fallback
 
   await app.prisma.match.update({
@@ -699,8 +708,10 @@ export async function acceptMatch(
   });
 
   if (!match) throw new Error("Match not found or expired");
-  if (match.homeUserId === userId) throw new Error("You cannot challenge yourself");
-  if (match.status !== "PENDING") throw new Error("This match has already started or been completed");
+  if (match.homeUserId === userId)
+    throw new Error("You cannot challenge yourself");
+  if (match.status !== "PENDING")
+    throw new Error("This match has already started or been completed");
 
   // If match has a specific inviteee, verify it.
   if (match.awayUserId && match.awayUserId !== userId) {
@@ -737,7 +748,13 @@ export async function acceptMatch(
   );
 
   return {
-    match: await app.prisma.match.findUnique({ where: { id: matchId } }),
+    match: await app.prisma.match.findUnique({
+      where: { id: matchId },
+      include: {
+        homeUser: true,
+        awayUser: true,
+      },
+    }),
     result,
     rewards: {
       coins:
@@ -759,6 +776,8 @@ export async function getMatchById(app: FastifyInstance, matchId: string) {
     include: {
       homeTeam: true,
       awayTeam: true,
+      homeUser: true,
+      awayUser: true,
       events: {
         orderBy: { minute: "asc" },
       },

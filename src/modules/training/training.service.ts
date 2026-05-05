@@ -26,6 +26,20 @@ export async function startTraining(
 
     if (!teamPlayer) throw new Error("Player not on your team");
 
+    // Check if rented out
+    const playerWithRent = await app.prisma.player.findUnique({
+        where: { id: playerId },
+        include: { rent: true }
+    });
+    if (playerWithRent?.rent?.isRented && playerWithRent.rent.rentedById !== userId) {
+        throw new Error("Cannot train a player that is currently rented out");
+    }
+
+    // Check trauma
+    if (teamPlayer.player.injuryEndsAt && new Date() < new Date(teamPlayer.player.injuryEndsAt)) {
+        throw new Error(`Player is traumatized until ${teamPlayer.player.injuryEndsAt.toISOString()}`);
+    }
+
     // Check cooldown
     const lastTraining = await app.prisma.training.findFirst({
         where: { userId, playerId, status: "COMPLETED" },
@@ -94,8 +108,8 @@ export async function startTraining(
             where: { id: playerId },
             data: {
                 [stat]: { increment: boost },
-                ovr: {
-                    increment: Math.round(boost / 6), // OVR grows slower
+                overallRating: {
+                    increment: Math.round(boost / 6), // overallRating grows slower
                 },
             },
         }),
@@ -118,7 +132,7 @@ export async function startTraining(
                 position: tp.player.position,
                 role: tp.player.role,
                 style: tp.player.style,
-                ovr: tp.player.ovr,
+                overallRating: tp.player.overallRating,
             }));
             const rating = calculateTeamRating(starters);
             await app.prisma.team.update({
@@ -179,8 +193,9 @@ export async function getTrainingCost(
         cost,
         totalTrainings: trainingCount,
         maxOvr,
-        currentOvr: teamPlayer?.player.ovr || 0,
+        currentOverallRating: teamPlayer?.player.overallRating || 0,
         isNft: teamPlayer?.player.isNft || false,
         cooldownEndsAt,
+        lastTrainedStat: lastTraining?.stat || null,
     };
 }

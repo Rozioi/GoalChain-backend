@@ -10,6 +10,7 @@ export const scoutingController = {
         req: FastifyRequest<{
             Body: {
                 region: string;
+                tier: "COMMON" | "PRO" | "MASTER";
                 targetRole?: string;
                 ageMin?: number;
                 ageMax?: number;
@@ -22,6 +23,7 @@ export const scoutingController = {
                 req.server,
                 req.user.userId,
                 req.body.region,
+                req.body.tier,
                 req.body.targetRole as any,
                 req.body.ageMin,
                 req.body.ageMax,

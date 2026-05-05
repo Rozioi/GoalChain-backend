@@ -16,6 +16,7 @@ model User {
   username      String?
   firstName     String?
   lastName      String?
+  photoUrl      String?
   coins               Int      @default(1000)
   reputation          Int      @default(0) // legacy
   points              Int      @default(0) // Division/Rank points
@@ -95,40 +96,53 @@ model Player {
   id        String      @id @default(uuid())
   name      String
   surname   String?     @default("")
-  ovr       Int
+  overallRating Int       @default(50)
   position  Position
   role      PlayerRole
   style     PlayerStyle
 
   // Detailed stats (0-99)
   pace          Int @default(50)
+  paceBonus     Int @default(0)
   shooting      Int @default(50)
+  shootingBonus Int @default(0)
   passing       Int @default(50)
+  passingBonus  Int @default(0)
   dribbling     Int @default(50)
+  dribblingBonus Int @default(0)
   defending     Int @default(50)
+  defendingBonus Int @default(0)
   physical      Int @default(50)
+  physicalBonus Int @default(0)
   goalkeeping   Int @default(50)
-  form          Int @default(50)
-  fatigue       Int @default(0)
+  
+  formValue     Float @default(1.0)
+  fatigue       Int   @default(0)
 
   // Advanced production fields
   country       String @default("RU")
   potentialMin  Int    @default(80)
   potentialMax  Int    @default(90)
-  height        Int    @default(180)
-  weight        Int    @default(75)
+  heightCm      Int    @default(180)
+  weightKg      Int    @default(75)
   foot          String @default("Right")
   skillMoves    Int    @default(3)
   weakFoot      Int    @default(3)
   
-  traumaType    String?
-  traumaEndsAt  DateTime?
+  injuryType    String?
+  injuryEndsAt  DateTime?
 
   isNft       Boolean @default(false)
+  mintedAt    DateTime?
+  tokenId     String?
+  
   age         Int     @default(22)
   nationality String  @default("Unknown")
   clubId      Int?    @default(0)
   club        String  @default("Free Agent")
+  
+  leagueId          Int? @default(0)
+  leagueDivisionId  Int? @default(0)
 
   // Training and Experience
   trainingLevel             Int @default(1)
@@ -145,15 +159,40 @@ model Player {
   beardColor  String? @default("none")
   emotion     String? @default("neutral")
   rarity      String? @default("common")
-
+  
+  ownerId           String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   teamPlayers   TeamPlayer[]
   trainings     Training[]
   scoutResults  ScoutResult[]
   draftOptions  DraftOption[]
   matchEvents   MatchEvent[]
+  rent          PlayerRent?
 }
+
+model PlayerRent {
+  id               String   @id @default(uuid())
+  playerId         String   @unique
+  player           Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  
+  isRented         Boolean  @default(false)
+  rentedById       String?
+  
+  priceTon         Float?   @default(0)
+  priceCoin        Int?     @default(0)
+  
+  durationOptions  Json?    // Array of numbers (seconds)
+  conditions       Json?    // Array of strings
+  
+  startedAt        DateTime?
+  expiresAt        DateTime?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 
 // ─── TEAMS ──────────────────────────────────────────────────────
 
@@ -333,6 +372,8 @@ model Season {
   standings  SeasonStanding[]
 
   createdAt DateTime @default(now())
+
+  @@index([status])
 }
 
 model SeasonStanding {
@@ -352,6 +393,7 @@ model SeasonStanding {
   team   Team   @relation(fields: [teamId], references: [id])
 
   @@unique([seasonId, teamId])
+  @@index([seasonId, points(sort: Desc), goalsFor(sort: Desc)])
 }
 
 // ─── EVENTS ─────────────────────────────────────────────────────
@@ -418,6 +460,9 @@ model Scout {
   targetRole PlayerRole?
   status   ScoutStatus @default(ACTIVE)
   endsAt   DateTime
+  tier     String      @default("COMMON") // COMMON, PRO, MASTER
+  cost     Int         @default(0)
+  costCurrency String  @default("COIN")
 
   user    User          @relation(fields: [userId], references: [id])
   results ScoutResult[]

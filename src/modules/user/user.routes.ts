@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify";
 import { userController } from "./user.controller";
 
 async function userRoutes(app: FastifyInstance) {
-  // Public
+  // public routes
   app.post(
     "/auth/register",
     {
@@ -16,6 +16,7 @@ async function userRoutes(app: FastifyInstance) {
             username: { type: "string" },
             firstName: { type: "string" },
             lastName: { type: "string" },
+            photoUrl: { type: "string" },
           },
         },
       },
@@ -23,13 +24,17 @@ async function userRoutes(app: FastifyInstance) {
     userController.register,
   );
 
-  // Protected
-  app.get("/user/me", {
-    schema: {
-      tags: ["User"],
+  // protected routes
+  app.get(
+    "/user/me",
+    {
+      schema: {
+        tags: ["User"],
+      },
+      preHandler: [app.authenticate],
     },
-    preHandler: [app.authenticate],
-  }, userController.me);
+    userController.me,
+  );
 
   app.get(
     "/user/referral-code",

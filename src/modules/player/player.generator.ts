@@ -23,30 +23,38 @@ interface GenerateOptions {
 export interface GeneratedPlayer {
     name: string;
     surname: string;
-    ovr: number;
+    overallRating: number;
     position: Position;
     role: PlayerRole;
     style: PlayerStyle;
     pace: number;
+    paceBonus: number;
     shooting: number;
+    shootingBonus: number;
     passing: number;
+    passingBonus: number;
     dribbling: number;
+    dribblingBonus: number;
     defending: number;
+    defendingBonus: number;
     physical: number;
+    physicalBonus: number;
     goalkeeping: number;
     potentialMin: number;
     potentialMax: number;
-    height: number;
-    weight: number;
+    heightCm: number;
+    weightKg: number;
     foot: string;
     skillMoves: number;
     weakFoot: number;
     country: string;
-    form: number;
+    formValue: number;
     age: number;
     nationality: string;
     club: string;
     clubId: number;
+    leagueId: number;
+    leagueDivisionId: number;
     trainingLevel: number;
     trainingLevelMax: number;
     trainingExperience: number;
@@ -101,10 +109,10 @@ function generateStatsForRole(
     rng: seedrandom.PRNG,
     role: PlayerRole,
     style: PlayerStyle,
-    ovr: number,
+    overallRating: number,
 ): Pick<GeneratedPlayer, "pace" | "shooting" | "passing" | "dribbling" | "defending" | "physical" | "goalkeeping"> {
-    const base = Math.max(30, ovr - 15);
-    const high = Math.min(99, ovr + 10);
+    const base = Math.max(30, overallRating - 15);
+    const high = Math.min(99, overallRating + 10);
 
     const stat = () => randomInt(rng, base, high);
 
@@ -115,7 +123,7 @@ function generateStatsForRole(
         dribbling: stat(),
         defending: stat(),
         physical: stat(),
-        goalkeeping: role === "GOALKEEPER" ? randomInt(rng, ovr - 5, Math.min(99, ovr + 10)) : randomInt(rng, 5, 20),
+        goalkeeping: role === "GOALKEEPER" ? randomInt(rng, overallRating - 5, Math.min(99, overallRating + 10)) : randomInt(rng, 5, 20),
     };
 
     // Style bonuses
@@ -165,79 +173,119 @@ function generateStatsForRole(
     return stats;
 }
 
+/**
+ * Maps nationality to visual characteristics
+ */
+function mapAppearanceFromNationality(rng: seedrandom.PRNG, nationality: string) {
+    let skinColor = pickRandom(rng, SKIN_COLORS);
+    let hairColor = pickRandom(rng, HAIR_COLORS);
+    
+    const european = ["FR", "DE", "GB", "ES", "IT", "NL", "PT", "BE", "HR", "NO", "DK", "SE", "CH", "AT", "PL", "UA", "RU", "BY"];
+    const southAmerican = ["BR", "AR", "UY", "CO", "CL", "EC"];
+    const african = ["SN", "EG", "MA", "NG", "DZ", "CM", "CI", "GH"];
+    const asian = ["JP", "KR", "SA", "IR", "AU", "UZ", "CN"];
+
+    if (european.includes(nationality)) {
+        skinColor = rng() > 0.8 ? "tan" : "light";
+        hairColor = pickRandom(rng, ["brown", "black", "blonde", "gray"]);
+    } else if (african.includes(nationality)) {
+        skinColor = "dark";
+        hairColor = "black";
+    } else if (southAmerican.includes(nationality)) {
+        skinColor = rng() > 0.5 ? "tan" : "light";
+        hairColor = pickRandom(rng, ["black", "brown"]);
+    } else if (asian.includes(nationality)) {
+        skinColor = "light";
+        hairColor = "black";
+    }
+
+    return {
+        skinColor,
+        hairColor,
+        face: pickRandom(rng, FACES),
+        hairStyle: pickRandom(rng, HAIR_STYLES),
+        beardStyle: rng() > 0.7 ? pickRandom(rng, BEARD_STYLES) : "none",
+        beardColor: hairColor,
+        emotion: pickRandom(rng, EMOTIONS),
+    };
+}
+
 export function generatePlayer(options: GenerateOptions = {}): GeneratedPlayer {
     const rng = seedrandom(options.seed || Math.random().toString());
 
-    const ovrMin = options.ovrMin ?? DRAFT.STARTER_OVR_MIN;
-    const ovrMax = options.ovrMax ?? DRAFT.STARTER_OVR_MAX;
-    const ovr = randomInt(rng, ovrMin, ovrMax);
+    // League-based stat scaling
+    const leagueLevel = randomInt(rng, 1, 70); // 35 first + 35 second
+    const leagueDivisionId = leagueLevel > 35 ? 2 : 1;
+    const leagueId = leagueLevel > 35 ? leagueLevel - 35 : leagueLevel;
+
+    // The better the league (lower leagueLevel), the higher the OVR
+    const leagueBaseOVR = Math.max(40, 95 - leagueLevel);
+    const overallRating = randomInt(rng, leagueBaseOVR - 5, Math.min(99, leagueBaseOVR + 5));
 
     const role = options.role ?? pickRandom(rng, Object.values(PlayerRole) as PlayerRole[]);
     const position = options.position ?? pickRandom(rng, POSITIONS_BY_ROLE[role]);
     const style = pickRandom(rng, STYLES_BY_ROLE[role]);
 
-    const stats = generateStatsForRole(rng, role, style, ovr);
-    const potentialMin = randomInt(rng, ovr + 2, Math.min(99, ovr + 10));
+    const stats = generateStatsForRole(rng, role, style, overallRating);
+    const potentialMin = randomInt(rng, overallRating + 2, Math.min(99, overallRating + 10));
     const potentialMax = randomInt(rng, potentialMin + 5, Math.min(99, potentialMin + 15));
-    const form = randomInt(rng, 60, 100);
+    
+    const formValue = 1.0 + (randomInt(rng, -10, 20) / 100); // 0.9 to 1.2
     const age = randomInt(rng, 17, 34);
     const nationality = pickRandom(rng, PLAYER_NATIONALITIES);
     const club = pickRandom(rng, PLAYER_CLUBS);
     const clubId = randomInt(rng, 1, 100);
     
     // Physicals and Skills
-    const height = randomInt(rng, 165, 205);
-    const weight = randomInt(rng, 60, 95);
+    const heightCm = randomInt(rng, 165, 205);
+    const weightKg = randomInt(rng, 60, 95);
     const foot = rng() > 0.7 ? "Left" : "Right";
     const skillMoves = randomInt(rng, 1, 5);
     const weakFoot = randomInt(rng, 1, 5);
     const country = nationality || "RU";
 
-    // Visuals
-    const face = pickRandom(rng, FACES);
-    const hairStyle = pickRandom(rng, HAIR_STYLES);
-    const hairColor = pickRandom(rng, HAIR_COLORS);
-    const skinColor = pickRandom(rng, SKIN_COLORS);
-    const beardStyle = pickRandom(rng, BEARD_STYLES);
-    const beardColor = beardStyle === "none" ? "none" : hairColor;
-    const emotion = pickRandom(rng, EMOTIONS);
-    const rarity = ovr > 85 ? "gold" : pickRandom(rng, RARITIES);
+    // Visuals based on nationality
+    const appearance = mapAppearanceFromNationality(rng, nationality);
+
+    const rarity = overallRating > 85 ? "gold" : overallRating > 75 ? "rare" : "common";
 
     const { name, surname } = generateName(rng);
 
     return {
         name,
         surname,
-        ovr,
+        overallRating,
         position,
         role,
         style,
         potentialMin,
         potentialMax,
-        height,
-        weight,
+        heightCm,
+        weightKg,
         foot,
         skillMoves,
         weakFoot,
         country,
-        form,
+        formValue,
         age,
         nationality,
         club,
         clubId,
+        leagueId,
+        leagueDivisionId,
         trainingLevel: 1,
         trainingLevelMax: 25,
         trainingExperience: 0,
         trainingExperienceRequired: 200,
-        face,
-        hairStyle,
-        hairColor,
-        skinColor,
-        beardStyle,
-        beardColor,
-        emotion,
+        ...appearance,
         rarity,
         ...stats,
+        paceBonus: 0,
+        shootingBonus: 0,
+        passingBonus: 0,
+        dribblingBonus: 0,
+        defendingBonus: 0,
+        physicalBonus: 0,
     };
 }
 
@@ -256,3 +304,4 @@ export function generateMultiplePlayers(
     }
     return players;
 }
+

@@ -3,7 +3,7 @@ import seedrandom from "seedrandom";
 export interface PlayerStats {
   id: string;
   name: string;
-  ovr: number;
+  overallRating: number;
   pace: number;
   shooting: number;
   passing: number;
@@ -11,7 +11,7 @@ export interface PlayerStats {
   defending: number;
   physical: number;
   goalkeeping: number;
-  form: number;
+  formValue: number;
   fatigue: number;
   position: string;
   role: string;
@@ -89,7 +89,7 @@ function getLineStrength(
         val += (p as any)[stat] * weight;
       }
       const fatigueFactor = pressingType === "INTENSIVE" ? 2.5 : 1.0;
-      val *= (p.form / 100) * (1 - (p.fatigue * fatigueFactor) / 200);
+      val *= p.formValue * (1 - (p.fatigue * fatigueFactor) / 200);
       return sum + val * pressingMult;
     }, 0) / linePlayers.length
   );
@@ -122,6 +122,24 @@ export function simulateMatch(
   const homeBench = [...home.bench];
   const awayBench = [...away.bench];
 
+  // Initialize fatigue and form if not present
+  homeActive.forEach((p) => {
+    p.fatigue = p.fatigue ?? 0;
+    p.formValue = p.formValue ?? 1.0;
+  });
+  awayActive.forEach((p) => {
+    p.fatigue = p.fatigue ?? 0;
+    p.formValue = p.formValue ?? 1.0;
+  });
+  homeBench.forEach((p) => {
+    p.fatigue = p.fatigue ?? 0;
+    p.formValue = p.formValue ?? 1.0;
+  });
+  awayBench.forEach((p) => {
+    p.fatigue = p.fatigue ?? 0;
+    p.formValue = p.formValue ?? 1.0;
+  });
+
   let currentHomePressing = home.pressingType;
   let currentAwayPressing = away.pressingType;
 
@@ -142,13 +160,6 @@ export function simulateMatch(
     rating: number,
     pressing: PressingType,
   ) => {
-    const attackPlayers = activeStarters.filter((p) =>
-      ["FORWARD", "MIDFIELDER"].includes(p.role),
-    );
-    const defensePlayers = activeStarters.filter((p) =>
-      ["DEFENDER", "GOALKEEPER"].includes(p.role),
-    );
-
     const attack = getLineStrength(
       activeStarters,
       ["FORWARD", "MIDFIELDER"],
@@ -161,7 +172,6 @@ export function simulateMatch(
       },
       pressing,
     );
-
     const defense = getLineStrength(
       activeStarters,
       ["DEFENDER", "GOALKEEPER"],
@@ -174,27 +184,38 @@ export function simulateMatch(
       },
       pressing,
     );
-
-    let tacticalBonus = 0;
-    activeStarters.forEach((p) => {
-      if (p.position === "CDM") tacticalBonus += p.defending * 0.05;
-      if (p.position === "CAM") tacticalBonus += p.passing * 0.05;
-      if (["LW", "RW"].includes(p.position)) tacticalBonus += p.pace * 0.03;
-    });
-
     const shortagePenalty =
       activeStarters.length < 11 ? activeStarters.length / 11 : 1;
 
     return {
-      attack: (attack + tacticalBonus * 0.6) * shortagePenalty,
-      defense: (defense + tacticalBonus * 0.4) * shortagePenalty,
-      power:
-        (attack * 0.6 + defense * 0.4 + rating * 0.1 + tacticalBonus) *
-        shortagePenalty,
+      attack: attack * shortagePenalty,
+      defense: defense * shortagePenalty,
+      power: (attack * 0.6 + defense * 0.4 + rating * 0.1) * shortagePenalty,
     };
   };
 
   for (let minute = 1; minute <= totalMinutes; minute++) {
+    // 0. Update fatigue for all active players
+    const homeFatigueRate =
+      currentHomePressing === "INTENSIVE"
+        ? 1.0
+        : currentHomePressing === "MEDIUM"
+          ? 0.5
+          : 0.25;
+    const awayFatigueRate =
+      currentAwayPressing === "INTENSIVE"
+        ? 1.0
+        : currentAwayPressing === "MEDIUM"
+          ? 0.5
+          : 0.25;
+
+    homeActive.forEach(
+      (p) => (p.fatigue = Math.min(100, (p.fatigue || 0) + homeFatigueRate)),
+    );
+    awayActive.forEach(
+      (p) => (p.fatigue = Math.min(100, (p.fatigue || 0) + awayFatigueRate)),
+    );
+
     const currentSubs = manualSubstitutions.filter((s) => s.minute === minute);
     for (const sub of currentSubs) {
       const active = sub.team === "home" ? homeActive : awayActive;
@@ -205,6 +226,11 @@ export function simulateMatch(
       if (playerIdx !== -1 && benchIdx !== -1) {
         const outPlayer = active[playerIdx];
         const inPlayer = bench.splice(benchIdx, 1)[0];
+
+        // Adjust fatigue and form values for substituted player
+        inPlayer.fatigue = 0; // Fresh sub
+        inPlayer.formValue = Math.min(1.2, (inPlayer.formValue || 1.0) + 0.1); // Motivation boost
+
         active[playerIdx] = inPlayer;
 
         events.push({
@@ -213,7 +239,9 @@ export function simulateMatch(
           team: sub.team,
           playerId: inPlayer.id,
           playerName: inPlayer.name,
-          description: `Substitution: ${inPlayer.name} replaces ${outPlayer.name}.`,
+          playerOutId: outPlayer.id,
+          playerOutName: outPlayer.name,
+          description: `Substitution: ${inPlayer.name} replaces ${outPlayer.name}. Team energy restored!`,
         });
       }
     }
@@ -252,6 +280,7 @@ export function simulateMatch(
             const injured = teamActive.splice(idx, 1)[0];
             if (teamBench.length > 0) {
               const sub = teamBench.shift()!;
+              sub.fatigue = 0;
               teamActive.push(sub);
             }
           }
@@ -321,6 +350,7 @@ export function simulateMatch(
 
         if (bench.length > 0) {
           const sub = bench.shift()!;
+          sub.fatigue = 0;
           active.push(sub);
           events.push({
             minute,
@@ -419,7 +449,7 @@ export function simulateMatch(
           minute,
           type: "save",
           team: team === "home" ? "away" : "home",
-          description: `Great save by ${team === "home" ? "away" : "home"} goalkeeper.`,
+          description: `Great save by ${team === "home" ? away.name || "Away" : home.name || "Home"} goalkeeper.`,
         });
       } else {
         events.push({

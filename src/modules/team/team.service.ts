@@ -21,7 +21,7 @@ export async function getMyTeam(app: FastifyInstance, userId: string) {
             position: tp.player.position,
             role: tp.player.role,
             style: tp.player.style,
-            ovr: tp.player.ovr,
+            overallRating: tp.player.overallRating,
         })),
     );
 
@@ -92,7 +92,7 @@ export async function updateLineup(
             position: p.position,
             role: p.role,
             style: p.style,
-            ovr: p.ovr,
+            overallRating: p.overallRating,
         })),
     );
 
@@ -121,7 +121,7 @@ export async function getTeamRating(app: FastifyInstance, userId: string) {
         position: tp.player.position,
         role: tp.player.role,
         style: tp.player.style,
-        ovr: tp.player.ovr,
+        overallRating: tp.player.overallRating,
     }));
 
     const rating = calculateTeamRating(starters);

@@ -7,12 +7,22 @@ export async function registerUser(
     username?: string,
     firstName?: string,
     lastName?: string,
+    photoUrl?: string,
 ) {
     const existing = await app.prisma.user.findUnique({
         where: { telegramId },
     });
 
     if (existing) {
+        // Update photoUrl dynamically if they uploaded a new one on Telegram
+        if (photoUrl && existing.photoUrl !== photoUrl) {
+            await app.prisma.user.update({
+                where: { id: existing.id },
+                data: { photoUrl }
+            });
+            existing.photoUrl = photoUrl;
+        }
+
         const token = app.jwt.sign({
             userId: existing.id,
             telegramId: existing.telegramId,
@@ -28,6 +38,7 @@ export async function registerUser(
             username,
             firstName,
             lastName,
+            photoUrl,
             referralCode,
         },
     });
@@ -40,7 +51,12 @@ export async function registerUser(
     return { user, token, isNew: true };
 }
 
+import { checkExpiredRentals } from "../player/rent.service";
+
 export async function getUserProfile(app: FastifyInstance, userId: string) {
+    // Background cleanup: sync rentals
+    checkExpiredRentals(app).catch(err => app.log.error(err, "Failed to sync rentals"));
+    
     return app.prisma.user.findUnique({
         where: { id: userId },
         include: {
@@ -125,6 +141,7 @@ export async function getUserReferrals(app: FastifyInstance, userId: string) {
                     username: true,
                     firstName: true,
                     lastName: true,
+                    photoUrl: true,
                     createdAt: true
                 }
             }
@@ -141,6 +158,7 @@ export async function getInviterInfoByCode(app: FastifyInstance, code: string) {
             username: true,
             firstName: true,
             lastName: true,
+            photoUrl: true,
         }
     });
     if (!inviter) {
