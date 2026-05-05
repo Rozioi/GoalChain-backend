@@ -37,12 +37,23 @@ exports.registerUser = registerUser;
 exports.getUserProfile = getUserProfile;
 exports.applyReferralCode = applyReferralCode;
 exports.getUserReferrals = getUserReferrals;
+exports.getInviterInfoByCode = getInviterInfoByCode;
+exports.addExperience = addExperience;
+exports.addPoints = addPoints;
 const crypto_1 = require("crypto");
-async function registerUser(app, telegramId, username, firstName, lastName) {
+async function registerUser(app, telegramId, username, firstName, lastName, photoUrl) {
     const existing = await app.prisma.user.findUnique({
         where: { telegramId },
     });
     if (existing) {
+        // Update photoUrl dynamically if they uploaded a new one on Telegram
+        if (photoUrl && existing.photoUrl !== photoUrl) {
+            await app.prisma.user.update({
+                where: { id: existing.id },
+                data: { photoUrl }
+            });
+            existing.photoUrl = photoUrl;
+        }
         const token = app.jwt.sign({
             userId: existing.id,
             telegramId: existing.telegramId,
@@ -56,6 +67,7 @@ async function registerUser(app, telegramId, username, firstName, lastName) {
             username,
             firstName,
             lastName,
+            photoUrl,
             referralCode,
         },
     });
@@ -65,7 +77,10 @@ async function registerUser(app, telegramId, username, firstName, lastName) {
     });
     return { user, token, isNew: true };
 }
+const rent_service_1 = require("../player/rent.service");
 async function getUserProfile(app, userId) {
+    // Background cleanup: sync rentals
+    (0, rent_service_1.checkExpiredRentals)(app).catch(err => app.log.error(err, "Failed to sync rentals"));
     return app.prisma.user.findUnique({
         where: { id: userId },
         include: {
@@ -102,6 +117,7 @@ async function applyReferralCode(app, userId, code) {
     if (user.referredById)
         throw new Error("Already used a referral code");
     const { REFERRAL } = await Promise.resolve().then(() => __importStar(require("../../config/constants")));
+    const { updateTaskProgress } = await Promise.resolve().then(() => __importStar(require("../task/task.service")));
     await app.prisma.$transaction([
         app.prisma.user.update({
             where: { id: userId },
@@ -124,6 +140,7 @@ async function applyReferralCode(app, userId, code) {
             },
         }),
     ]);
+    await updateTaskProgress(app, inviter.id, "REFERRALS", 1);
     return { success: true, bonus: REFERRAL.INVITEE_REWARD };
 }
 async function getUserReferrals(app, userId) {
@@ -137,10 +154,55 @@ async function getUserReferrals(app, userId) {
                     username: true,
                     firstName: true,
                     lastName: true,
+                    photoUrl: true,
                     createdAt: true
                 }
             }
         },
         orderBy: { createdAt: 'desc' }
+    });
+}
+async function getInviterInfoByCode(app, code) {
+    const inviter = await app.prisma.user.findUnique({
+        where: { referralCode: code },
+        select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            photoUrl: true,
+        }
+    });
+    if (!inviter) {
+        throw new Error("Inviter not found");
+    }
+    return inviter;
+}
+async function addExperience(app, userId, amount) {
+    const user = await app.prisma.user.findUnique({ where: { id: userId } });
+    if (!user)
+        return;
+    let newExp = user.experience + amount;
+    let newLevel = user.level;
+    while (newExp >= newLevel * 500) {
+        newExp -= newLevel * 500;
+        newLevel += 1;
+    }
+    return app.prisma.user.update({
+        where: { id: userId },
+        data: {
+            experience: newExp,
+            level: newLevel,
+        },
+    });
+}
+async function addPoints(app, userId, amount) {
+    const user = await app.prisma.user.findUnique({ where: { id: userId } });
+    if (!user)
+        return;
+    let newPoints = Math.max(0, user.points + amount);
+    return app.prisma.user.update({
+        where: { id: userId },
+        data: { points: newPoints },
     });
 }

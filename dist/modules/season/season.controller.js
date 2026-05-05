@@ -6,6 +6,8 @@ exports.seasonController = {
     async current(req, reply) {
         try {
             const season = await (0, season_service_1.getCurrentSeason)(req.server);
+            // Cache for 30 seconds
+            reply.header("Cache-Control", "public, max-age=30");
             reply.send(season || { message: "No active season" });
         }
         catch (err) {
@@ -24,6 +26,15 @@ exports.seasonController = {
     async register(req, reply) {
         try {
             const result = await (0, season_service_1.registerForSeason)(req.server, req.user.userId);
+            reply.send(result);
+        }
+        catch (err) {
+            reply.status(400).send({ error: err.message });
+        }
+    },
+    async play(req, reply) {
+        try {
+            const result = await (0, season_service_1.playSeasonMatch)(req.server, req.user.userId);
             reply.send(result);
         }
         catch (err) {

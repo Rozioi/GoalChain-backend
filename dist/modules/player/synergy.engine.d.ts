@@ -3,7 +3,7 @@ export interface SynergyPlayer {
     position: string;
     role: PlayerRole;
     style: PlayerStyle;
-    ovr: number;
+    overallRating: number;
 }
 export interface SynergyResult {
     totalBonus: number;

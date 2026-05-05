@@ -1,20 +1,13 @@
 import { FastifyInstance } from "fastify";
 export declare function playFriendlyMatch(app: FastifyInstance, userId: string): Promise<{
     match: {
-        homeTeam: {
-            name: string;
-        };
-        awayTeam: {
-            name: string;
-        };
-    } & {
         id: string;
+        eventId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        eventId: string | null;
+        type: import(".prisma/client").$Enums.MatchType;
         status: import(".prisma/client").$Enums.MatchStatus;
         seed: string | null;
-        type: import(".prisma/client").$Enums.MatchType;
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
@@ -39,31 +32,69 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
     isBot: boolean;
 } | {
     match: {
-        homeTeam: {
-            name: string;
-        };
-        awayTeam: {
-            name: string;
-        };
+        homeUser: {
+            level: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            telegramId: string;
+            referralCode: string;
+            username: string | null;
+            firstName: string | null;
+            lastName: string | null;
+            photoUrl: string | null;
+            coins: number;
+            reputation: number;
+            points: number;
+            experience: number;
+            isAdmin: boolean;
+            scoutingLevel: number;
+            scoutingExp: number;
+            referredById: string | null;
+            dailyMatchesPlayed: number;
+            dailyMatchesResetAt: Date;
+        } | null;
+        awayUser: {
+            level: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            telegramId: string;
+            referralCode: string;
+            username: string | null;
+            firstName: string | null;
+            lastName: string | null;
+            photoUrl: string | null;
+            coins: number;
+            reputation: number;
+            points: number;
+            experience: number;
+            isAdmin: boolean;
+            scoutingLevel: number;
+            scoutingExp: number;
+            referredById: string | null;
+            dailyMatchesPlayed: number;
+            dailyMatchesResetAt: Date;
+        } | null;
         events: {
             description: string;
             team: string;
             id: string;
-            createdAt: Date;
             playerId: string | null;
+            createdAt: Date;
             type: string;
             minute: number;
-            playerName: string | null;
             matchId: string;
+            playerName: string | null;
         }[];
     } & {
         id: string;
+        eventId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        eventId: string | null;
+        type: import(".prisma/client").$Enums.MatchType;
         status: import(".prisma/client").$Enums.MatchStatus;
         seed: string | null;
-        type: import(".prisma/client").$Enums.MatchType;
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
@@ -92,7 +123,6 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
             playerName: string | null;
             description: string;
         }[];
-        overtime: boolean;
     };
     rewards: {
         coins: number;
@@ -102,20 +132,13 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
 }>;
 export declare function playBotMatch(app: FastifyInstance, userId: string): Promise<{
     match: {
-        homeTeam: {
-            name: string;
-        };
-        awayTeam: {
-            name: string;
-        };
-    } & {
         id: string;
+        eventId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        eventId: string | null;
+        type: import(".prisma/client").$Enums.MatchType;
         status: import(".prisma/client").$Enums.MatchStatus;
         seed: string | null;
-        type: import(".prisma/client").$Enums.MatchType;
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
@@ -141,10 +164,10 @@ export declare function playBotMatch(app: FastifyInstance, userId: string): Prom
 }>;
 export declare function updateMatchTactics(app: FastifyInstance, matchId: string, userId: string, tactics: {
     pressingType?: "SOFT" | "MEDIUM" | "INTENSIVE";
-    substitution?: {
+    substitutions?: {
         outId: string;
         inId: string;
-    };
+    }[];
 }): Promise<{
     result: import("./match.simulator").MatchResult;
 }>;
@@ -152,22 +175,181 @@ export declare function inviteFriend(app: FastifyInstance, userId: string, frien
     matchId: string;
     inviteLink: string;
 }>;
+export declare function createOpenChallenge(app: FastifyInstance, userId: string): Promise<{
+    matchId: string;
+    inviteLink: string;
+}>;
 export declare function acceptMatch(app: FastifyInstance, userId: string, matchId: string): Promise<{
-    match: {
-        homeScore: number;
-        awayScore: number;
+    match: ({
+        homeUser: {
+            level: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            telegramId: string;
+            referralCode: string;
+            username: string | null;
+            firstName: string | null;
+            lastName: string | null;
+            photoUrl: string | null;
+            coins: number;
+            reputation: number;
+            points: number;
+            experience: number;
+            isAdmin: boolean;
+            scoutingLevel: number;
+            scoutingExp: number;
+            referredById: string | null;
+            dailyMatchesPlayed: number;
+            dailyMatchesResetAt: Date;
+        } | null;
+        awayUser: {
+            level: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            telegramId: string;
+            referralCode: string;
+            username: string | null;
+            firstName: string | null;
+            lastName: string | null;
+            photoUrl: string | null;
+            coins: number;
+            reputation: number;
+            points: number;
+            experience: number;
+            isAdmin: boolean;
+            scoutingLevel: number;
+            scoutingExp: number;
+            referredById: string | null;
+            dailyMatchesPlayed: number;
+            dailyMatchesResetAt: Date;
+        } | null;
+    } & {
         id: string;
+        eventId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        eventId: string | null;
+        type: import(".prisma/client").$Enums.MatchType;
         status: import(".prisma/client").$Enums.MatchStatus;
         seed: string | null;
-        type: import(".prisma/client").$Enums.MatchType;
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
         awayTeamId: string;
         isBot: boolean;
+        homeScore: number | null;
+        awayScore: number | null;
+        overtime: boolean;
+        homePressingType: import(".prisma/client").$Enums.PressingType;
+        awayPressingType: import(".prisma/client").$Enums.PressingType;
+        homeCoins: number;
+        awayCoins: number;
+        homeExp: number;
+        awayExp: number;
+        seasonId: string | null;
+    }) | null;
+    result: import("./match.simulator").MatchResult;
+    rewards: {
+        coins: number;
+        exp: number;
+    };
+    isBot: boolean;
+}>;
+export declare function getMatchById(app: FastifyInstance, matchId: string): Promise<{
+    match: {
+        homeUser: {
+            level: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            telegramId: string;
+            referralCode: string;
+            username: string | null;
+            firstName: string | null;
+            lastName: string | null;
+            photoUrl: string | null;
+            coins: number;
+            reputation: number;
+            points: number;
+            experience: number;
+            isAdmin: boolean;
+            scoutingLevel: number;
+            scoutingExp: number;
+            referredById: string | null;
+            dailyMatchesPlayed: number;
+            dailyMatchesResetAt: Date;
+        } | null;
+        awayUser: {
+            level: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            telegramId: string;
+            referralCode: string;
+            username: string | null;
+            firstName: string | null;
+            lastName: string | null;
+            photoUrl: string | null;
+            coins: number;
+            reputation: number;
+            points: number;
+            experience: number;
+            isAdmin: boolean;
+            scoutingLevel: number;
+            scoutingExp: number;
+            referredById: string | null;
+            dailyMatchesPlayed: number;
+            dailyMatchesResetAt: Date;
+        } | null;
+        homeTeam: {
+            id: string;
+            name: string;
+            rating: number;
+            formation: string;
+            userId: string;
+            isEvent: boolean;
+            eventId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+        };
+        awayTeam: {
+            id: string;
+            name: string;
+            rating: number;
+            formation: string;
+            userId: string;
+            isEvent: boolean;
+            eventId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+        };
+        events: {
+            description: string;
+            team: string;
+            id: string;
+            playerId: string | null;
+            createdAt: Date;
+            type: string;
+            minute: number;
+            matchId: string;
+            playerName: string | null;
+        }[];
+    } & {
+        id: string;
+        eventId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import(".prisma/client").$Enums.MatchType;
+        status: import(".prisma/client").$Enums.MatchStatus;
+        seed: string | null;
+        homeUserId: string | null;
+        awayUserId: string | null;
+        homeTeamId: string;
+        awayTeamId: string;
+        isBot: boolean;
+        homeScore: number | null;
+        awayScore: number | null;
         overtime: boolean;
         homePressingType: import(".prisma/client").$Enums.PressingType;
         awayPressingType: import(".prisma/client").$Enums.PressingType;
@@ -177,50 +359,62 @@ export declare function acceptMatch(app: FastifyInstance, userId: string, matchI
         awayExp: number;
         seasonId: string | null;
     };
-    result: import("./match.simulator").MatchResult;
-}>;
+    result: {
+        homeScore: number;
+        awayScore: number;
+        winner: string;
+        events: {
+            minute: number;
+            type: string;
+            team: string;
+            playerId: string | null;
+            playerName: string | null;
+            description: string;
+        }[];
+    } | null;
+} | null>;
 export declare function getMatchHistory(app: FastifyInstance, userId: string, limit?: number): Promise<({
     homeTeam: {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
-        isEvent: boolean;
         rating: number;
         formation: string;
         userId: string;
+        isEvent: boolean;
         eventId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     };
     awayTeam: {
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
-        isEvent: boolean;
         rating: number;
         formation: string;
         userId: string;
+        isEvent: boolean;
         eventId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     };
     events: {
         description: string;
         team: string;
         id: string;
-        createdAt: Date;
         playerId: string | null;
+        createdAt: Date;
         type: string;
         minute: number;
-        playerName: string | null;
         matchId: string;
+        playerName: string | null;
     }[];
 } & {
     id: string;
+    eventId: string | null;
     createdAt: Date;
     updatedAt: Date;
-    eventId: string | null;
+    type: import(".prisma/client").$Enums.MatchType;
     status: import(".prisma/client").$Enums.MatchStatus;
     seed: string | null;
-    type: import(".prisma/client").$Enums.MatchType;
     homeUserId: string | null;
     awayUserId: string | null;
     homeTeamId: string;

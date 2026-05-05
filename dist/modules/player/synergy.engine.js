@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateTeamSynergy = calculateTeamSynergy;
 exports.calculateTeamRating = calculateTeamRating;
-// Style compatibility matrix: [style1][style2] → bonus
 const STYLE_SYNERGY = {
     SPEEDY: { TECHNICAL: 3, ATTACKING: 2 },
     POWERFUL: { DEFENSIVE: 3, POSITIONAL: 2 },
@@ -11,39 +10,50 @@ const STYLE_SYNERGY = {
     DEFENSIVE: { POWERFUL: 3, POSITIONAL: 2 },
     POSITIONAL: { DEFENSIVE: 2, TECHNICAL: 1, POWERFUL: 2 },
 };
-// Role pair synergies
 const ROLE_SYNERGY = {
     "DEFENDER-MIDFIELDER": 2,
     "MIDFIELDER-FORWARD": 2,
     "DEFENDER-FORWARD": 1,
 };
-function getRoleSynergyKey(r1, r2) {
-    const sorted = [r1, r2].sort();
+const POSITION_SYNERGY = {
+    "CB-CDM": 4, // Defensive cover
+    "CDM-CM": 3, // Build-up
+    "CM-CAM": 3, // Creativity
+    "CAM-ST": 4, // Playmaking
+    "LW-ST": 3, // Winger service
+    "RW-ST": 3, // Winger service
+    "LW-CAM": 2,
+    "RW-CAM": 2,
+};
+function getPairKey(a, b) {
+    const sorted = [a, b].sort();
     return `${sorted[0]}-${sorted[1]}`;
 }
 function calculateTeamSynergy(players) {
     const details = [];
     let totalBonus = 0;
-    // 1. Style synergies between adjacent players
     for (let i = 0; i < players.length; i++) {
         for (let j = i + 1; j < players.length; j++) {
             const p1 = players[i];
             const p2 = players[j];
-            // Style synergy
             const styleBonus = STYLE_SYNERGY[p1.style]?.[p2.style] ?? 0;
             if (styleBonus > 0) {
                 totalBonus += styleBonus;
                 details.push(`${p1.style} + ${p2.style}: +${styleBonus} synergy`);
             }
-            // Role synergy
-            const roleKey = getRoleSynergyKey(p1.role, p2.role);
+            const roleKey = getPairKey(p1.role, p2.role);
             const roleBonus = ROLE_SYNERGY[roleKey] ?? 0;
             if (roleBonus > 0) {
                 totalBonus += roleBonus;
             }
+            const posKey = getPairKey(p1.position, p2.position);
+            const posBonus = POSITION_SYNERGY[posKey] ?? 0;
+            if (posBonus > 0) {
+                totalBonus += posBonus;
+                details.push(`${p1.position} + ${p2.position}: +${posBonus} tactical synergy`);
+            }
         }
     }
-    // 2. Formation balance bonus
     const roleCounts = {};
     for (const p of players) {
         roleCounts[p.role] = (roleCounts[p.role] || 0) + 1;
@@ -56,7 +66,6 @@ function calculateTeamSynergy(players) {
         totalBonus += 5;
         details.push("Balanced formation: +5 synergy");
     }
-    // 3. Style diversity bonus
     const uniqueStyles = new Set(players.map((p) => p.style));
     if (uniqueStyles.size >= 4) {
         totalBonus += 3;
@@ -67,7 +76,7 @@ function calculateTeamSynergy(players) {
 function calculateTeamRating(players) {
     if (players.length === 0)
         return 0;
-    const avgOvr = players.reduce((sum, p) => sum + p.ovr, 0) / players.length;
+    const avgOvr = players.reduce((sum, p) => sum + p.overallRating, 0) / players.length;
     const synergy = calculateTeamSynergy(players);
     return Math.round((avgOvr + synergy.totalBonus) * 10) / 10;
 }

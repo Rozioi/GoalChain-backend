@@ -11,6 +11,7 @@ async function scoutingRoutes(app) {
                 required: ["region"],
                 properties: {
                     region: { type: "string" },
+                    tier: { type: "string", enum: ["COMMON", "PRO", "MASTER"] },
                     targetRole: {
                         type: "string",
                         enum: ["GOALKEEPER", "DEFENDER", "MIDFIELDER", "FORWARD"],

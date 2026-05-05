@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const user_controller_1 = require("./user.controller");
 async function userRoutes(app) {
-    // Public
+    // public routes
     app.post("/auth/register", {
         schema: {
             tags: ["Auth"],
@@ -14,11 +14,12 @@ async function userRoutes(app) {
                     username: { type: "string" },
                     firstName: { type: "string" },
                     lastName: { type: "string" },
+                    photoUrl: { type: "string" },
                 },
             },
         },
     }, user_controller_1.userController.register);
-    // Protected
+    // protected routes
     app.get("/user/me", {
         schema: {
             tags: ["User"],
@@ -43,5 +44,18 @@ async function userRoutes(app) {
         },
         preHandler: [app.authenticate],
     }, user_controller_1.userController.getReferrals);
+    app.get("/user/inviter/:code", {
+        schema: {
+            tags: ["User"],
+            params: {
+                type: "object",
+                required: ["code"],
+                properties: {
+                    code: { type: "string" },
+                },
+            },
+        },
+        preHandler: [app.authenticate],
+    }, user_controller_1.userController.getInviterInfo);
 }
 exports.default = userRoutes;

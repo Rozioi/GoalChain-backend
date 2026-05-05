@@ -11,7 +11,7 @@ exports.default = (0, fastify_plugin_1.default)(async (app) => {
         openapi: {
             info: {
                 title: "Football Manager API",
-                description: "Документация API для футбольного симулятора",
+                description: "Документация API для футбольного симулятора. Реализованный функционал: rent, match, draft, nft, season, scouting,training, team, admin panel",
                 version: "1.0.0",
             },
         },

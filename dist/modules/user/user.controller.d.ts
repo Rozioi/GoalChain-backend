@@ -6,6 +6,7 @@ export declare const userController: {
             username?: string;
             firstName?: string;
             lastName?: string;
+            photoUrl?: string;
         };
     }>, reply: FastifyReply): Promise<void>;
     me(req: FastifyRequest, reply: FastifyReply): Promise<undefined>;
@@ -16,4 +17,9 @@ export declare const userController: {
         };
     }>, reply: FastifyReply): Promise<void>;
     getReferrals(req: FastifyRequest, reply: FastifyReply): Promise<void>;
+    getInviterInfo(req: FastifyRequest<{
+        Params: {
+            code: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
 };

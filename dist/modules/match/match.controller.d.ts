@@ -7,6 +7,7 @@ declare const matchController: {
             friendId: string;
         };
     }>, reply: FastifyReply): Promise<void>;
+    createInvite(req: FastifyRequest, reply: FastifyReply): Promise<void>;
     accept(req: FastifyRequest<{
         Params: {
             matchId: string;
@@ -25,5 +26,10 @@ declare const matchController: {
             };
         };
     }>, reply: FastifyReply): Promise<void>;
+    get(req: FastifyRequest<{
+        Params: {
+            matchId: string;
+        };
+    }>, reply: FastifyReply): Promise<undefined>;
 };
 export default matchController;

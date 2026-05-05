@@ -10,31 +10,46 @@ function getLineStrength(players, roles, weights, pressingType) {
     const linePlayers = players.filter((p) => roles.includes(p.role));
     if (linePlayers.length === 0)
         return 30;
-    // Pressing multipliers
     let pressingMult = 1.0;
     if (pressingType === "INTENSIVE")
-        pressingMult = 1.15;
+        pressingMult = 1.4;
     if (pressingType === "SOFT")
-        pressingMult = 0.9;
+        pressingMult = 0.75;
     return (linePlayers.reduce((sum, p) => {
         let val = 0;
         for (const [stat, weight] of Object.entries(weights)) {
             val += p[stat] * weight;
         }
-        // Apply form & fatigue (fatigue impact increases with intensive pressing)
-        const fatigueFactor = pressingType === "INTENSIVE" ? 1.5 : 1.0;
-        val *= (p.form / 100) * (1 - (p.fatigue * fatigueFactor) / 200);
+        const fatigueFactor = pressingType === "INTENSIVE" ? 2.5 : 1.0;
+        val *= p.formValue * (1 - (p.fatigue * fatigueFactor) / 200);
         return sum + val * pressingMult;
     }, 0) / linePlayers.length);
 }
 function simulateMatch(home, away, seed, options = {}) {
-    const { forceOvertime = false, manualSubstitutions = [], pressingChanges = [], lockedEvents = [], skipUntilMinute = 0 } = options;
+    const { forceOvertime = false, manualSubstitutions = [], pressingChanges = [], lockedEvents = [], skipUntilMinute = 0, } = options;
     const rng = (0, seedrandom_1.default)(seed);
     const events = [];
     const homeActive = [...home.starters];
     const awayActive = [...away.starters];
     const homeBench = [...home.bench];
     const awayBench = [...away.bench];
+    // Initialize fatigue and form if not present
+    homeActive.forEach((p) => {
+        p.fatigue = p.fatigue ?? 0;
+        p.formValue = p.formValue ?? 1.0;
+    });
+    awayActive.forEach((p) => {
+        p.fatigue = p.fatigue ?? 0;
+        p.formValue = p.formValue ?? 1.0;
+    });
+    homeBench.forEach((p) => {
+        p.fatigue = p.fatigue ?? 0;
+        p.formValue = p.formValue ?? 1.0;
+    });
+    awayBench.forEach((p) => {
+        p.fatigue = p.fatigue ?? 0;
+        p.formValue = p.formValue ?? 1.0;
+    });
     let currentHomePressing = home.pressingType;
     let currentAwayPressing = away.pressingType;
     const homeYellowCards = {};
@@ -58,27 +73,42 @@ function simulateMatch(home, away, seed, options = {}) {
             defending: 0.35,
             physical: 0.2,
             pace: 0.15,
-            goalkeeping: 0.2,
+            goalkeeping: 0.5,
             passing: 0.1,
         }, pressing);
-        const shortagePenalty = activeStarters.length < 11 ? (activeStarters.length / 11) : 1;
+        const shortagePenalty = activeStarters.length < 11 ? activeStarters.length / 11 : 1;
         return {
             attack: attack * shortagePenalty,
             defense: defense * shortagePenalty,
-            power: (attack * 0.6 + defense * 0.4 + rating * 0.1) * shortagePenalty
+            power: (attack * 0.6 + defense * 0.4 + rating * 0.1) * shortagePenalty,
         };
     };
     for (let minute = 1; minute <= totalMinutes; minute++) {
-        // 1. Apply scheduled changes for this minute
-        const currentSubs = manualSubstitutions.filter(s => s.minute === minute);
+        // 0. Update fatigue for all active players
+        const homeFatigueRate = currentHomePressing === "INTENSIVE"
+            ? 1.0
+            : currentHomePressing === "MEDIUM"
+                ? 0.5
+                : 0.25;
+        const awayFatigueRate = currentAwayPressing === "INTENSIVE"
+            ? 1.0
+            : currentAwayPressing === "MEDIUM"
+                ? 0.5
+                : 0.25;
+        homeActive.forEach((p) => (p.fatigue = Math.min(100, (p.fatigue || 0) + homeFatigueRate)));
+        awayActive.forEach((p) => (p.fatigue = Math.min(100, (p.fatigue || 0) + awayFatigueRate)));
+        const currentSubs = manualSubstitutions.filter((s) => s.minute === minute);
         for (const sub of currentSubs) {
             const active = sub.team === "home" ? homeActive : awayActive;
             const bench = sub.team === "home" ? homeBench : awayBench;
-            const playerIdx = active.findIndex(p => p.id === sub.outId);
-            const benchIdx = bench.findIndex(p => p.id === sub.inId);
+            const playerIdx = active.findIndex((p) => p.id === sub.outId);
+            const benchIdx = bench.findIndex((p) => p.id === sub.inId);
             if (playerIdx !== -1 && benchIdx !== -1) {
                 const outPlayer = active[playerIdx];
                 const inPlayer = bench.splice(benchIdx, 1)[0];
+                // Adjust fatigue and form values for substituted player
+                inPlayer.fatigue = 0; // Fresh sub
+                inPlayer.formValue = Math.min(1.2, (inPlayer.formValue || 1.0) + 0.1); // Motivation boost
                 active[playerIdx] = inPlayer;
                 events.push({
                     minute,
@@ -86,11 +116,11 @@ function simulateMatch(home, away, seed, options = {}) {
                     team: sub.team,
                     playerId: inPlayer.id,
                     playerName: inPlayer.name,
-                    description: `Substitution: ${inPlayer.name} replaces ${outPlayer.name}.`,
+                    description: `Substitution: ${inPlayer.name} replaces ${outPlayer.name}. Team energy restored!`,
                 });
             }
         }
-        const currentTactics = pressingChanges.filter(c => c.minute === minute);
+        const currentTactics = pressingChanges.filter((c) => c.minute === minute);
         for (const tactic of currentTactics) {
             if (tactic.team === "home")
                 currentHomePressing = tactic.type;
@@ -98,16 +128,14 @@ function simulateMatch(home, away, seed, options = {}) {
                 currentAwayPressing = tactic.type;
             events.push({
                 minute,
-                type: "substitution", // Using substitution type for now as tactical change
+                type: "substitution",
                 team: tactic.team,
                 description: `Tactical change: Team switched to ${tactic.type} pressing.`,
             });
         }
-        // 2. Check for locked events
-        const lockedThisMinute = lockedEvents.filter(e => e.minute === minute);
+        const lockedThisMinute = lockedEvents.filter((e) => e.minute === minute);
         if (lockedThisMinute.length > 0) {
             for (const e of lockedThisMinute) {
-                // Apply side effects of locked events (cards, injuries)
                 const teamActive = e.team === "home" ? homeActive : awayActive;
                 const teamBench = e.team === "home" ? homeBench : awayBench;
                 const teamCards = e.team === "home" ? homeYellowCards : awayYellowCards;
@@ -121,29 +149,25 @@ function simulateMatch(home, away, seed, options = {}) {
                     teamCards[e.playerId] = (teamCards[e.playerId] || 0) + 1;
                 }
                 else if (e.type === "redCard" && e.playerId) {
-                    const idx = teamActive.findIndex(p => p.id === e.playerId);
+                    const idx = teamActive.findIndex((p) => p.id === e.playerId);
                     if (idx !== -1)
                         teamActive.splice(idx, 1);
                 }
                 else if (e.type === "injury" && e.playerId) {
-                    const idx = teamActive.findIndex(p => p.id === e.playerId);
+                    const idx = teamActive.findIndex((p) => p.id === e.playerId);
                     if (idx !== -1) {
                         const injured = teamActive.splice(idx, 1)[0];
                         if (teamBench.length > 0) {
                             const sub = teamBench.shift();
+                            sub.fatigue = 0;
                             teamActive.push(sub);
                         }
                     }
                 }
                 events.push(e);
             }
-            // Advance RNG anyway to keep it consistent if possible, but actually 
-            // it's better to just skip RNG rolls for this minute to avoid side effects.
-            // Note: We don't advance RNG here because we want the "future" to be 
-            // deterministic based on the seed from this point forward.
             continue;
         }
-        // 3. Roll for events (Skip if we are in historical/locked minutes)
         if (minute < skipUntilMinute)
             continue;
         const roll = rng();
@@ -161,10 +185,17 @@ function simulateMatch(home, away, seed, options = {}) {
         const pressing = isHomeAction ? currentHomePressing : currentAwayPressing;
         if (active.length === 0)
             continue;
-        const cardMult = currentHomePressing === "INTENSIVE" ? 1.6 : currentHomePressing === "SOFT" ? 0.7 : 1.0;
-        const awayCardMult = currentAwayPressing === "INTENSIVE" ? 1.6 : currentAwayPressing === "SOFT" ? 0.7 : 1.0;
+        const cardMult = currentHomePressing === "INTENSIVE"
+            ? 2.0
+            : currentHomePressing === "SOFT"
+                ? 0.6
+                : 1.0;
+        const awayCardMult = currentAwayPressing === "INTENSIVE"
+            ? 2.0
+            : currentAwayPressing === "SOFT"
+                ? 0.6
+                : 1.0;
         if (actionRoll < 0.03) {
-            // Injury (slightly higher chance with intensive pressing)
             const injuryChance = pressing === "INTENSIVE" ? 0.04 : 0.03;
             if (rng() < (injuryChance / 0.03) * actionRoll) {
                 const playerIdx = Math.floor(rng() * active.length);
@@ -180,6 +211,7 @@ function simulateMatch(home, away, seed, options = {}) {
                 active.splice(playerIdx, 1);
                 if (bench.length > 0) {
                     const sub = bench.shift();
+                    sub.fatigue = 0;
                     active.push(sub);
                     events.push({
                         minute,
@@ -193,7 +225,6 @@ function simulateMatch(home, away, seed, options = {}) {
             }
         }
         else if (actionRoll < 0.05) {
-            // Red card
             const cardRollMult = team === "home" ? cardMult : awayCardMult;
             if (rng() < cardRollMult) {
                 const playerIdx = Math.floor(rng() * active.length);
@@ -210,7 +241,6 @@ function simulateMatch(home, away, seed, options = {}) {
             }
         }
         else if (actionRoll < 0.12) {
-            // Yellow card (higher chance with intensive pressing)
             const cardRollMult = team === "home" ? cardMult : awayCardMult;
             if (rng() < cardRollMult) {
                 const playerIdx = Math.floor(rng() * active.length);
@@ -239,8 +269,7 @@ function simulateMatch(home, away, seed, options = {}) {
                 }
             }
         }
-        else if (actionRoll < 0.20) {
-            // Foul
+        else if (actionRoll < 0.2) {
             events.push({
                 minute,
                 type: "foul",
@@ -248,8 +277,7 @@ function simulateMatch(home, away, seed, options = {}) {
                 description: `Foul by ${team === "home" ? "away" : "home"} player.`,
             });
         }
-        else if (actionRoll < 0.60) {
-            // Shot
+        else if (actionRoll < 0.6) {
             if (isHomeAction)
                 homeShots++;
             else
@@ -287,7 +315,7 @@ function simulateMatch(home, away, seed, options = {}) {
                     minute,
                     type: "save",
                     team: team === "home" ? "away" : "home",
-                    description: `Great save by ${team === "home" ? "away" : "home"} goalkeeper.`,
+                    description: `Great save by ${team === "home" ? "Away" : "Home"} goalkeeper.`,
                 });
             }
             else {
@@ -300,7 +328,6 @@ function simulateMatch(home, away, seed, options = {}) {
             }
         }
     }
-    // Overtime if needed
     let overtime = false;
     if (forceOvertime && homeScore === awayScore) {
         overtime = true;
@@ -364,21 +391,15 @@ function simulateMatch(home, away, seed, options = {}) {
         overtime,
     };
 }
-/**
- * Calculates a risk rating (0-100) for a team based on their pressing and current cards.
- */
 function calculateRiskRating(pressing, activePlayers, yellowCards) {
     let risk = 0;
-    // Base risk from pressing
     if (pressing === "INTENSIVE")
         risk += 40;
     else if (pressing === "MEDIUM")
         risk += 20;
     else
         risk += 10;
-    // Additional risk from players with yellow cards
-    const playersOnYellow = activePlayers.filter(p => (yellowCards[p.id] || 0) > 0);
+    const playersOnYellow = activePlayers.filter((p) => (yellowCards[p.id] || 0) > 0);
     risk += playersOnYellow.length * 15;
-    // Cap at 100
     return Math.min(risk, 100);
 }

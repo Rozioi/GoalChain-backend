@@ -1,18 +1,83 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getCurrentSeason = getCurrentSeason;
 exports.getSeasonStandings = getSeasonStandings;
 exports.registerForSeason = registerForSeason;
 exports.updateStandings = updateStandings;
 exports.createSeason = createSeason;
+exports.checkAndEndExpiredSeasons = checkAndEndExpiredSeasons;
+exports.endSeason = endSeason;
+exports.playSeasonMatch = playSeasonMatch;
 const constants_1 = require("../../config/constants");
 async function getCurrentSeason(app) {
     return app.prisma.season.findFirst({
         where: { status: { in: ["ACTIVE", "PLAYOFFS"] } },
-        include: {
+        select: {
+            id: true,
+            name: true,
+            division: true,
+            status: true,
+            startDate: true,
+            endDate: true,
             standings: {
-                include: { team: true },
                 orderBy: [{ points: "desc" }, { goalsFor: "desc" }],
+                select: {
+                    id: true,
+                    played: true,
+                    wins: true,
+                    draws: true,
+                    losses: true,
+                    goalsFor: true,
+                    goalsAgainst: true,
+                    points: true,
+                    team: {
+                        select: {
+                            id: true,
+                            name: true,
+                            rating: true,
+                            userId: true,
+                            user: {
+                                select: {
+                                    username: true,
+                                    firstName: true,
+                                },
+                            },
+                        },
+                    },
+                },
             },
         },
     });
@@ -20,7 +85,18 @@ async function getCurrentSeason(app) {
 async function getSeasonStandings(app, seasonId) {
     return app.prisma.seasonStanding.findMany({
         where: { seasonId },
-        include: { team: true },
+        include: {
+            team: {
+                include: {
+                    user: {
+                        select: {
+                            username: true,
+                            firstName: true,
+                        },
+                    },
+                },
+            },
+        },
         orderBy: [{ points: "desc" }, { goalsFor: "desc" }],
     });
 }
@@ -84,4 +160,108 @@ async function createSeason(app, name, division) {
             endDate,
         },
     });
+}
+async function checkAndEndExpiredSeasons(app) {
+    const now = new Date();
+    const expiredSeasons = await app.prisma.season.findMany({
+        where: {
+            endDate: { lte: now },
+            status: { not: "COMPLETED" },
+        },
+    });
+    for (const season of expiredSeasons) {
+        await endSeason(app, season.id);
+        app.log.info(`Season ${season.id} has been automatically completed.`);
+    }
+}
+async function endSeason(app, seasonId) {
+    const season = await app.prisma.season.findUnique({
+        where: { id: seasonId },
+        include: {
+            standings: {
+                orderBy: [{ points: "desc" }, { goalsFor: "desc" }],
+                take: 3,
+                include: { team: true },
+            },
+        },
+    });
+    if (!season)
+        throw new Error("Season not found");
+    if (season.status === "COMPLETED")
+        throw new Error("Season already completed");
+    // Distribute rewards
+    const rewards = [
+        constants_1.SEASON.REWARDS.FIRST_PLACE,
+        constants_1.SEASON.REWARDS.SECOND_PLACE,
+        constants_1.SEASON.REWARDS.THIRD_PLACE,
+    ];
+    const titles = ["Champion", "Runner-up", "Third Place"];
+    for (let i = 0; i < season.standings.length; i++) {
+        const standing = season.standings[i];
+        const reward = rewards[i];
+        const title = titles[i];
+        if (standing && reward) {
+            await app.prisma.user.update({
+                where: { id: standing.team.userId },
+                data: { coins: { increment: reward } },
+            });
+        }
+    }
+    return app.prisma.season.update({
+        where: { id: seasonId },
+        data: { status: "COMPLETED" },
+    });
+}
+async function playSeasonMatch(app, userId) {
+    // 1. Find active season for user
+    const team = await app.prisma.team.findFirst({
+        where: { userId, isEvent: false },
+    });
+    if (!team)
+        throw new Error("No team found");
+    const standing = await app.prisma.seasonStanding.findFirst({
+        where: { teamId: team.id, season: { status: "ACTIVE" } },
+        include: { season: true },
+    });
+    if (!standing)
+        throw new Error("No active season membership found");
+    const seasonId = standing.seasonId;
+    // 2. Find opponent in the same season (any other team)
+    const opponentStanding = await app.prisma.seasonStanding.findFirst({
+        where: {
+            seasonId,
+            teamId: { not: team.id }
+        },
+        include: { team: true },
+    });
+    if (!opponentStanding)
+        throw new Error("No opponents found in this season");
+    const { randomUUID } = await Promise.resolve().then(() => __importStar(require("crypto")));
+    const { simulateMatch } = await Promise.resolve().then(() => __importStar(require("../match/match.simulator")));
+    const { getTeamForMatch, handleMatchCompletion } = await Promise.resolve().then(() => __importStar(require("../match/match.service")));
+    const seed = randomUUID();
+    const homeTeamData = await getTeamForMatch(app, team.id);
+    const awayTeamData = await getTeamForMatch(app, opponentStanding.team.id);
+    const result = simulateMatch(homeTeamData, awayTeamData, seed);
+    // 3. Create Match record
+    const match = await app.prisma.match.create({
+        data: {
+            type: "SEASON",
+            status: "COMPLETED",
+            homeUserId: userId,
+            awayUserId: opponentStanding.team.userId,
+            homeTeamId: team.id,
+            awayTeamId: opponentStanding.team.id,
+            homeScore: result.homeScore,
+            awayScore: result.awayScore,
+            seed,
+            seasonId,
+        },
+    });
+    // 4. Update standings for both
+    await updateStandings(app, seasonId, team.id, result.homeScore, result.awayScore, result.winner === "home" ? "win" : result.winner === "draw" ? "draw" : "loss");
+    await updateStandings(app, seasonId, opponentStanding.team.id, result.awayScore, result.homeScore, result.winner === "away" ? "win" : result.winner === "draw" ? "draw" : "loss");
+    // 5. Finalize match (awards rewards and updates tasks)
+    await handleMatchCompletion(app, match, result, seed);
+    return { match, result };
 }

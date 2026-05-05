@@ -2,11 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.userController = void 0;
 const user_service_1 = require("./user.service");
+const scouting_service_1 = require("../scouting/scouting.service");
 exports.userController = {
     async register(req, reply) {
         try {
-            const { telegramId, username, firstName, lastName } = req.body;
-            const result = await (0, user_service_1.registerUser)(req.server, telegramId, username, firstName, lastName);
+            const { telegramId, username, firstName, lastName, photoUrl } = req.body;
+            const result = await (0, user_service_1.registerUser)(req.server, telegramId, username, firstName, lastName, photoUrl);
             reply.send(result);
         }
         catch (err) {
@@ -15,6 +16,8 @@ exports.userController = {
     },
     async me(req, reply) {
         try {
+            // sync scouting states on every profile request for live updates
+            await (0, scouting_service_1.syncScoutStates)(req.server, req.user.userId);
             const user = await (0, user_service_1.getUserProfile)(req.server, req.user.userId);
             if (!user)
                 return reply.status(404).send({ error: "User not found" });
@@ -43,17 +46,25 @@ exports.userController = {
     async getReferrals(req, reply) {
         try {
             const referrals = await (0, user_service_1.getUserReferrals)(req.server, req.user.userId);
-            // Mapped to return a cleaner structure
-            const mappedReferrals = referrals.map(r => ({
+            const mappedReferrals = referrals.map((r) => ({
                 id: r.id,
                 reward: r.reward,
                 createdAt: r.createdAt,
-                user: r.invitee
+                user: r.invitee,
             }));
             reply.send(mappedReferrals);
         }
         catch (err) {
             reply.status(500).send({ error: err.message });
+        }
+    },
+    async getInviterInfo(req, reply) {
+        try {
+            const inviter = await (0, user_service_1.getInviterInfoByCode)(req.server, req.params.code);
+            reply.send(inviter);
+        }
+        catch (err) {
+            reply.status(404).send({ error: err.message });
         }
     },
 };

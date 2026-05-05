@@ -3,6 +3,7 @@ export declare const scoutingController: {
     hire(req: FastifyRequest<{
         Body: {
             region: string;
+            tier: "COMMON" | "PRO" | "MASTER";
             targetRole?: string;
             ageMin?: number;
             ageMax?: number;

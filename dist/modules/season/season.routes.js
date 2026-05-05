@@ -18,5 +18,11 @@ async function seasonRoutes(app) {
             tags: ["Season"],
         },
     }, season_controller_1.seasonController.register);
+    app.post("/season/play", {
+        schema: {
+            tags: ["Season"],
+            summary: "Сыграть сезонный матч",
+        },
+    }, season_controller_1.seasonController.play);
 }
 exports.default = seasonRoutes;

@@ -22,11 +22,11 @@ exports.DRAFT = {
 };
 // ─── MATCH ──────────────────────────────────────────────────────
 exports.MATCH = {
-    MATCHMAKING_RATING_RANGE: 0.1, // ±10% rating
+    MATCHMAKING_RATING_RANGE: 0.1,
     MATCHMAKING_TIMEOUT_MS: 30000,
     DAILY_FRIENDLY_LIMIT: 10,
-    MATCH_ITERATIONS: 90, // 90 min simulation
-    OVERTIME_ITERATIONS: 10, // ~1 min extra time
+    MATCH_ITERATIONS: 90,
+    OVERTIME_ITERATIONS: 10,
     REWARDS: {
         WIN_COINS: 100,
         DRAW_COINS: 50,
@@ -34,25 +34,22 @@ exports.MATCH = {
         WIN_EXP: 30,
         DRAW_EXP: 15,
         LOSS_EXP: 10,
-        DIMINISHING_FACTOR: 0.85, // reward multiplier per repeated match
+        DIMINISHING_FACTOR: 0.85,
     },
 };
 // ─── TRAINING ───────────────────────────────────────────────────
 exports.TRAINING = {
     BASE_COST: 100,
-    COST_MULTIPLIER: 1.5, // cost increases per training
-    COOLDOWN_MS: 2 * 60 * 60 * 1000, // 2 hours
+    COST_MULTIPLIER: 1.5,
+    COOLDOWN_MS: 2 * 60 * 60 * 1000,
     BOOST_NORMAL: 1,
     BOOST_NFT: 2,
-    MAX_OVR_NORMAL: 85,
-    MAX_OVR_NFT: 99,
+    MAX_OVR_NORMAL: 120,
+    MAX_OVR_NFT: 150,
 };
-// ─── SCOUTING ───────────────────────────────────────────────────
 exports.SCOUTING = {
     MAX_ACTIVE_SCOUTS: 3,
-    DURATION_MS: 4 * 60 * 60 * 1000, // 4 hours
-    NFT_CHANCE: 0.1, // 10%
-    COST: 200,
+    DURATION_MS: 0,
     REGIONS: [
         "Europe",
         "South America",
@@ -61,6 +58,26 @@ exports.SCOUTING = {
         "North America",
         "Oceania",
     ],
+    TIERS: {
+        COMMON: {
+            COST: 1000,
+            CURRENCY: "COIN",
+            OVR_RANGE: [45, 70],
+            NFT_CHANCE: 0.05,
+        },
+        PRO: {
+            COST: 5000,
+            CURRENCY: "COIN",
+            OVR_RANGE: [65, 82],
+            NFT_CHANCE: 0.15,
+        },
+        MASTER: {
+            COST: 1, // 1 TON
+            CURRENCY: "TON",
+            OVR_RANGE: [75, 95],
+            NFT_CHANCE: 0.5,
+        },
+    },
 };
 // ─── SEASONS ────────────────────────────────────────────────────
 exports.SEASON = {
@@ -81,33 +98,235 @@ exports.REFERRAL = {
 };
 // ─── PLAYER NAMES ───────────────────────────────────────────────
 exports.PLAYER_FIRST_NAMES = [
-    "Marco", "Luis", "Kevin", "Paul", "Sergio", "Luka",
-    "Neymar", "Kylian", "Mohamed", "Sadio", "Leroy",
-    "Toni", "Antoine", "Pierre", "Raheem", "Harry",
-    "Bruno", "Jadon", "Phil", "Romelu", "Karim",
-    "Edinson", "Gerard", "Ivan", "Mateo", "Casemiro",
-    "Federico", "Lorenzo", "Nicolo", "Dusan", "Erling",
-    "Jude", "Florian", "Ousmane", "Victor", "Darwin",
-    "Julian", "Pedri", "Gavi", "Bukayo", "Vinicius",
+    "Ivan",
+    "Vladimir",
+    "Andrey",
+    "Roman",
+    "Pedro",
+    "Marco",
+    "Luis",
+    "Kevin",
+    "Paul",
+    "Sergio",
+    "Luka",
+    "Neymar",
+    "Kylian",
+    "Mohamed",
+    "Sadio",
+    "Leroy",
+    "Toni",
+    "Antoine",
+    "Pierre",
+    "Raheem",
+    "Harry",
+    "Bruno",
+    "Jadon",
+    "Phil",
+    "Romelu",
+    "Karim",
+    "Edinson",
+    "Gerard",
+    "Ivan",
+    "Mateo",
+    "Casemiro",
+    "Federico",
+    "Lorenzo",
+    "Nicolo",
+    "Dusan",
+    "Erling",
+    "Jude",
+    "Florian",
+    "Ousmane",
+    "Victor",
+    "Darwin",
+    "Julian",
+    "Pedri",
+    "Gavi",
+    "Bukayo",
+    "Vinicius",
+    "Lionel",
+    "Cristiano",
+    "Robert",
+    "Zlatan",
+    "Thibaut",
+    "Alphonso",
+    "Kingsley",
+    "Achraf",
+    "Son",
+    "Heung-min",
+    "Declan",
+    "Rodri",
+    "Bernardo",
+    "Lautaro",
+    "Alexis",
+    "Bukayo",
+    "Khvicha",
+    "Rafael",
+    "Jamal",
+    "Endrick",
+    "Lamine",
+    "Kobbie",
+    "Xavi",
+    "Arda",
 ];
 exports.PLAYER_LAST_NAMES = [
-    "Silva", "Fernandez", "Martinez", "Garcia", "Rodriguez",
-    "Mueller", "Kroos", "Werner", "Havertz", "Sancho",
-    "Haaland", "Mbappe", "Griezmann", "Dembele", "Kante",
-    "Salah", "Mane", "Firmino", "Alisson", "Fabinho",
-    "De Bruyne", "Sterling", "Foden", "Walker", "Stones",
-    "Bellingham", "Saka", "Rice", "Palmer", "Watkins",
-    "Osimhen", "Nunez", "Diaz", "Valverde", "Modric",
-    "Barella", "Chiesa", "Vlahovic", "Insigne", "Verratti",
+    "Mirol",
+    "Melnik",
+    "Zhalezny",
+    "Romanovsky",
+    "Silva",
+    "Fernandez",
+    "Martinez",
+    "Garcia",
+    "Rodriguez",
+    "Mueller",
+    "Kroos",
+    "Werner",
+    "Havertz",
+    "Sancho",
+    "Haaland",
+    "Mbappe",
+    "Griezmann",
+    "Dembele",
+    "Kante",
+    "Salah",
+    "Mane",
+    "Firmino",
+    "Alisson",
+    "Fabinho",
+    "De Bruyne",
+    "Sterling",
+    "Foden",
+    "Walker",
+    "Stones",
+    "Bellingham",
+    "Saka",
+    "Rice",
+    "Palmer",
+    "Watkins",
+    "Osimhen",
+    "Nunez",
+    "Diaz",
+    "Valverde",
+    "Modric",
+    "Barella",
+    "Chiesa",
+    "Vlahovic",
+    "Insigne",
+    "Verratti",
+    "Messi",
+    "Ronaldo",
+    "Lewandowski",
+    "Ibrahimovic",
+    "Courtois",
+    "Davies",
+    "Coman",
+    "Hakimi",
+    "Yamal",
+    "Guler",
+    "Mainoo",
+    "Leao",
+    "Musiala",
+    "Kvaratskhelia",
+    "Alvarez",
+    "Lautaro",
+    "Bastoni",
+    "Hernandez",
+    "Upamecano",
+    "Saliba",
+    "Van Dijk",
+    "Alexander-Arnold",
+    "Robertson",
+    "Lapkouski",
 ];
 exports.PLAYER_NATIONALITIES = [
-    "Brazil", "Argentina", "France", "Germany", "England",
-    "Spain", "Italy", "Netherlands", "Portugal", "Belgium",
-    "Croatia", "Senegal", "Egypt", "Norway", "Uruguay",
+    // Европа (UEFA)
+    "FR", // France
+    "DE", // Germany
+    "GB", // England
+    "ES", // Spain
+    "IT", // Italy
+    "NL", // Netherlands
+    "PT", // Portugal
+    "BE", // Belgium
+    "HR", // Croatia
+    "NO", // Norway
+    "DK", // Denmark
+    "SE", // Sweden
+    "CH", // Switzerland
+    "AT", // Austria
+    "PL", // Poland
+    "UA", // Ukraine
+    "TR", // Turkey
+    "GR", // Greece
+    "IE", // Ireland
+    "CZ", // Czech Republic
+    "SK", // Slovakia
+    "HU", // Hungary
+    "RS", // Serbia
+    "SI", // Slovenia
+    "GE", // Georgia
+    "BY", // Belarus
+    "LT", // Lithuania
+    "LV", //
+    "EE", // Estonia
+    "FI", // Finland
+    // Южная Америка (CONMEBOL)
+    "BR", // Brazil
+    "AR", // Argentina
+    "UY", // Uruguay
+    "CO", // Colombia
+    "CL", // Chile
+    "EC", // Ecuador
+    "PY", // Paraguay
+    "PE", // Peru
+    "BO", // Bolivia
+    "VE", // Venezuela
+    // Африка (CAF)
+    "SN", // Senegal
+    "EG", // Egypt
+    "MA", // Morocco
+    "NG", // Nigeria
+    "DZ", // Algeria
+    "CM", // Cameroon
+    "CI", // Ivory Coast
+    "GH", // Ghana
+    "TN", // Tunisia
+    "ML", // Mali
+    // Азия (AFC)
+    "JP", // Japan
+    "KR", // South Korea
+    "SA", // Saudi Arabia
+    "IR", // Iran
+    "AU", // Australia
+    "AE", // UAE
+    "QA", // Qatar
+    "UZ", // Uzbekistan
+    "CN", // China
+    // Северная Америка (CONCACAF)
+    "US", // USA
+    "MX", // Mexico
+    "CA", // Canada
+    "CR", // Costa Rica
+    "JM", // Jamaica
+    "PA", // Panama
 ];
 exports.PLAYER_CLUBS = [
-    "London Lions", "Paris Pride", "Madrid Kings", "Munich Stars",
-    "Milan Giants", "Manchester United", "Barcelona FC", "Liverpool Red",
-    "Inter Milan", "Bayern Munich", "Ajax Amsterdan", "Porto Dragoes",
-    "Dortmund Yellow", "Juventus Old", "Atletico Madrid",
+    "London Lions",
+    "Paris Pride",
+    "Madrid Kings",
+    "Munich Stars",
+    "Milan Giants",
+    "Manchester United",
+    "Barcelona FC",
+    "Liverpool Red",
+    "Inter Milan",
+    "Bayern Munich",
+    "Ajax Amsterdan",
+    "Porto Dragoes",
+    "Dortmund Yellow",
+    "Juventus Old",
+    "Atletico Madrid",
+    "CSKA",
+    "Dinamo Brest",
 ];

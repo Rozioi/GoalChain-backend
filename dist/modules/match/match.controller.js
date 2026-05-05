@@ -29,9 +29,19 @@ const matchController = {
             reply.status(400).send({ error: err.message });
         }
     },
+    async createInvite(req, reply) {
+        try {
+            const result = await (0, match_service_1.createOpenChallenge)(req.server, req.user.userId);
+            reply.send(result);
+        }
+        catch (err) {
+            reply.status(400).send({ error: err.message });
+        }
+    },
     async accept(req, reply) {
         try {
             const result = await (0, match_service_1.acceptMatch)(req.server, req.user.userId, req.params.matchId);
+            console.log("dsadad", req.params.matchId, result);
             reply.send(result);
         }
         catch (err) {
@@ -54,6 +64,18 @@ const matchController = {
         }
         catch (err) {
             reply.status(400).send({ error: err.message });
+        }
+    },
+    async get(req, reply) {
+        try {
+            const matchData = await (0, match_service_1.getMatchById)(req.server, req.params.matchId);
+            if (!matchData) {
+                return reply.status(404).send({ error: "Match not found" });
+            }
+            reply.send(matchData);
+        }
+        catch (err) {
+            reply.status(500).send({ error: err.message });
         }
     },
 };

@@ -1,14 +1,17 @@
 "use strict";
+// deep imports
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildApp = buildApp;
 const fastify_1 = __importDefault(require("fastify"));
+// plugin imports
 const prisma_plugin_1 = __importDefault(require("./plugins/prisma.plugin"));
 const cors_plugin_1 = __importDefault(require("./plugins/cors.plugin"));
 const auth_plugin_1 = __importDefault(require("./plugins/auth.plugin"));
 const swagger_1 = __importDefault(require("./plugins/swagger"));
+// routes importa
 const user_routes_1 = __importDefault(require("./modules/user/user.routes"));
 const draft_routes_1 = __importDefault(require("./modules/draft/draft.routes"));
 const team_routes_1 = __importDefault(require("./modules/team/team.routes"));
@@ -17,14 +20,23 @@ const training_routes_1 = __importDefault(require("./modules/training/training.r
 const scouting_routes_1 = __importDefault(require("./modules/scouting/scouting.routes"));
 const season_routes_1 = __importDefault(require("./modules/season/season.routes"));
 const event_routes_1 = __importDefault(require("./modules/event/event.routes"));
+const task_routes_1 = __importDefault(require("./modules/task/task.routes"));
+const admin_task_routes_1 = __importDefault(require("./modules/task/admin.task.routes"));
+const admin_routes_1 = __importDefault(require("./modules/admin/admin.routes"));
+const player_routes_1 = __importDefault(require("./modules/player/player.routes"));
+const pressure_plugin_1 = __importDefault(require("./plugins/pressure.plugin"));
+const caching_plugin_1 = __importDefault(require("./plugins/caching.plugin"));
+// function buildApp (check documentation)
 function buildApp() {
     const app = (0, fastify_1.default)({ logger: true });
-    // Plugins
+    // plugin register
     app.register(cors_plugin_1.default);
     app.register(prisma_plugin_1.default);
     app.register(auth_plugin_1.default);
     app.register(swagger_1.default);
-    // Modules
+    app.register(pressure_plugin_1.default);
+    app.register(caching_plugin_1.default);
+    // route register
     app.register(user_routes_1.default, { prefix: "/api/v1" });
     app.register(draft_routes_1.default, { prefix: "/api/v1" });
     app.register(team_routes_1.default, { prefix: "/api/v1" });
@@ -33,7 +45,11 @@ function buildApp() {
     app.register(scouting_routes_1.default, { prefix: "/api/v1" });
     app.register(season_routes_1.default, { prefix: "/api/v1" });
     app.register(event_routes_1.default, { prefix: "/api/v1" });
-    // Health check
+    app.register(task_routes_1.default, { prefix: "/api/v1" });
+    app.register(admin_task_routes_1.default, { prefix: "/api/v1" });
+    app.register(admin_routes_1.default, { prefix: "/api/v1" });
+    app.register(player_routes_1.default, { prefix: "/api/v1" });
+    // health endoint
     app.get("/api/v1/health", async () => ({
         status: "ok",
         timestamp: new Date().toISOString(),

@@ -239,8 +239,7 @@ export function simulateMatch(
           team: sub.team,
           playerId: inPlayer.id,
           playerName: inPlayer.name,
-          playerOutId: outPlayer.id,
-          playerOutName: outPlayer.name,
+
           description: `Substitution: ${inPlayer.name} replaces ${outPlayer.name}. Team energy restored!`,
         });
       }
@@ -449,7 +448,7 @@ export function simulateMatch(
           minute,
           type: "save",
           team: team === "home" ? "away" : "home",
-          description: `Great save by ${team === "home" ? away.name || "Away" : home.name || "Home"} goalkeeper.`,
+          description: `Great save by ${team === "home" ? "Away" : "Home"} goalkeeper.`,
         });
       } else {
         events.push({

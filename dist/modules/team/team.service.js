@@ -22,7 +22,7 @@ async function getMyTeam(app, userId) {
         position: tp.player.position,
         role: tp.player.role,
         style: tp.player.style,
-        ovr: tp.player.ovr,
+        overallRating: tp.player.overallRating,
     })));
     return {
         ...team,
@@ -80,7 +80,7 @@ async function updateLineup(app, userId, starterIds, formation) {
         position: p.position,
         role: p.role,
         style: p.style,
-        ovr: p.ovr,
+        overallRating: p.overallRating,
     })));
     await app.prisma.team.update({
         where: { id: team.id },
@@ -104,7 +104,7 @@ async function getTeamRating(app, userId) {
         position: tp.player.position,
         role: tp.player.role,
         style: tp.player.style,
-        ovr: tp.player.ovr,
+        overallRating: tp.player.overallRating,
     }));
     const rating = (0, synergy_engine_1.calculateTeamRating)(starters);
     const synergy = (0, synergy_engine_1.calculateTeamSynergy)(starters);

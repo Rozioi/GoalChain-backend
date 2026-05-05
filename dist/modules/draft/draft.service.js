@@ -34,14 +34,12 @@ const STEP_CONFIG = {
     },
 };
 async function startDraft(app, userId) {
-    // Check if user already has a team
     const existingTeam = await app.prisma.team.findFirst({
         where: { userId, isEvent: false },
     });
     if (existingTeam) {
         throw new Error("You already have a team. Draft is only for new users.");
     }
-    // Check if there's already an active draft
     const existingDraft = await app.prisma.draftSession.findFirst({
         where: { userId, status: "IN_PROGRESS" },
     });
@@ -64,16 +62,17 @@ async function getDraftOptions(app, userId, step) {
     if (session.step !== stepUpper) {
         throw new Error(`Current draft step is ${session.step}, not ${stepUpper}`);
     }
-    // Check if options already exist for this step
     const existingOptions = session.options.filter((o) => o.step === stepUpper && !o.isPicked);
     if (existingOptions.length > 0) {
         return {
             session,
-            options: existingOptions.map((o) => ({ ...o.player, optionId: o.id })),
+            options: existingOptions.map((o) => ({
+                ...o.player,
+                optionId: o.id,
+            })),
             config: STEP_CONFIG[stepUpper],
         };
     }
-    // Generate new options
     const config = STEP_CONFIG[stepUpper];
     if (!config)
         throw new Error(`Invalid draft step: ${stepUpper}`);
@@ -83,10 +82,11 @@ async function getDraftOptions(app, userId, step) {
         ovrMax: constants_1.DRAFT.STARTER_OVR_MAX,
         seed: `draft-${session.id}-${stepUpper}`,
     });
-    // Create players in DB and draft options
     const options = [];
     for (const gp of generatedPlayers) {
-        const player = await app.prisma.player.create({ data: gp });
+        const player = await app.prisma.player.create({
+            data: { ...gp, ownerId: userId },
+        });
         const option = await app.prisma.draftOption.create({
             data: {
                 draftSessionId: session.id,
@@ -96,7 +96,6 @@ async function getDraftOptions(app, userId, step) {
         });
         options.push({ ...player, optionId: option.id });
     }
-    // Calculate synergy suggestions with already picked players
     const pickedOptions = session.options.filter((o) => o.isPicked);
     const pickedPlayers = pickedOptions.map((o) => o.player);
     const suggestions = options.map((opt) => {
@@ -105,9 +104,14 @@ async function getDraftOptions(app, userId, step) {
                 position: p.position,
                 role: p.role,
                 style: p.style,
-                ovr: p.ovr,
+                overallRating: p.overallRating,
             })),
-            { position: opt.position, role: opt.role, style: opt.style, ovr: opt.ovr },
+            {
+                position: opt.position,
+                role: opt.role,
+                style: opt.style,
+                overallRating: opt.overallRating,
+            },
         ];
         const synergy = (0, synergy_engine_1.calculateTeamSynergy)(testTeam);
         return {
@@ -129,12 +133,10 @@ async function pickDraftPlayers(app, userId, optionIds) {
     const config = STEP_CONFIG[currentStep];
     if (!config)
         throw new Error("Draft is in reserve/done phase");
-    // Mark picks
     await app.prisma.draftOption.updateMany({
         where: { id: { in: optionIds } },
         data: { isPicked: true },
     });
-    // Check if we've reached the required number of picks for this step
     const pickedInStep = await app.prisma.draftOption.count({
         where: {
             draftSessionId: session.id,
@@ -143,7 +145,6 @@ async function pickDraftPlayers(app, userId, optionIds) {
         },
     });
     if (pickedInStep >= config.picks) {
-        // Advance step
         await app.prisma.draftSession.update({
             where: { id: session.id },
             data: { step: config.next },
@@ -159,7 +160,6 @@ async function completeDraft(app, userId) {
     });
     if (!session)
         throw new Error("No active draft session");
-    // Get picked starters
     const starters = session.options
         .filter((o) => o.isPicked)
         .map((o) => o.player);
@@ -182,11 +182,12 @@ async function completeDraft(app, userId) {
             seed: `reserve-${session.id}-${rc.role}`,
         });
         for (const gp of generated) {
-            const player = await app.prisma.player.create({ data: gp });
+            const player = await app.prisma.player.create({
+                data: { ...gp, ownerId: userId },
+            });
             reserves.push(player);
         }
     }
-    // Create team
     const user = await app.prisma.user.findUnique({ where: { id: userId } });
     const team = await app.prisma.team.create({
         data: {
@@ -194,7 +195,6 @@ async function completeDraft(app, userId) {
             userId,
         },
     });
-    // Add starters
     for (const player of starters) {
         await app.prisma.teamPlayer.create({
             data: {
@@ -205,7 +205,6 @@ async function completeDraft(app, userId) {
             },
         });
     }
-    // Add reserves
     for (const player of reserves) {
         await app.prisma.teamPlayer.create({
             data: {
@@ -215,18 +214,16 @@ async function completeDraft(app, userId) {
             },
         });
     }
-    // Calculate team rating
     const rating = (0, synergy_engine_1.calculateTeamRating)(starters.map((p) => ({
         position: p.position,
         role: p.role,
         style: p.style,
-        ovr: p.ovr,
+        overallRating: p.overallRating,
     })));
     await app.prisma.team.update({
         where: { id: team.id },
         data: { rating },
     });
-    // Complete draft
     await app.prisma.draftSession.update({
         where: { id: session.id },
         data: { status: "COMPLETED", step: "DONE", teamId: team.id },

@@ -11,7 +11,7 @@ export async function getCurrentSeason(app: FastifyInstance) {
       status: true,
       startDate: true,
       endDate: true,
-    standings: {
+      standings: {
         orderBy: [{ points: "desc" }, { goalsFor: "desc" }],
         select: {
           id: true,
@@ -190,7 +190,7 @@ export async function endSeason(app: FastifyInstance, seasonId: string) {
     if (standing && reward) {
       await app.prisma.user.update({
         where: { id: standing.team.userId },
-        data: { coins: { increment: reward }, title },
+        data: { coins: { increment: reward } },
       });
     }
   }
@@ -217,9 +217,9 @@ export async function playSeasonMatch(app: FastifyInstance, userId: string) {
 
   // 2. Find opponent in the same season (any other team)
   const opponentStanding = await app.prisma.seasonStanding.findFirst({
-    where: { 
-      seasonId, 
-      teamId: { not: team.id } 
+    where: {
+      seasonId,
+      teamId: { not: team.id }
     },
     include: { team: true },
   });
@@ -228,8 +228,7 @@ export async function playSeasonMatch(app: FastifyInstance, userId: string) {
 
   const { randomUUID } = await import("crypto");
   const { simulateMatch } = await import("../match/match.simulator");
-  const { getTeamForMatch, handleMatchCompletion } = await import("../match/match.service");
-
+  const { getTeamForMatch, handleMatchCompletion } = await import("../match/match.service") as any;
   const seed = randomUUID();
   const homeTeamData = await getTeamForMatch(app, team.id);
   const awayTeamData = await getTeamForMatch(app, opponentStanding.team.id);

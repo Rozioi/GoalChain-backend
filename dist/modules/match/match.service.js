@@ -4,12 +4,15 @@ exports.playFriendlyMatch = playFriendlyMatch;
 exports.playBotMatch = playBotMatch;
 exports.updateMatchTactics = updateMatchTactics;
 exports.inviteFriend = inviteFriend;
+exports.createOpenChallenge = createOpenChallenge;
 exports.acceptMatch = acceptMatch;
+exports.getMatchById = getMatchById;
 exports.getMatchHistory = getMatchHistory;
 const crypto_1 = require("crypto");
 const match_simulator_1 = require("./match.simulator");
 const bot_generator_1 = require("./bot.generator");
 const constants_1 = require("../../config/constants");
+const task_service_1 = require("../task/task.service");
 async function getTeamForMatch(app, teamId) {
     const team = await app.prisma.team.findUnique({
         where: { id: teamId },
@@ -24,7 +27,7 @@ async function getTeamForMatch(app, teamId) {
     const mapPlayer = (tp) => ({
         id: tp.player.id,
         name: tp.player.name,
-        ovr: tp.player.ovr,
+        overallRating: tp.player.overallRating,
         pace: tp.player.pace,
         shooting: tp.player.shooting,
         passing: tp.player.passing,
@@ -32,7 +35,7 @@ async function getTeamForMatch(app, teamId) {
         defending: tp.player.defending,
         physical: tp.player.physical,
         goalkeeping: tp.player.goalkeeping,
-        form: tp.player.form,
+        formValue: tp.player.formValue,
         fatigue: tp.player.fatigue,
         position: tp.player.position,
         role: tp.player.role,
@@ -69,14 +72,27 @@ async function playFriendlyMatch(app, userId) {
     if (!myTeam)
         throw new Error("No team found. Complete the draft first.");
     // Logic: Lobbies via PENDING matches
-    // 1. Try to find an existing pending lobby
+    // 0. Check if we already HAVE an active pending lobby to prevent double-matchmaking
+    const myExistingLobby = await app.prisma.match.findFirst({
+        where: {
+            type: "FRIENDLY",
+            status: "PENDING",
+            homeUserId: userId,
+            createdAt: { gte: new Date(Date.now() - 30000) },
+        },
+    });
+    if (myExistingLobby) {
+        console.log(`Matchmaking: User ${userId} already has an active lobby ${myExistingLobby.id}. Reusing.`);
+        // Re-run the wait loop for this existing lobby
+        return waitForOpponent(app, userId, myExistingLobby);
+    }
+    // 1. Try to find an existing pending lobby from OTHER users
     const existingLobby = await app.prisma.match.findFirst({
         where: {
             type: "FRIENDLY",
             status: "PENDING",
             awayUserId: null,
             homeUserId: { not: userId },
-            // Optional: check rating difference here
         },
         orderBy: { createdAt: "asc" },
     });
@@ -87,115 +103,63 @@ async function playFriendlyMatch(app, userId) {
         const homeTeamData = await getTeamForMatch(app, existingLobby.homeTeamId);
         const awayTeamData = await getTeamForMatch(app, myTeam.id);
         const result = (0, match_simulator_1.simulateMatch)(homeTeamData, awayTeamData, seed);
-        // Calculate rewards for HOME (original creator)
-        const homeUser = await app.prisma.user.findUnique({ where: { id: existingLobby.homeUserId } });
-        const homeMatchNumber = (homeUser?.dailyMatchesPlayed || 0) + 1;
-        const homeDiminish = Math.pow(constants_1.MATCH.REWARDS.DIMINISHING_FACTOR, homeMatchNumber - 1);
-        let homeCoins = 0;
-        let homeExp = 0;
-        if (result.winner === "home") {
-            homeCoins = Math.floor(constants_1.MATCH.REWARDS.WIN_COINS * homeDiminish);
-            homeExp = Math.floor(constants_1.MATCH.REWARDS.WIN_EXP * homeDiminish);
-        }
-        else if (result.winner === "draw") {
-            homeCoins = Math.floor(constants_1.MATCH.REWARDS.DRAW_COINS * homeDiminish);
-            homeExp = Math.floor(constants_1.MATCH.REWARDS.DRAW_EXP * homeDiminish);
-        }
-        else {
-            homeCoins = Math.floor(constants_1.MATCH.REWARDS.LOSS_COINS * homeDiminish);
-            homeExp = Math.floor(constants_1.MATCH.REWARDS.LOSS_EXP * homeDiminish);
-        }
-        // Calculate rewards for AWAY (us)
+        // Update existingLobby locally and in DB so home user looping picks it up
+        existingLobby.awayUserId = userId;
+        existingLobby.awayTeamId = myTeam.id;
+        await app.prisma.match.update({
+            where: { id: existingLobby.id },
+            data: { awayUserId: userId, awayTeamId: myTeam.id },
+        });
+        // Calculate rewards for AWAY (us) based on our daily limit
         const awayMatchNumber = user.dailyMatchesPlayed + 1;
         const awayDiminish = Math.pow(constants_1.MATCH.REWARDS.DIMINISHING_FACTOR, awayMatchNumber - 1);
-        let awayCoins = 0;
-        let awayExp = 0;
-        if (result.winner === "away") {
-            awayCoins = Math.floor(constants_1.MATCH.REWARDS.WIN_COINS * awayDiminish);
-            awayExp = Math.floor(constants_1.MATCH.REWARDS.WIN_EXP * awayDiminish);
-        }
-        else if (result.winner === "draw") {
-            awayCoins = Math.floor(constants_1.MATCH.REWARDS.DRAW_COINS * awayDiminish);
-            awayExp = Math.floor(constants_1.MATCH.REWARDS.DRAW_EXP * awayDiminish);
-        }
-        else {
-            awayCoins = Math.floor(constants_1.MATCH.REWARDS.LOSS_COINS * awayDiminish);
-            awayExp = Math.floor(constants_1.MATCH.REWARDS.LOSS_EXP * awayDiminish);
-        }
-        // Update match to COMPLETED
-        const match = await app.prisma.match.update({
-            where: { id: existingLobby.id },
-            data: {
-                status: "COMPLETED",
-                awayUserId: userId,
-                awayTeamId: myTeam.id,
-                homeScore: result.homeScore,
-                awayScore: result.awayScore,
-                seed,
-                overtime: result.overtime,
-                homePressingType: homeTeamData.pressingType,
-                awayPressingType: awayTeamData.pressingType,
-                homeCoins,
-                awayCoins,
-                homeExp,
-                awayExp,
-                events: {
-                    create: result.events.map((e) => ({
-                        minute: e.minute,
-                        type: e.type.toUpperCase(),
-                        team: e.team,
-                        playerId: e.playerId,
-                        playerName: e.playerName,
-                        description: e.description,
-                    })),
-                },
-            },
-            include: {
-                homeTeam: { select: { name: true } },
-                awayTeam: { select: { name: true } },
-            }
-        });
-        // Award rewards to BOTH
-        await app.prisma.user.update({
-            where: { id: existingLobby.homeUserId },
-            data: {
-                coins: { increment: homeCoins },
-                reputation: { increment: homeExp },
-                dailyMatchesPlayed: { increment: 1 },
-            },
-        });
-        await app.prisma.user.update({
-            where: { id: userId },
-            data: {
-                coins: { increment: awayCoins },
-                reputation: { increment: awayExp },
-                dailyMatchesPlayed: { increment: 1 },
-            },
+        // 1. Update match record and award rewards via helper
+        await handleMatchCompletion(app, existingLobby, result, seed);
+        // 2. Update daily match counts
+        await app.prisma.user.updateMany({
+            where: { id: { in: [existingLobby.homeUserId, userId] } },
+            data: { dailyMatchesPlayed: { increment: 1 } },
         });
         return {
-            match,
+            match: {
+                ...existingLobby,
+                homeScore: result.homeScore,
+                awayScore: result.awayScore,
+            },
             result,
-            rewards: { coins: awayCoins, exp: awayExp },
+            rewards: {
+                coins: result.winner === "away"
+                    ? Math.floor(constants_1.MATCH.REWARDS.WIN_COINS * awayDiminish)
+                    : result.winner === "draw"
+                        ? Math.floor(constants_1.MATCH.REWARDS.DRAW_COINS * awayDiminish)
+                        : Math.floor(constants_1.MATCH.REWARDS.LOSS_COINS * awayDiminish),
+                exp: result.winner === "away"
+                    ? Math.floor(constants_1.MATCH.REWARDS.WIN_EXP * awayDiminish)
+                    : result.winner === "draw"
+                        ? Math.floor(constants_1.MATCH.REWARDS.DRAW_EXP * awayDiminish)
+                        : Math.floor(constants_1.MATCH.REWARDS.LOSS_EXP * awayDiminish),
+            },
             isBot: false,
         };
     }
     else {
         // 2. No lobby found — create our own
         console.log(`Matchmaking: User ${userId} creating new lobby`);
-        // Find or create a bot team to use as a placeholder for the required awayTeamId
-        let botUser = await app.prisma.user.findUnique({ where: { telegramId: "bot-system" } });
-        if (!botUser) {
-            botUser = await app.prisma.user.create({
-                data: {
-                    telegramId: "bot-system",
-                    username: "bot_system",
-                    firstName: "Bot",
-                    lastName: "System",
-                    referralCode: "BOT-SYSTEM-PLACEHOLDER",
-                },
-            });
-        }
-        let botTeam = await app.prisma.team.findFirst({ where: { userId: botUser.id } });
+        // Find or create a bot team placeholder
+        const botUser = await app.prisma.user.upsert({
+            where: { telegramId: "bot-system" },
+            update: {},
+            create: {
+                telegramId: "bot-system",
+                username: "bot_system",
+                firstName: "Bot",
+                lastName: "System",
+                referralCode: "BOT-SYSTEM-" + (0, crypto_1.randomUUID)().slice(0, 8),
+            },
+        });
+        let botTeam = await app.prisma.team.findFirst({
+            where: { userId: botUser.id },
+        });
         if (!botTeam) {
             botTeam = await app.prisma.team.create({
                 data: {
@@ -211,56 +175,67 @@ async function playFriendlyMatch(app, userId) {
                 status: "PENDING",
                 homeUserId: userId,
                 homeTeamId: myTeam.id,
-                awayTeamId: botTeam.id, // Using bot team as placeholder
-            }
+                awayTeamId: botTeam.id,
+            },
         });
-        const waitStart = Date.now();
-        const timeout = 12000; // Wait up to 12 seconds
-        while (Date.now() - waitStart < timeout) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            const updatedMatch = await app.prisma.match.findUnique({
-                where: { id: myLobby.id },
-                include: {
-                    events: { orderBy: { minute: "asc" } },
-                    homeTeam: { select: { name: true } },
-                    awayTeam: { select: { name: true } },
-                }
-            });
-            if (updatedMatch && updatedMatch.status === "COMPLETED" && updatedMatch.awayUserId) {
-                console.log(`Matchmaking: User ${userId}'s lobby matched with ${updatedMatch.awayUserId}!`);
-                const result = {
+        return waitForOpponent(app, userId, myLobby);
+    }
+}
+async function waitForOpponent(app, userId, lobby) {
+    const waitStart = Date.now();
+    const timeout = 12000; // Wait up to 12 seconds
+    while (Date.now() - waitStart < timeout) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const updatedMatch = await app.prisma.match.findUnique({
+            where: { id: lobby.id },
+            include: {
+                events: { orderBy: { minute: "asc" } },
+                homeUser: true,
+                awayUser: true,
+            },
+        });
+        if (updatedMatch &&
+            updatedMatch.status === "COMPLETED" &&
+            updatedMatch.awayUserId) {
+            return {
+                match: updatedMatch,
+                result: {
                     homeScore: updatedMatch.homeScore,
                     awayScore: updatedMatch.awayScore,
-                    winner: updatedMatch.homeScore > updatedMatch.awayScore ? 'home' : (updatedMatch.awayScore > updatedMatch.homeScore ? 'away' : 'draw'),
-                    events: updatedMatch.events.map(e => ({
+                    winner: updatedMatch.homeScore > updatedMatch.awayScore
+                        ? "home"
+                        : updatedMatch.awayScore > updatedMatch.homeScore
+                            ? "away"
+                            : "draw",
+                    events: updatedMatch.events.map((e) => ({
                         minute: e.minute,
                         type: e.type.toLowerCase(),
                         team: e.team,
                         playerId: e.playerId,
                         playerName: e.playerName,
-                        description: e.description
+                        description: e.description,
                     })),
-                    overtime: updatedMatch.overtime
-                };
-                return {
-                    match: updatedMatch,
-                    result,
-                    rewards: { coins: updatedMatch.homeCoins, exp: updatedMatch.homeExp },
-                    isBot: false,
-                };
-            }
+                },
+                rewards: { coins: updatedMatch.homeCoins, exp: updatedMatch.homeExp },
+                isBot: false,
+            };
         }
-        // 3. Timeout — cancel lobby
-        console.log(`Matchmaking: User ${userId} lobby timed out.`);
-        await app.prisma.match.update({
-            where: { id: myLobby.id },
-            data: { status: "CANCELLED" }
-        });
-        throw new Error("OPPONENT_NOT_FOUND");
     }
+    // 3. Timeout — play against bot
+    console.log(`Matchmaking: User ${userId} lobby ${lobby.id} timed out. Falling back to bot.`);
+    // Verify match hasn't been completed at the very last second
+    const finalCheck = await app.prisma.match.findUnique({
+        where: { id: lobby.id },
+    });
+    if (finalCheck?.status === "COMPLETED")
+        return playBotMatch(app, userId); // Should technically return the match but bot is safe fallback
+    await app.prisma.match.update({
+        where: { id: lobby.id },
+        data: { status: "CANCELLED" },
+    });
+    return playBotMatch(app, userId);
 }
 async function playBotMatch(app, userId) {
-    // Check daily limit
     const user = await app.prisma.user.findUnique({ where: { id: userId } });
     if (!user)
         throw new Error("User not found");
@@ -275,93 +250,52 @@ async function playBotMatch(app, userId) {
     else if (user.dailyMatchesPlayed >= constants_1.MATCH.DAILY_FRIENDLY_LIMIT) {
         throw new Error(`Daily match limit reached (${constants_1.MATCH.DAILY_FRIENDLY_LIMIT})`);
     }
-    // Get user's team
     const myTeam = await app.prisma.team.findFirst({
         where: { userId, isEvent: false },
     });
     if (!myTeam)
         throw new Error("No team found");
-    // Generate bot team
     const botResult = await (0, bot_generator_1.generateBotTeam)(app, myTeam.rating);
-    const opponentTeamId = botResult.team.id;
-    // Simulate match
     const seed = (0, crypto_1.randomUUID)();
     const homeTeamData = await getTeamForMatch(app, myTeam.id);
-    const awayTeamData = await getTeamForMatch(app, opponentTeamId);
+    const awayTeamData = await getTeamForMatch(app, botResult.team.id);
     const result = (0, match_simulator_1.simulateMatch)(homeTeamData, awayTeamData, seed);
-    // Calculate rewards
-    const matchNumber = user.dailyMatchesPlayed + 1;
-    const diminish = Math.pow(constants_1.MATCH.REWARDS.DIMINISHING_FACTOR, matchNumber - 1);
-    let homeCoins;
-    let homeExp;
-    if (result.winner === "home") {
-        homeCoins = Math.floor(constants_1.MATCH.REWARDS.WIN_COINS * diminish);
-        homeExp = Math.floor(constants_1.MATCH.REWARDS.WIN_EXP * diminish);
-    }
-    else if (result.winner === "draw") {
-        homeCoins = Math.floor(constants_1.MATCH.REWARDS.DRAW_COINS * diminish);
-        homeExp = Math.floor(constants_1.MATCH.REWARDS.DRAW_EXP * diminish);
-    }
-    else {
-        homeCoins = Math.floor(constants_1.MATCH.REWARDS.LOSS_COINS * diminish);
-        homeExp = Math.floor(constants_1.MATCH.REWARDS.LOSS_EXP * diminish);
-    }
-    // Save match
     const match = await app.prisma.match.create({
         data: {
             type: "FRIENDLY",
             status: "COMPLETED",
             homeUserId: userId,
-            awayUserId: null,
             homeTeamId: myTeam.id,
-            awayTeamId: opponentTeamId,
+            awayTeamId: botResult.team.id,
             isBot: true,
             homeScore: result.homeScore,
             awayScore: result.awayScore,
             seed,
-            overtime: result.overtime,
-            homePressingType: homeTeamData.pressingType,
-            awayPressingType: awayTeamData.pressingType,
-            homeCoins,
-            awayCoins: 0,
-            homeExp,
-            awayExp: 0,
-            events: {
-                create: result.events.map((e) => ({
-                    minute: e.minute,
-                    type: e.type.toUpperCase(),
-                    team: e.team,
-                    playerId: e.playerId,
-                    playerName: e.playerName,
-                    description: e.description,
-                })),
-            },
         },
-        include: {
-            homeTeam: { select: { name: true } },
-            awayTeam: { select: { name: true } },
-        }
     });
-    // Award rewards
+    await handleMatchCompletion(app, match, result, seed);
     await app.prisma.user.update({
         where: { id: userId },
-        data: {
-            coins: { increment: homeCoins },
-            reputation: { increment: homeExp },
-            dailyMatchesPlayed: { increment: 1 },
-        },
+        data: { dailyMatchesPlayed: { increment: 1 } },
     });
     return {
         match,
         result,
-        rewards: { coins: homeCoins, exp: homeExp },
+        rewards: {
+            coins: result.winner === "home"
+                ? constants_1.MATCH.REWARDS.WIN_COINS
+                : constants_1.MATCH.REWARDS.LOSS_COINS,
+            exp: result.winner === "home"
+                ? constants_1.MATCH.REWARDS.WIN_EXP
+                : constants_1.MATCH.REWARDS.LOSS_EXP,
+        },
         isBot: true,
     };
 }
 async function updateMatchTactics(app, matchId, userId, tactics) {
     const match = await app.prisma.match.findUnique({
         where: { id: matchId },
-        include: { events: true }
+        include: { events: true },
     });
     if (!match)
         throw new Error("Match not found");
@@ -374,7 +308,7 @@ async function updateMatchTactics(app, matchId, userId, tactics) {
     const team = isHome ? "home" : "away";
     // Determine current minute based on existing events
     const lastEvent = match.events.length > 0
-        ? match.events.reduce((max, e) => e.minute > max.minute ? e : max, match.events[0])
+        ? match.events.reduce((max, e) => (e.minute > max.minute ? e : max), match.events[0])
         : null;
     const currentMinute = lastEvent ? Math.min(lastEvent.minute + 1, 90) : 1;
     // Record tactical change event
@@ -386,16 +320,18 @@ async function updateMatchTactics(app, matchId, userId, tactics) {
             type: tactics.pressingType ? "TACTIC_CHANGE" : "SUBSTITUTION",
             description: tactics.pressingType
                 ? `Tactical change: Team switched to ${tactics.pressingType} pressing.`
-                : tactics.substitution
-                    ? `Manual substitution requested.`
-                    : "Tactical adjustment made."
-        }
+                : tactics.substitutions && tactics.substitutions.length > 0
+                    ? `Manual substitution(s) requested.`
+                    : "Tactical adjustment made.",
+        },
     });
     // Update match record if pressing type changed
     if (tactics.pressingType) {
         await app.prisma.match.update({
             where: { id: matchId },
-            data: isHome ? { homePressingType: tactics.pressingType } : { awayPressingType: tactics.pressingType }
+            data: isHome
+                ? { homePressingType: tactics.pressingType }
+                : { awayPressingType: tactics.pressingType },
         });
     }
     // Gather all PREVIOUS tactical changes and substitutions from event history
@@ -404,33 +340,44 @@ async function updateMatchTactics(app, matchId, userId, tactics) {
     const manualSubstitutions = [];
     const lockedEvents = [];
     for (const e of allEvents) {
-        if (e.type === "TACTIC_CHANGE" && e.description.includes("pressing")) {
-            const type = e.description.split(" ").slice(-2, -1)[0];
+        if (e.type === "TACTIC_CHANGE" && e.description.includes("switching to")) {
+            const parts = e.description.split(" ");
+            const type = parts[parts.length - 2];
             pressingChanges.push({ minute: e.minute, team: e.team, type });
         }
-        else if (e.type === "SUBSTITUTION" || e.description.includes("substitution")) {
-            // Note: In a full implementation, we'd store outId/inId in JSON rules or separate fields
-            // For now, we assume current manual sub is the one being added
+        else if (e.type === "TACTIC_CHANGE" &&
+            e.description.includes("switched to")) {
+            const parts = e.description.split(" ");
+            const type = parts[parts.length - 2]; // "switched", "to", "INTENSIVE", "pressing."
+            pressingChanges.push({ minute: e.minute, team: e.team, type });
+        }
+        else if (e.type === "SUBSTITUTION" ||
+            e.description.includes("substitution")) {
+            // Logic for retrieving previous manual subs from description if needed
+            // For now we assume the current call adds the newest batch
         }
         // Lock all "non-tactical" events that already happened
-        if (e.minute < currentMinute && !["TACTIC_CHANGE", "SUBSTITUTION"].includes(e.type)) {
+        if (e.minute < currentMinute &&
+            !["TACTIC_CHANGE", "SUBSTITUTION"].includes(e.type)) {
             lockedEvents.push({
                 minute: e.minute,
                 type: e.type.toLowerCase(),
                 team: e.team,
                 playerId: e.playerId,
                 playerName: e.playerName,
-                description: e.description
+                description: e.description,
             });
         }
     }
-    if (tactics.substitution) {
-        manualSubstitutions.push({
-            minute: currentMinute,
-            team,
-            outId: tactics.substitution.outId,
-            inId: tactics.substitution.inId
-        });
+    if (tactics.substitutions) {
+        for (const sub of tactics.substitutions) {
+            manualSubstitutions.push({
+                minute: currentMinute,
+                team,
+                outId: sub.outId,
+                inId: sub.inId,
+            });
+        }
     }
     // RE-SIMULATE: Fetch updated data and re-run simulation from seed
     const homeTeamData = await getTeamForMatch(app, match.homeTeamId);
@@ -442,15 +389,15 @@ async function updateMatchTactics(app, matchId, userId, tactics) {
         pressingChanges,
         manualSubstitutions,
         lockedEvents,
-        skipUntilMinute: currentMinute
+        skipUntilMinute: currentMinute,
     });
     // Update match result and events (REPLACE future events)
     await app.prisma.matchEvent.deleteMany({
         where: {
             matchId,
             minute: { gte: currentMinute },
-            id: { not: tacticEvent.id } // Keep the trigger event
-        }
+            id: { not: tacticEvent.id }, // Keep the trigger event
+        },
     });
     await app.prisma.match.update({
         where: { id: matchId },
@@ -459,7 +406,8 @@ async function updateMatchTactics(app, matchId, userId, tactics) {
             awayScore: result.awayScore,
             events: {
                 create: result.events
-                    .filter(e => e.minute >= currentMinute && e.description !== tacticEvent.description)
+                    .filter((e) => e.minute >= currentMinute &&
+                    e.description !== tacticEvent.description)
                     .map((e) => ({
                     minute: e.minute,
                     type: e.type.toUpperCase(),
@@ -493,7 +441,7 @@ async function inviteFriend(app, userId, friendTelegramId) {
     // Create pending match
     const match = await app.prisma.match.create({
         data: {
-            type: "FRIENDLY",
+            type: "CHALLENGE",
             status: "PENDING",
             homeUserId: userId,
             awayUserId: friend.id,
@@ -503,32 +451,69 @@ async function inviteFriend(app, userId, friendTelegramId) {
     });
     return {
         matchId: match.id,
-        inviteLink: `https://t.me/your_bot?start=match_${match.id}`,
+        inviteLink: `https://t.me/hdixhrjidj_bot/startapp?startapp=challenge_${match.id}`,
     };
 }
-async function acceptMatch(app, userId, matchId) {
-    const match = await app.prisma.match.findUnique({
-        where: { id: matchId },
+async function createOpenChallenge(app, userId) {
+    const myTeam = await app.prisma.team.findFirst({
+        where: { userId, isEvent: false },
     });
-    if (!match)
-        throw new Error("Match not found");
-    if (match.status !== "PENDING")
-        throw new Error("Match already started");
-    if (match.awayUserId !== userId)
-        throw new Error("Not your match invitation");
-    const seed = (0, crypto_1.randomUUID)();
-    const homeTeamData = await getTeamForMatch(app, match.homeTeamId);
-    const awayTeamData = await getTeamForMatch(app, match.awayTeamId);
-    const result = (0, match_simulator_1.simulateMatch)(homeTeamData, awayTeamData, seed);
+    if (!myTeam)
+        throw new Error("No team found");
+    // Create pending match without an away user
+    // Using bot team as a temporary placeholder for awayTeamId because it's required
+    const botUser = await app.prisma.user.upsert({
+        where: { telegramId: "bot-system" },
+        update: {},
+        create: {
+            telegramId: "bot-system",
+            username: "bot_system",
+            firstName: "Bot",
+            lastName: "System",
+            referralCode: "BOT-SYSTEM-" + (0, crypto_1.randomUUID)().slice(0, 8),
+        },
+    });
+    let botTeam = await app.prisma.team.findFirst({
+        where: { userId: botUser.id },
+    });
+    if (!botTeam) {
+        botTeam = await app.prisma.team.create({
+            data: {
+                name: "System Placeholder Team",
+                userId: botUser.id,
+                rating: 50,
+            },
+        });
+    }
+    const match = await app.prisma.match.create({
+        data: {
+            type: "CHALLENGE",
+            status: "PENDING",
+            homeUserId: userId,
+            homeTeamId: myTeam.id,
+            awayTeamId: botTeam.id,
+        },
+    });
+    return {
+        matchId: match.id,
+        inviteLink: `https://t.me/hdixhrjidj_bot/startapp?startapp=challenge_${match.id}`,
+    };
+}
+async function handleMatchCompletion(app, match, result, seed) {
+    // 1. Update match record
     await app.prisma.match.update({
-        where: { id: matchId },
+        where: { id: match.id },
         data: {
             status: "COMPLETED",
             homeScore: result.homeScore,
             awayScore: result.awayScore,
             seed,
-            homeCoins: result.winner === "home" ? constants_1.MATCH.REWARDS.WIN_COINS : constants_1.MATCH.REWARDS.LOSS_COINS,
-            awayCoins: result.winner === "away" ? constants_1.MATCH.REWARDS.WIN_COINS : constants_1.MATCH.REWARDS.LOSS_COINS,
+            homeCoins: result.winner === "home"
+                ? constants_1.MATCH.REWARDS.WIN_COINS
+                : constants_1.MATCH.REWARDS.LOSS_COINS,
+            awayCoins: result.winner === "away"
+                ? constants_1.MATCH.REWARDS.WIN_COINS
+                : constants_1.MATCH.REWARDS.LOSS_COINS,
             events: {
                 create: result.events.map((e) => ({
                     minute: e.minute,
@@ -541,34 +526,155 @@ async function acceptMatch(app, userId, matchId) {
             },
         },
     });
-    // Award coins to both players
-    if (match.homeUserId) {
+    // 2. Award coins & reputation (if not already awarded)
+    const homeId = match.homeUserId;
+    const awayId = match.awayUserId;
+    const updatePlayer = async (uid, role) => {
+        const coins = result.winner === role
+            ? constants_1.MATCH.REWARDS.WIN_COINS
+            : result.winner === "draw"
+                ? constants_1.MATCH.REWARDS.DRAW_COINS
+                : constants_1.MATCH.REWARDS.LOSS_COINS;
+        const exp = result.winner === role ? 100 : result.winner === "draw" ? 40 : 20;
+        const points = result.winner === role ? 25 : result.winner === "draw" ? 10 : -15;
+        // Get current user to check level
+        const user = await app.prisma.user.findUnique({ where: { id: uid } });
+        if (!user)
+            return;
+        let newExp = user.experience + exp;
+        let newLevel = user.level;
+        const newPoints = Math.max(0, user.points + points);
+        // Level formula: level * 500
+        while (newExp >= newLevel * 500) {
+            newExp -= newLevel * 500;
+            newLevel += 1;
+        }
         await app.prisma.user.update({
-            where: { id: match.homeUserId },
+            where: { id: uid },
             data: {
-                coins: {
-                    increment: result.winner === "home"
-                        ? constants_1.MATCH.REWARDS.WIN_COINS
-                        : result.winner === "draw"
-                            ? constants_1.MATCH.REWARDS.DRAW_COINS
-                            : constants_1.MATCH.REWARDS.LOSS_COINS,
-                },
+                coins: { increment: coins },
+                experience: newExp,
+                level: newLevel,
+                points: newPoints,
+            },
+        });
+        // 3. Update Tasks
+        await (0, task_service_1.updateTaskProgress)(app, uid, "MATCHES", 1);
+        if (result.winner === role) {
+            await (0, task_service_1.updateTaskProgress)(app, uid, "WINS", 1);
+        }
+        const userScore = role === "home" ? result.homeScore : result.awayScore;
+        const opponentScore = role === "home" ? result.awayScore : result.homeScore;
+        if (userScore > 0) {
+            await (0, task_service_1.updateTaskProgress)(app, uid, "GOALS", userScore);
+        }
+        if (opponentScore === 0) {
+            await (0, task_service_1.updateTaskProgress)(app, uid, "CLEAN_SHEETS", 1);
+        }
+    };
+    if (homeId)
+        await updatePlayer(homeId, "home");
+    if (awayId)
+        await updatePlayer(awayId, "away");
+    return {
+        homeRewards: {
+            coins: result.winner === "home"
+                ? constants_1.MATCH.REWARDS.WIN_COINS
+                : constants_1.MATCH.REWARDS.LOSS_COINS,
+        },
+    };
+}
+async function acceptMatch(app, userId, matchId) {
+    const match = await app.prisma.match.findUnique({
+        where: { id: matchId },
+    });
+    if (!match)
+        throw new Error("Match not found or expired");
+    if (match.homeUserId === userId)
+        throw new Error("You cannot challenge yourself");
+    if (match.status !== "PENDING")
+        throw new Error("This match has already started or been completed");
+    // If match has a specific inviteee, verify it.
+    if (match.awayUserId && match.awayUserId !== userId) {
+        throw new Error("This invitation is intended for another player");
+    }
+    const myTeam = await app.prisma.team.findFirst({
+        where: { userId, isEvent: false },
+    });
+    if (!myTeam)
+        throw new Error("No team found. Complete the draft first.");
+    // For open challenges, we update the match record with the actual joiner's team
+    if (!match.awayUserId || match.awayTeamId !== myTeam.id) {
+        await app.prisma.match.update({
+            where: { id: matchId },
+            data: {
+                awayUserId: userId,
+                awayTeamId: myTeam.id,
             },
         });
     }
-    await app.prisma.user.update({
-        where: { id: userId },
-        data: {
-            coins: {
-                increment: result.winner === "away"
-                    ? constants_1.MATCH.REWARDS.WIN_COINS
-                    : result.winner === "draw"
-                        ? constants_1.MATCH.REWARDS.DRAW_COINS
-                        : constants_1.MATCH.REWARDS.LOSS_COINS,
+    const seed = (0, crypto_1.randomUUID)();
+    const homeTeamData = await getTeamForMatch(app, match.homeTeamId);
+    const awayTeamData = await getTeamForMatch(app, myTeam.id);
+    const result = (0, match_simulator_1.simulateMatch)(homeTeamData, awayTeamData, seed);
+    await handleMatchCompletion(app, { ...match, awayUserId: userId, awayTeamId: myTeam.id }, result, seed);
+    return {
+        match: await app.prisma.match.findUnique({
+            where: { id: matchId },
+            include: {
+                homeUser: true,
+                awayUser: true,
+            },
+        }),
+        result,
+        rewards: {
+            coins: result.winner === "away"
+                ? constants_1.MATCH.REWARDS.WIN_COINS
+                : constants_1.MATCH.REWARDS.LOSS_COINS,
+            exp: result.winner === "away"
+                ? constants_1.MATCH.REWARDS.WIN_EXP
+                : constants_1.MATCH.REWARDS.LOSS_EXP,
+        },
+        isBot: false,
+    };
+}
+async function getMatchById(app, matchId) {
+    const match = await app.prisma.match.findUnique({
+        where: { id: matchId },
+        include: {
+            homeTeam: true,
+            awayTeam: true,
+            homeUser: true,
+            awayUser: true,
+            events: {
+                orderBy: { minute: "asc" },
             },
         },
     });
-    return { match: { ...match, homeScore: result.homeScore, awayScore: result.awayScore }, result };
+    if (!match)
+        return null;
+    // If match is completed, reconstruct the "result" object for simulation replay
+    let result = null;
+    if (match.status === "COMPLETED") {
+        result = {
+            homeScore: match.homeScore || 0,
+            awayScore: match.awayScore || 0,
+            winner: (match.homeScore || 0) > (match.awayScore || 0)
+                ? "home"
+                : (match.awayScore || 0) > (match.homeScore || 0)
+                    ? "away"
+                    : "draw",
+            events: match.events.map((e) => ({
+                minute: e.minute,
+                type: e.type.toLowerCase(),
+                team: e.team,
+                playerId: e.playerId,
+                playerName: e.playerName,
+                description: e.description,
+            })),
+        };
+    }
+    return { match, result };
 }
 async function getMatchHistory(app, userId, limit = 20) {
     return app.prisma.match.findMany({

@@ -7,4 +7,5 @@ export declare const seasonController: {
         };
     }>, reply: FastifyReply): Promise<void>;
     register(req: FastifyRequest, reply: FastifyReply): Promise<void>;
+    play(req: FastifyRequest, reply: FastifyReply): Promise<void>;
 };

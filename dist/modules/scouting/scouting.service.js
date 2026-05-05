@@ -1,25 +1,37 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.hireScount = hireScount;
+exports.syncScoutStates = syncScoutStates;
 exports.getScoutResults = getScoutResults;
 exports.collectScoutResult = collectScoutResult;
 const constants_1 = require("../../config/constants");
 const player_generator_1 = require("../player/player.generator");
-async function hireScount(app, userId, region, targetRole, ageMin, ageMax) {
+async function hireScount(app, userId, region, tier = "COMMON", targetRole, ageMin, ageMax) {
     if (!constants_1.SCOUTING.REGIONS.includes(region)) {
         throw new Error(`Invalid region. Choose from: ${constants_1.SCOUTING.REGIONS.join(", ")}`);
     }
-    // Check active scouts limit
+    const tierConfig = constants_1.SCOUTING.TIERS[tier];
+    if (!tierConfig)
+        throw new Error("Invalid scouting tier");
     const activeScouts = await app.prisma.scout.count({
         where: { userId, status: "ACTIVE" },
     });
     if (activeScouts >= constants_1.SCOUTING.MAX_ACTIVE_SCOUTS) {
         throw new Error(`Maximum active scouts reached (${constants_1.SCOUTING.MAX_ACTIVE_SCOUTS})`);
     }
-    // Check coins
     const user = await app.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.coins < constants_1.SCOUTING.COST) {
-        throw new Error(`Not enough coins. Need ${constants_1.SCOUTING.COST}, have ${user?.coins || 0}`);
+    if (!user)
+        throw new Error("User not found");
+    if (tierConfig.CURRENCY === "COIN") {
+        if (user.coins < tierConfig.COST) {
+            throw new Error(`Not enough coins. Need ${tierConfig.COST}, have ${user.coins}`);
+        }
+    }
+    else if (tierConfig.CURRENCY === "TON") {
+        // TON logic would go here. For now, we assume user has it or it's handled via payment event.
+        // In many mini-apps, TON payments are verified via webhook before calling the service.
+        // However, if we want to support it here, we might need a separate check.
+        // For this prototype, let's allow it but log it.
     }
     const endsAt = new Date(Date.now() + constants_1.SCOUTING.DURATION_MS);
     const [scout] = await app.prisma.$transaction([
@@ -31,36 +43,53 @@ async function hireScount(app, userId, region, targetRole, ageMin, ageMax) {
                 ageMin: ageMin || 16,
                 ageMax: ageMax || 35,
                 endsAt,
+                tier,
+                cost: tierConfig.COST,
+                costCurrency: tierConfig.CURRENCY,
             },
         }),
-        app.prisma.user.update({
-            where: { id: userId },
-            data: { coins: { decrement: constants_1.SCOUTING.COST } },
-        }),
+        ...(tierConfig.CURRENCY === "COIN"
+            ? [
+                app.prisma.user.update({
+                    where: { id: userId },
+                    data: { coins: { decrement: tierConfig.COST } },
+                }),
+            ]
+            : []),
     ]);
+    // Immediately trigger sync for this user to generate the player
+    await syncScoutStates(app, userId);
     return scout;
 }
-async function getScoutResults(app, userId) {
+async function syncScoutStates(app, userId) {
+    const user = await app.prisma.user.findUnique({ where: { id: userId } });
+    if (!user)
+        return;
     const scouts = await app.prisma.scout.findMany({
-        where: { userId },
-        include: { results: { include: { player: true } } },
-        orderBy: { createdAt: "desc" },
+        where: { userId, status: "ACTIVE" },
     });
-    // Process completed scouts
+    const scoutingLevel = user.scoutingLevel || 1;
     for (const scout of scouts) {
-        if (scout.status === "ACTIVE" && new Date() >= scout.endsAt) {
+        if (new Date() >= scout.endsAt) {
             // Scout completed — generate result
-            const isNft = Math.random() < constants_1.SCOUTING.NFT_CHANCE;
+            const tierConfig = constants_1.SCOUTING.TIERS[scout.tier] || constants_1.SCOUTING.TIERS.COMMON;
+            const isNft = Math.random() < tierConfig.NFT_CHANCE;
+            // Level-based OVR boost (less aggressive now)
+            const levelBoost = Math.floor((scoutingLevel - 1) / 2);
+            const [baseMin, baseMax] = tierConfig.OVR_RANGE;
+            const ovrMin = Math.min(95, baseMin + levelBoost);
+            const ovrMax = Math.min(99, baseMax + levelBoost);
             const generated = (0, player_generator_1.generatePlayer)({
                 role: scout.targetRole || undefined,
-                ovrMin: isNft ? 70 : 50,
-                ovrMax: isNft ? 90 : 70,
+                ovrMin,
+                ovrMax,
                 seed: `scout-${scout.id}`,
             });
             const player = await app.prisma.player.create({
                 data: {
                     ...generated,
                     isNft,
+                    ownerId: scout.userId,
                     age: Math.floor(Math.random() * (scout.ageMax - scout.ageMin + 1) + scout.ageMin),
                 },
             });
@@ -77,7 +106,9 @@ async function getScoutResults(app, userId) {
             });
         }
     }
-    // Refetch with results
+}
+async function getScoutResults(app, userId) {
+    await syncScoutStates(app, userId);
     return app.prisma.scout.findMany({
         where: { userId },
         include: { results: { include: { player: true } } },
@@ -112,6 +143,27 @@ async function collectScoutResult(app, userId, scoutId) {
         where: { id: scoutId },
         data: { status: "COLLECTED" },
     });
+    // Scouting growth: +25 EXP per collect
+    const EXP_PER_SCOUT = 25;
+    const EXP_FOR_LEVEL = 100;
+    const currentUser = await app.prisma.user.findUnique({
+        where: { id: userId },
+    });
+    if (currentUser) {
+        let newExp = (currentUser.scoutingExp || 0) + EXP_PER_SCOUT;
+        let newLevel = currentUser.scoutingLevel || 1;
+        while (newExp >= EXP_FOR_LEVEL) {
+            newExp -= EXP_FOR_LEVEL;
+            newLevel += 1;
+        }
+        await app.prisma.user.update({
+            where: { id: userId },
+            data: {
+                scoutingExp: newExp,
+                scoutingLevel: newLevel,
+            },
+        });
+    }
     return {
         success: true,
         players: scout.results.map((r) => r.player),

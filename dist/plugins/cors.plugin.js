@@ -9,7 +9,7 @@ exports.default = (0, fastify_plugin_1.default)(async (app) => {
     app.register(cors_1.default, {
         origin: true,
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
+        allowedHeaders: ["Content-Type", "Authorization", "x-admin-token"],
         credentials: true,
     });
 });

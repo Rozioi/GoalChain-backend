@@ -2,13 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateBotTeam = generateBotTeam;
 const player_generator_1 = require("../player/player.generator");
-/**
- * Generates a bot team with stats close to the target rating.
- */
 async function generateBotTeam(app, targetRating) {
     const ovrMin = Math.max(40, Math.round(targetRating - 10));
     const ovrMax = Math.min(95, Math.round(targetRating + 5));
-    // Generate starters
     const gk = (0, player_generator_1.generateMultiplePlayers)(1, {
         role: "GOALKEEPER",
         ovrMin,
@@ -34,7 +30,6 @@ async function generateBotTeam(app, targetRating) {
         seed: `bot-fwd-${Date.now()}`,
     });
     const allPlayers = [...gk, ...def, ...mid, ...fwd];
-    // Ensure bot user exists
     let botUser = await app.prisma.user.findUnique({
         where: { telegramId: "bot-system" },
     });
@@ -45,11 +40,10 @@ async function generateBotTeam(app, targetRating) {
                 username: "bot_system",
                 firstName: "Bot",
                 lastName: "System",
-                referralCode: "BOT-SYSTEM-CODE", // Static to avoid unique constraint issues on retries
+                referralCode: "BOT-SYSTEM-CODE",
             },
         });
     }
-    // Create bot team in DB
     const team = await app.prisma.team.create({
         data: {
             name: `Bot Team (${Math.round(targetRating)})`,
@@ -58,7 +52,6 @@ async function generateBotTeam(app, targetRating) {
             formation: "4-4-2",
         },
     });
-    // Create players and link to team
     const starters = [];
     for (const gp of allPlayers) {
         const player = await app.prisma.player.create({ data: gp });

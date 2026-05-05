@@ -1,7 +1,7 @@
 export interface PlayerStats {
     id: string;
     name: string;
-    ovr: number;
+    overallRating: number;
     pace: number;
     shooting: number;
     passing: number;
@@ -9,7 +9,7 @@ export interface PlayerStats {
     defending: number;
     physical: number;
     goalkeeping: number;
-    form: number;
+    formValue: number;
     fatigue: number;
     position: string;
     role: string;
@@ -67,7 +67,4 @@ export declare function simulateMatch(home: TeamInput, away: TeamInput, seed: st
     lockedEvents?: MatchEvent[];
     skipUntilMinute?: number;
 }): MatchResult;
-/**
- * Calculates a risk rating (0-100) for a team based on their pressing and current cards.
- */
 export declare function calculateRiskRating(pressing: PressingType, activePlayers: PlayerStats[], yellowCards: Record<string, number>): number;
