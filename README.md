@@ -1,86 +1,72 @@
 # Football Manager Backend
 
-Modern football management simulation backend built with Fastify, Prisma, and PostgreSQL.
-
-## Features
-- **User Management**: Telegram-integrated authentication and profile management.
-- **Draft System**: Initial team building with player selection.
-- **Scouting System**: 3-tier scouting (Common, Pro, Master) with balanced OVR generation.
-- **Match Engine**: Simulation of football matches with detailed event logging.
-- **Training**: Player development system with stat boosts.
-- **Rental System**: Peer-to-peer player rental market.
-- **Seasons & Events**: Competitive league structures and special events.
+Modern football management game backend built with Fastify and Prisma.
 
 ## Tech Stack
-- **Framework**: Fastify
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **Language**: TypeScript
+- **Framework:** [Fastify](https://www.fastify.io/) (High performance, low overhead)
+- **Database:** [PostgreSQL](https://www.postgresql.org/) with [Prisma ORM](https://www.prisma.io/)
+- **Language:** TypeScript
+- **Telegram Integration:** [GrammY](https://grammy.dev/)
+- **Validation:** JSON Schema (Fastify native)
+
+## Project Structure
+```
+src/
+├── bot/            # Telegram Bot implementation
+├── config/         # Environment and global constants
+├── modules/        # Business logic (Feature-based)
+│   ├── auth/       # JWT and Telegram Auth
+│   ├── match/      # Match Engine and Simulation logic
+│   ├── player/     # Player stats, generation and rental
+│   ├── team/       # Team management and formations
+│   └── user/       # User profiles and referrals
+├── plugins/        # Fastify plugins (Prisma, Auth, CORS)
+└── utils/          # Shared helper functions
+```
+
+## Core Modules Overview
+
+### Match Engine (`src/modules/match`)
+The heart of the game. Handles:
+- Real-time and simulated matches.
+- Event generation (goals, cards, injuries).
+- Player fatigue and performance scaling.
+- Re-simulation logic for tactical changes.
+
+### Player Generation (`src/modules/player`)
+Sophisticated algorithm for creating realistic football players:
+- 11+ positions (GK, CB, LW, etc.).
+- Detailed attributes (Pace, Shooting, Passing, etc.).
+- Rarity levels and potential growth.
+
+### Rental System (`src/modules/player/rental`)
+Marketplace logic allowing users to rent out their players for TON or coins.
 
 ## Getting Started
 
-### Prerequisites
-- Node.js (v18+)
-- PostgreSQL
+1. **Prerequisites:**
+   - Node.js 18+
+   - PostgreSQL
 
-### Installation
-1. Clone the repository.
-2. Install dependencies:
+2. **Setup:**
    ```bash
+   cp .env.example .env
    npm install
    ```
-3. Set up environment variables in `.env`:
-   ```env
-   DATABASE_URL="postgresql://user:password@localhost:5432/football"
-   JWT_SECRET="your_secret"
-   ```
-4. Run database migrations:
+
+3. **Database:**
    ```bash
    npx prisma db push
+   npx prisma generate
    ```
 
-### Development
-Run the server in development mode:
-```bash
-npm run dev
-```
+4. **Development:**
+   ```bash
+   npm run dev
+   ```
 
-### Production Build
-```bash
-npm run build
-npm start
-```
-
-## Module Structure
-- `src/modules/scouting`: Tiered player discovery logic.
-- `src/modules/player`: Core player stats and rental logic, including player import from external API.
-- `src/modules/match`: Match simulation and matchmaking.
-- `src/modules/team`: Squad management and lineup configuration.
-
-## Player Import API
-The `FootballApiService` class in `src/modules/player/football-api.service.ts` provides methods for importing players from an external API.
-
-### Methods
-1. **fetchPlayersFromApi(leagueId: number, season: number, page: number = 1)**
-   - Fetches players from the external API for a specific league and season.
-   - Parameters:
-     - `leagueId`: ID of the league.
-     - `season`: Season year.
-     - `page`: Page number for paginated results (default: 1).
-   - Returns: JSON response from the API.
-
-2. **importPlayersForLeague(leagueId: number, season: number = 2024)**
-   - Imports players for a specific league and season into the database.
-   - Parameters:
-     - `leagueId`: ID of the league.
-     - `season`: Season year (default: 2024).
-   - Saves player data to the database using Prisma.
-
-3. **populateInitialDatabase(count: number = 68000)**
-   - Generates and populates the database with a specified number of players.
-   - Parameters:
-     - `count`: Number of players to generate (default: 68,000).
-
-### Notes
-- The API key for the external service is configured via the `FOOTBALL_API_KEY` environment variable.
-- Ensure the database is properly set up before running the import.
+## Development Conventions
+- **Controllers:** Handle HTTP requests and responses.
+- **Services:** Contain pure business logic and DB interactions.
+- **Routes:** Define API endpoints and schemas.
+- **Types:** Centralized in `src/types` or local to modules.

@@ -78,13 +78,8 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
     },
   });
 
-  if (myExistingLobby) {
-    console.log(
-      `Matchmaking: User ${userId} already has an active lobby ${myExistingLobby.id}. Reusing.`,
-    );
     // Re-run the wait loop for this existing lobby
     return waitForOpponent(app, userId, myExistingLobby);
-  }
 
   // 1. Try to find an existing pending lobby from OTHER users
   const existingLobby = await app.prisma.match.findFirst({
@@ -98,9 +93,6 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
   });
 
   if (existingLobby) {
-    console.log(
-      `Matchmaking: User ${userId} joining existing lobby ${existingLobby.id}`,
-    );
 
     // We are the AWAY player joining an existing lobby
     const seed = randomUUID();
@@ -157,7 +149,6 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
     };
   } else {
     // 2. No lobby found — create our own
-    console.log(`Matchmaking: User ${userId} creating new lobby`);
 
     // Find or create a bot team placeholder
     const botUser = await app.prisma.user.upsert({
@@ -251,9 +242,6 @@ async function waitForOpponent(
   }
 
   // 3. Timeout — play against bot
-  console.log(
-    `Matchmaking: User ${userId} lobby ${lobby.id} timed out. Falling back to bot.`,
-  );
 
   // Verify match hasn't been completed at the very last second
   const finalCheck = await app.prisma.match.findUnique({

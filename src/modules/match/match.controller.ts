@@ -64,7 +64,6 @@ const matchController = {
         req.user.userId,
         req.params.matchId,
       );
-      console.log("dsadad", req.params.matchId, result);
       reply.send(result);
     } catch (err: any) {
       reply.status(400).send({ error: err.message });
