@@ -78,8 +78,10 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
     },
   });
 
+  if (myExistingLobby) {
     // Re-run the wait loop for this existing lobby
     return waitForOpponent(app, userId, myExistingLobby);
+  }
 
   // 1. Try to find an existing pending lobby from OTHER users
   const existingLobby = await app.prisma.match.findFirst({
@@ -195,6 +197,7 @@ async function waitForOpponent(
   userId: string,
   lobby: any,
 ) {
+  if (!lobby || !lobby.id) throw new Error("Invalid lobby provided to waitForOpponent");
   const waitStart = Date.now();
   const timeout = 12000; // Wait up to 12 seconds
 
@@ -226,14 +229,21 @@ async function waitForOpponent(
               : updatedMatch.awayScore! > updatedMatch.homeScore!
                 ? "away"
                 : "draw",
-          events: updatedMatch.events.map((e) => ({
-            minute: e.minute,
-            type: e.type.toLowerCase(),
-            team: e.team,
-            playerId: e.playerId,
-            playerName: e.playerName,
-            description: e.description,
-          })),
+          events: updatedMatch.events.map((e) => {
+            let type = e.type.toLowerCase();
+            if (type === "yellow_card") type = "yellowCard";
+            if (type === "red_card") type = "redCard";
+            if (type === "tactic_change") type = "tacticChange";
+            
+            return {
+              minute: e.minute,
+              type,
+              team: e.team,
+              playerId: e.playerId,
+              playerName: e.playerName,
+              description: e.description,
+            };
+          }),
         },
         rewards: { coins: updatedMatch.homeCoins, exp: updatedMatch.homeExp },
         isBot: false,
@@ -247,7 +257,9 @@ async function waitForOpponent(
   const finalCheck = await app.prisma.match.findUnique({
     where: { id: lobby.id },
   });
-  if (finalCheck?.status === "COMPLETED") return playBotMatch(app, userId); // Should technically return the match but bot is safe fallback
+  if (finalCheck?.status === "COMPLETED") {
+    return getMatchById(app, lobby.id);
+  }
 
   await app.prisma.match.update({
     where: { id: lobby.id },
@@ -786,14 +798,21 @@ export async function getMatchById(app: FastifyInstance, matchId: string) {
           : (match.awayScore || 0) > (match.homeScore || 0)
             ? "away"
             : "draw",
-      events: match.events.map((e) => ({
-        minute: e.minute,
-        type: e.type.toLowerCase(),
-        team: e.team,
-        playerId: e.playerId,
-        playerName: e.playerName,
-        description: e.description,
-      })),
+      events: match.events.map((e) => {
+        let type = e.type.toLowerCase();
+        if (type === "yellow_card") type = "yellowCard";
+        if (type === "red_card") type = "redCard";
+        if (type === "tactic_change") type = "tacticChange";
+
+        return {
+          minute: e.minute,
+          type,
+          team: e.team,
+          playerId: e.playerId,
+          playerName: e.playerName,
+          description: e.description,
+        };
+      }),
     };
   }
 

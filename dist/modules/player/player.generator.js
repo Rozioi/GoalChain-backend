@@ -8,6 +8,71 @@ exports.generateMultiplePlayers = generateMultiplePlayers;
 const seedrandom_1 = __importDefault(require("seedrandom"));
 const client_1 = require("@prisma/client");
 const constants_1 = require("../../config/constants");
+const background_removal_node_1 = require("@imgly/background-removal-node");
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
+async function processPlayerImage(imageUrl, fileName) {
+    try {
+        const response = await fetch(imageUrl);
+        if (!response.ok)
+            return imageUrl;
+        const arrayBuffer = await response.arrayBuffer();
+        const imageBuffer = Buffer.from(arrayBuffer);
+        // 1. Создаем папки
+        const tempDir = "./temp/raw-players/";
+        const publicDir = "./public/generated-players/";
+        [tempDir, publicDir].forEach((dir) => {
+            if (!fs_1.default.existsSync(dir))
+                fs_1.default.mkdirSync(dir, { recursive: true });
+        });
+        // 2. Сохраняем исходник во временный файл
+        const tempPath = path_1.default.resolve(`${tempDir}${fileName}_raw.jpg`);
+        fs_1.default.writeFileSync(tempPath, imageBuffer);
+        try {
+            console.log(`[ImageGen] Удаление фона из файла: ${tempPath}`);
+            // Передаем ПУТЬ к файлу, а не Buffer.
+            // Библиотека сама откроет его через свои внутренние механизмы.
+            const resultBlob = await (0, background_removal_node_1.removeBackground)(tempPath);
+            const resultBuffer = Buffer.from(await resultBlob.arrayBuffer());
+            const finalPath = `${publicDir}${fileName}.png`;
+            fs_1.default.writeFileSync(finalPath, resultBuffer);
+            // Чистим временный файл
+            if (fs_1.default.existsSync(tempPath))
+                fs_1.default.unlinkSync(tempPath);
+            return `https://lividly-hot-gaur.cloudpub.ru/generated-players/${fileName}.png`;
+        }
+        catch (removeBgError) {
+            console.error("[@imgly] Ошибка нейросети:", removeBgError);
+            return imageUrl;
+        }
+    }
+    catch (error) {
+        console.error("Критическая ошибка:", error);
+        return imageUrl;
+    }
+}
+function generateImageUrl(player) {
+    const prompt = `
+    Professional sports photography,
+    close-up portrait of a football player,
+    ${player.name} ${player.surname},
+    wearing ${player.nationality} national kit,
+    ${player.skinColor} skin,
+    ${player.hairStyle} ${player.hairColor} hair,
+    ${player.beardStyle !== "none" ? player.beardStyle + " beard" : "no beard"},
+    ${player.emotion} expression,
+    isolated on white background,
+    studio lighting,
+    high contrast,
+    8k resolution,
+    EA Sports FC render style,
+    no background
+  `
+        .replace(/\s+/g, " ")
+        .trim();
+    // Добавили параметры для улучшения качества и фиксации стиля
+    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=flux`;
+}
 const FACES = [
     "face_1",
     "face_2",
@@ -185,7 +250,7 @@ function mapAppearanceFromNationality(rng, nationality) {
         emotion: pickRandom(rng, EMOTIONS),
     };
 }
-function generatePlayer(options = {}) {
+async function generatePlayer(options = {}) {
     const rng = (0, seedrandom_1.default)(options.seed || Math.random().toString());
     // League-based stat scaling
     const leagueLevel = randomInt(rng, 1, 70); // 35 first + 35 second
@@ -216,7 +281,7 @@ function generatePlayer(options = {}) {
     const appearance = mapAppearanceFromNationality(rng, nationality);
     const rarity = overallRating > 85 ? "gold" : overallRating > 75 ? "rare" : "common";
     const { name, surname } = generateName(rng);
-    return {
+    const playerData = {
         name,
         surname,
         overallRating,
@@ -252,14 +317,21 @@ function generatePlayer(options = {}) {
         defendingBonus: 0,
         physicalBonus: 0,
     };
+    const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
+    const finalImageUrl = await processPlayerImage(generateImageUrl(playerData), fileName);
+    return {
+        ...playerData,
+        imageUrl: finalImageUrl,
+    };
 }
-function generateMultiplePlayers(count, options = {}) {
+async function generateMultiplePlayers(count, options = {}) {
     const players = [];
     for (let i = 0; i < count; i++) {
-        players.push(generatePlayer({
+        const player = await generatePlayer({
             ...options,
             seed: (options.seed || "gen") + `-${i}-${Date.now()}`,
-        }));
+        });
+        players.push(player);
     }
     return players;
 }

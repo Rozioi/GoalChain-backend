@@ -3,15 +3,17 @@ import { Position, PlayerRole, PlayerStyle } from "@prisma/client";
 import { generatePlayer } from "../player/player.generator";
 
 export class FootballApiService {
-  private apiKey = process.env.FOOTBALL_API_KEY || "9fcdea0c865d008bbaacd648b9bedd90";
+  private apiKey =
+    process.env.FOOTBALL_API_KEY || "9fcdea0c865d008bbaacd648b9bedd90";
   private baseUrl = "https://v3.football.api-sports.io";
 
-  constructor(private app: FastifyInstance) { }
+  constructor(private app: FastifyInstance) {}
 
-  /**
-   * Fetches players from API-Football for a specific league and page
-   */
-  async fetchPlayersFromApi(leagueId: number, season: number, page: number = 1) {
+  async fetchPlayersFromApi(
+    leagueId: number,
+    season: number,
+    page: number = 1,
+  ) {
     const url = `${this.baseUrl}/players?league=${leagueId}&season=${season}&page=${page}`;
     this.app.log.info(`Requesting API: ${url}`);
 
@@ -35,7 +37,9 @@ export class FootballApiService {
    * Maps and saves external players to the database
    */
   async importPlayersForLeague(leagueId: number, season: number = 2024) {
-    this.app.log.info(`Importing players for league ${leagueId}, season ${season}...`);
+    this.app.log.info(
+      `Importing players for league ${leagueId}, season ${season}...`,
+    );
 
     let currentPage = 1;
     let totalPages = 1;
@@ -43,17 +47,25 @@ export class FootballApiService {
 
     do {
       this.app.log.info(`Fetching page ${currentPage} from API...`);
-      const result = await this.fetchPlayersFromApi(leagueId, season, currentPage);
-      
+      const result = await this.fetchPlayersFromApi(
+        leagueId,
+        season,
+        currentPage,
+      );
+
       if (!result || !result.response || result.response.length === 0) {
-        this.app.log.warn(`API returned no data for league ${leagueId}, season ${season}, page ${currentPage}`);
+        this.app.log.warn(
+          `API returned no data for league ${leagueId}, season ${season}, page ${currentPage}`,
+        );
         this.app.log.debug(`Full API response: ${JSON.stringify(result)}`);
         break;
       }
 
       totalPages = result.paging?.total || 1;
       const playersData = result.response;
-      this.app.log.info(`API returned ${playersData.length} players. Total pages: ${totalPages}`);
+      this.app.log.info(
+        `API returned ${playersData.length} players. Total pages: ${totalPages}`,
+      );
 
       const playersToCreate = playersData.map((item: any) => {
         const p = item.player;
@@ -73,7 +85,9 @@ export class FootballApiService {
         else if (["CM", "CDM", "CAM"].includes(position)) role = "MIDFIELDER";
 
         // Map stats (scale from 0-99)
-        const overallRating = s.games.rating ? Math.round(parseFloat(s.games.rating) * 10) : 70;
+        const overallRating = s.games.rating
+          ? Math.round(parseFloat(s.games.rating) * 10)
+          : 70;
 
         return {
           name: p.firstname,
@@ -111,12 +125,13 @@ export class FootballApiService {
       });
 
       importedCount += playersToCreate.length;
-      this.app.log.info(`Page ${currentPage}/${totalPages} imported (${importedCount} total)`);
+      this.app.log.info(
+        `Page ${currentPage}/${totalPages} imported (${importedCount} total)`,
+      );
       currentPage++;
 
       // Rate limiting: sleep briefly between pages
-      await new Promise(r => setTimeout(r, 1000));
-
+      await new Promise((r) => setTimeout(r, 1000));
     } while (currentPage <= totalPages);
 
     return { leagueId, importedCount };
@@ -136,7 +151,7 @@ export class FootballApiService {
       const playersToCreate = [];
       for (let j = 0; j < batchSize; j++) {
         const generated = generatePlayer({
-          seed: `init-${i}-${j}-${Date.now()}`
+          seed: `init-${i}-${j}-${Date.now()}`,
         });
         playersToCreate.push(generated);
       }
@@ -151,4 +166,3 @@ export class FootballApiService {
     return { success: true, count };
   }
 }
-

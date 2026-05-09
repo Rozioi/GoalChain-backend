@@ -1,9 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import {
-  listPlayerForRent,
-  getAvailableRentals,
-  rentPlayer,
-} from "./rent.service";
+import { rentService } from "./rent.service";
 
 export async function rentController(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
@@ -12,18 +8,17 @@ export async function rentController(app: FastifyInstance) {
     "/rent/list",
     async (
       req: FastifyRequest<{
-        Body: { playerId: string; price: number; currency: "COIN" | "TON" };
+        Body: { playerId: string; price: number };
       }>,
       reply: FastifyReply,
     ) => {
       const userId = (req.user as any).userId;
-      const { playerId, price, currency } = req.body;
-      const player = await listPlayerForRent(
+      const { playerId, price } = req.body;
+      const player = await rentService.listPlayerForRent(
         app,
         userId,
         playerId,
         price,
-        currency,
       );
       return player;
     },
@@ -32,10 +27,17 @@ export async function rentController(app: FastifyInstance) {
   app.get("/rent/available", async (req, reply) => {
     try {
       const userId = (req.user as any).userId;
-      const rentals = await getAvailableRentals(app, userId);
+      const rentals = await app.prisma.player.findMany({
+        where: {
+          isOnRent: true,
+          NOT: { ownerId: userId },
+        },
+        include: { rentContracts: { where: { status: "ACTIVE" } } },
+        orderBy: { overallRating: "desc" },
+      });
       reply.send(rentals);
     } catch (error) {
-      reply.send(error);
+      reply.status(500).send(error);
     }
   });
 
@@ -47,8 +49,37 @@ export async function rentController(app: FastifyInstance) {
     ) => {
       const userId = (req.user as any).userId;
       const { playerId, days } = req.body;
-      const player = await rentPlayer(app, userId, playerId, days);
-      return player;
+      const contract = await rentService.rentPlayer(
+        app,
+        userId,
+        playerId,
+        days || 7,
+      );
+      return contract;
+    },
+  );
+
+  app.post(
+    "/rent/return",
+    async (
+      req: FastifyRequest<{ Body: { playerId: string } }>,
+      reply: FastifyReply,
+    ) => {
+      const userId = (req.user as any).userId;
+      const result = await rentService.returnPlayer(app, userId, req.body.playerId);
+      return result;
+    },
+  );
+
+  app.post(
+    "/rent/recall",
+    async (
+      req: FastifyRequest<{ Body: { playerId: string } }>,
+      reply: FastifyReply,
+    ) => {
+      const userId = (req.user as any).userId;
+      const result = await rentService.recallPlayer(app, userId, req.body.playerId);
+      return result;
     },
   );
 }

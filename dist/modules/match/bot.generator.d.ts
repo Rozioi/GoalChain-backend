@@ -1,22 +1,20 @@
 import { FastifyInstance } from "fastify";
 export declare function generateBotTeam(app: FastifyInstance, targetRating: number): Promise<{
     team: {
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
         rating: number;
         formation: string;
         userId: string;
         isEvent: boolean;
         eventId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     };
     starters: {
         age: number;
-        id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
+        id: string;
         surname: string | null;
         overallRating: number;
         position: import(".prisma/client").$Enums.Position;
@@ -67,6 +65,11 @@ export declare function generateBotTeam(app: FastifyInstance, targetRating: numb
         beardColor: string | null;
         emotion: string | null;
         rarity: string | null;
+        imageUrl: string | null;
         ownerId: string | null;
+        isOnRent: boolean;
+        rentPrice: number | null;
+        createdAt: Date;
+        updatedAt: Date;
     }[];
 }>;

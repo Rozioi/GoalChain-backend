@@ -84,7 +84,7 @@ const matchController = {
       Params: { matchId: string };
       Body: {
         pressingType?: "SOFT" | "MEDIUM" | "INTENSIVE";
-        substitution?: { outId: string; inId: string };
+        substitutions?: { outId: string; inId: string }[];
       };
     }>,
     reply: FastifyReply,

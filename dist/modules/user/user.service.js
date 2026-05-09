@@ -80,7 +80,7 @@ async function registerUser(app, telegramId, username, firstName, lastName, phot
 const rent_service_1 = require("../player/rent.service");
 async function getUserProfile(app, userId) {
     // Background cleanup: sync rentals
-    (0, rent_service_1.checkExpiredRentals)(app).catch(err => app.log.error(err, "Failed to sync rentals"));
+    rent_service_1.rentService.syncExpiredRentals(app).catch(err => app.log.error(err, "Failed to sync rentals"));
     return app.prisma.user.findUnique({
         where: { id: userId },
         include: {

@@ -2,11 +2,11 @@ import { FastifyInstance } from "fastify";
 export declare function playFriendlyMatch(app: FastifyInstance, userId: string): Promise<{
     match: {
         id: string;
-        eventId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        type: import(".prisma/client").$Enums.MatchType;
         status: import(".prisma/client").$Enums.MatchStatus;
+        eventId: string | null;
+        type: import(".prisma/client").$Enums.MatchType;
         seed: string | null;
         homeUserId: string | null;
         awayUserId: string | null;
@@ -80,8 +80,8 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
             description: string;
             team: string;
             id: string;
-            playerId: string | null;
             createdAt: Date;
+            playerId: string | null;
             type: string;
             minute: number;
             matchId: string;
@@ -89,11 +89,11 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
         }[];
     } & {
         id: string;
-        eventId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        type: import(".prisma/client").$Enums.MatchType;
         status: import(".prisma/client").$Enums.MatchStatus;
+        eventId: string | null;
+        type: import(".prisma/client").$Enums.MatchType;
         seed: string | null;
         homeUserId: string | null;
         awayUserId: string | null;
@@ -129,15 +129,46 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
         exp: number;
     };
     isBot: boolean;
+} | {
+    match: {
+        homeScore: number;
+        awayScore: number;
+        id?: string | undefined;
+        createdAt?: Date | undefined;
+        updatedAt?: Date | undefined;
+        status?: import(".prisma/client").$Enums.MatchStatus | undefined;
+        eventId?: string | null | undefined;
+        type?: import(".prisma/client").$Enums.MatchType | undefined;
+        seed?: string | null | undefined;
+        homeUserId?: string | null | undefined;
+        awayUserId?: string | null | undefined;
+        homeTeamId?: string | undefined;
+        awayTeamId?: string | undefined;
+        isBot?: boolean | undefined;
+        overtime?: boolean | undefined;
+        homePressingType?: import(".prisma/client").$Enums.PressingType | undefined;
+        awayPressingType?: import(".prisma/client").$Enums.PressingType | undefined;
+        homeCoins?: number | undefined;
+        awayCoins?: number | undefined;
+        homeExp?: number | undefined;
+        awayExp?: number | undefined;
+        seasonId?: string | null | undefined;
+    };
+    result: import("./match.simulator").MatchResult;
+    rewards: {
+        coins: number;
+        exp: number;
+    };
+    isBot: boolean;
 }>;
 export declare function playBotMatch(app: FastifyInstance, userId: string): Promise<{
     match: {
         id: string;
-        eventId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        type: import(".prisma/client").$Enums.MatchType;
         status: import(".prisma/client").$Enums.MatchStatus;
+        eventId: string | null;
+        type: import(".prisma/client").$Enums.MatchType;
         seed: string | null;
         homeUserId: string | null;
         awayUserId: string | null;
@@ -227,11 +258,11 @@ export declare function acceptMatch(app: FastifyInstance, userId: string, matchI
         } | null;
     } & {
         id: string;
-        eventId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        type: import(".prisma/client").$Enums.MatchType;
         status: import(".prisma/client").$Enums.MatchStatus;
+        eventId: string | null;
+        type: import(".prisma/client").$Enums.MatchType;
         seed: string | null;
         homeUserId: string | null;
         awayUserId: string | null;
@@ -303,33 +334,33 @@ export declare function getMatchById(app: FastifyInstance, matchId: string): Pro
             dailyMatchesResetAt: Date;
         } | null;
         homeTeam: {
-            id: string;
             name: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             rating: number;
             formation: string;
             userId: string;
             isEvent: boolean;
             eventId: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         awayTeam: {
-            id: string;
             name: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             rating: number;
             formation: string;
             userId: string;
             isEvent: boolean;
             eventId: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         events: {
             description: string;
             team: string;
             id: string;
-            playerId: string | null;
             createdAt: Date;
+            playerId: string | null;
             type: string;
             minute: number;
             matchId: string;
@@ -337,11 +368,11 @@ export declare function getMatchById(app: FastifyInstance, matchId: string): Pro
         }[];
     } & {
         id: string;
-        eventId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        type: import(".prisma/client").$Enums.MatchType;
         status: import(".prisma/client").$Enums.MatchStatus;
+        eventId: string | null;
+        type: import(".prisma/client").$Enums.MatchType;
         seed: string | null;
         homeUserId: string | null;
         awayUserId: string | null;
@@ -375,33 +406,33 @@ export declare function getMatchById(app: FastifyInstance, matchId: string): Pro
 } | null>;
 export declare function getMatchHistory(app: FastifyInstance, userId: string, limit?: number): Promise<({
     homeTeam: {
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
         rating: number;
         formation: string;
         userId: string;
         isEvent: boolean;
         eventId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     };
     awayTeam: {
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
         rating: number;
         formation: string;
         userId: string;
         isEvent: boolean;
         eventId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     };
     events: {
         description: string;
         team: string;
         id: string;
-        playerId: string | null;
         createdAt: Date;
+        playerId: string | null;
         type: string;
         minute: number;
         matchId: string;
@@ -409,11 +440,11 @@ export declare function getMatchHistory(app: FastifyInstance, userId: string, li
     }[];
 } & {
     id: string;
-    eventId: string | null;
     createdAt: Date;
     updatedAt: Date;
-    type: import(".prisma/client").$Enums.MatchType;
     status: import(".prisma/client").$Enums.MatchStatus;
+    eventId: string | null;
+    type: import(".prisma/client").$Enums.MatchType;
     seed: string | null;
     homeUserId: string | null;
     awayUserId: string | null;

@@ -7,7 +7,59 @@ import {
   PLAYER_NATIONALITIES,
   PLAYER_CLUBS,
 } from "../../config/constants";
+import { removeBackground } from "@imgly/background-removal-node";
+import fs from "fs";
+import sharp from "sharp";
 
+import path from "path";
+
+async function processPlayerImage(
+  imageUrl: string,
+  fileName: string,
+): Promise<string> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) return imageUrl;
+
+    const arrayBuffer = await response.arrayBuffer();
+    const imageBuffer = Buffer.from(arrayBuffer);
+
+    // 1. Создаем папки
+    const tempDir = "./temp/raw-players/";
+    const publicDir = "./public/generated-players/";
+    [tempDir, publicDir].forEach((dir) => {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    });
+
+    // 2. Сохраняем исходник во временный файл
+    const tempPath = path.resolve(`${tempDir}${fileName}_raw.jpg`);
+    fs.writeFileSync(tempPath, imageBuffer);
+
+    try {
+      console.log(`[ImageGen] Удаление фона из файла: ${tempPath}`);
+
+      // Передаем ПУТЬ к файлу, а не Buffer.
+      // Библиотека сама откроет его через свои внутренние механизмы.
+      const resultBlob = await removeBackground(tempPath);
+
+      const resultBuffer = Buffer.from(await resultBlob.arrayBuffer());
+      const finalPath = `${publicDir}${fileName}.png`;
+
+      fs.writeFileSync(finalPath, resultBuffer);
+
+      // Чистим временный файл
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
+      return `https://lividly-hot-gaur.cloudpub.ru/generated-players/${fileName}.png`;
+    } catch (removeBgError) {
+      console.error("[@imgly] Ошибка нейросети:", removeBgError);
+      return imageUrl;
+    }
+  } catch (error) {
+    console.error("Критическая ошибка:", error);
+    return imageUrl;
+  }
+}
 interface GenerateOptions {
   position?: Position;
   role?: PlayerRole;
@@ -63,6 +115,31 @@ export interface GeneratedPlayer {
   beardColor: string;
   emotion: string;
   rarity: string;
+  imageUrl?: string;
+}
+
+function generateImageUrl(player: Partial<GeneratedPlayer>): string {
+  const prompt = `
+    Professional sports photography,
+    close-up portrait of a football player,
+    ${player.name} ${player.surname},
+    wearing ${player.nationality} national kit,
+    ${player.skinColor} skin,
+    ${player.hairStyle} ${player.hairColor} hair,
+    ${player.beardStyle !== "none" ? player.beardStyle + " beard" : "no beard"},
+    ${player.emotion} expression,
+    isolated on white background,
+    studio lighting,
+    high contrast,
+    8k resolution,
+    EA Sports FC render style,
+    no background
+  `
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Добавили параметры для улучшения качества и фиксации стиля
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=flux`;
 }
 
 const FACES = [
@@ -272,7 +349,9 @@ function mapAppearanceFromNationality(
   };
 }
 
-export function generatePlayer(options: GenerateOptions = {}): GeneratedPlayer {
+export async function generatePlayer(
+  options: GenerateOptions = {},
+): Promise<GeneratedPlayer> {
   const rng = seedrandom(options.seed || Math.random().toString());
 
   // League-based stat scaling
@@ -327,7 +406,7 @@ export function generatePlayer(options: GenerateOptions = {}): GeneratedPlayer {
 
   const { name, surname } = generateName(rng);
 
-  return {
+  const playerData = {
     name,
     surname,
     overallRating,
@@ -363,20 +442,30 @@ export function generatePlayer(options: GenerateOptions = {}): GeneratedPlayer {
     defendingBonus: 0,
     physicalBonus: 0,
   };
+
+  const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
+  const finalImageUrl = await processPlayerImage(
+    generateImageUrl(playerData),
+    fileName,
+  );
+
+  return {
+    ...playerData,
+    imageUrl: finalImageUrl,
+  };
 }
 
-export function generateMultiplePlayers(
+export async function generateMultiplePlayers(
   count: number,
   options: GenerateOptions = {},
-): GeneratedPlayer[] {
+): Promise<GeneratedPlayer[]> {
   const players: GeneratedPlayer[] = [];
   for (let i = 0; i < count; i++) {
-    players.push(
-      generatePlayer({
-        ...options,
-        seed: (options.seed || "gen") + `-${i}-${Date.now()}`,
-      }),
-    );
+    const player = await generatePlayer({
+      ...options,
+      seed: (options.seed || "gen") + `-${i}-${Date.now()}`,
+    });
+    players.push(player);
   }
   return players;
 }

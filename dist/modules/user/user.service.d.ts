@@ -26,17 +26,12 @@ export declare function registerUser(app: FastifyInstance, telegramId: string, u
     isNew: boolean;
 }>;
 export declare function getUserProfile(app: FastifyInstance, userId: string): Promise<({
-    _count: {
-        referralsMade: number;
-    };
     teams: ({
         players: ({
             player: {
                 age: number;
-                id: string;
                 name: string;
-                createdAt: Date;
-                updatedAt: Date;
+                id: string;
                 surname: string | null;
                 overallRating: number;
                 position: import(".prisma/client").$Enums.Position;
@@ -87,26 +82,34 @@ export declare function getUserProfile(app: FastifyInstance, userId: string): Pr
                 beardColor: string | null;
                 emotion: string | null;
                 rarity: string | null;
+                imageUrl: string | null;
                 ownerId: string | null;
+                isOnRent: boolean;
+                rentPrice: number | null;
+                createdAt: Date;
+                updatedAt: Date;
             };
         } & {
             id: string;
-            teamId: string;
             playerId: string;
             isStarter: boolean;
             positionInFormation: string | null;
+            teamId: string;
         })[];
     } & {
-        id: string;
         name: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
         rating: number;
         formation: string;
         userId: string;
         isEvent: boolean;
         eventId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     })[];
+    _count: {
+        referralsMade: number;
+    };
 } & {
     level: number;
     id: string;

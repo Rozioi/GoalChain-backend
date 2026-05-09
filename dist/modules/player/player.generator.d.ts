@@ -53,7 +53,8 @@ export interface GeneratedPlayer {
     beardColor: string;
     emotion: string;
     rarity: string;
+    imageUrl?: string;
 }
-export declare function generatePlayer(options?: GenerateOptions): GeneratedPlayer;
-export declare function generateMultiplePlayers(count: number, options?: GenerateOptions): GeneratedPlayer[];
+export declare function generatePlayer(options?: GenerateOptions): Promise<GeneratedPlayer>;
+export declare function generateMultiplePlayers(count: number, options?: GenerateOptions): Promise<GeneratedPlayer[]>;
 export {};

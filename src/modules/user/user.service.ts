@@ -51,13 +51,13 @@ export async function registerUser(
     return { user, token, isNew: true };
 }
 
-import { checkExpiredRentals } from "../player/rent.service";
+import { rentService } from "../player/rent.service";
 
 export async function getUserProfile(app: FastifyInstance, userId: string) {
     // Background cleanup: sync rentals
-    checkExpiredRentals(app).catch(err => app.log.error(err, "Failed to sync rentals"));
+    rentService.syncExpiredRentals(app).catch(err => app.log.error(err, "Failed to sync rentals"));
     
-    return app.prisma.user.findUnique({
+    const user = await app.prisma.user.findUnique({
         where: { id: userId },
         include: {
             teams: {
@@ -76,6 +76,54 @@ export async function getUserProfile(app: FastifyInstance, userId: string) {
             },
         },
     });
+
+    if (!user) return null;
+
+    // Calculate active rental income
+    const activeContracts = await app.prisma.rentContract.findMany({
+        where: { lessorId: userId, status: "ACTIVE" },
+    });
+
+    let rentIncomeCoins = 0;
+    activeContracts.forEach(contract => {
+        const hours = Math.max(1, (contract.endDate.getTime() - contract.startDate.getTime()) / (1000 * 60 * 60));
+        rentIncomeCoins += Math.floor(contract.price / hours);
+    });
+
+    const rentedOutPlayers = await app.prisma.player.findMany({
+        where: { 
+            ownerId: userId,
+            rentContracts: { some: { status: "ACTIVE" } }
+        },
+        include: { 
+            rentContracts: { 
+                where: { status: "ACTIVE" },
+                orderBy: { startDate: "desc" },
+                take: 1
+            } 
+        }
+    });
+
+    const mappedRentedOut = rentedOutPlayers.map(p => {
+        const contract = p.rentContracts[0];
+        let hourlyIncome = 0;
+        if (contract) {
+            const hours = Math.max(1, (contract.endDate.getTime() - contract.startDate.getTime()) / (1000 * 60 * 60));
+            hourlyIncome = Math.floor(contract.price / hours);
+        }
+        return {
+            ...p,
+            activeContract: contract,
+            hourlyIncome
+        };
+    });
+
+    return {
+        ...user,
+        rentIncomeCoins,
+        rentIncomeGems: 0,
+        rentedOutPlayers: mappedRentedOut,
+    };
 }
 
 export async function applyReferralCode(

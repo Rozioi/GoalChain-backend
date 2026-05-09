@@ -69,38 +69,38 @@ export declare function createSeason(app: FastifyInstance, data: {
     endDate: Date;
     division: number;
 }): Promise<{
-    id: string;
     name: string;
+    id: string;
     createdAt: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
-    division: number;
     startDate: Date;
     endDate: Date;
+    status: import(".prisma/client").$Enums.SeasonStatus;
+    division: number;
 }>;
 export declare function updateSeasonStatus(app: FastifyInstance, seasonId: string, status: "UPCOMING" | "ACTIVE" | "PLAYOFFS" | "COMPLETED"): Promise<{
-    id: string;
     name: string;
+    id: string;
     createdAt: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
-    division: number;
     startDate: Date;
     endDate: Date;
+    status: import(".prisma/client").$Enums.SeasonStatus;
+    division: number;
 }>;
 export declare function listSeasons(app: FastifyInstance): Promise<{
-    id: string;
     name: string;
+    id: string;
     createdAt: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
-    division: number;
     startDate: Date;
     endDate: Date;
+    status: import(".prisma/client").$Enums.SeasonStatus;
+    division: number;
 }[]>;
 export declare function endSeason(app: FastifyInstance, seasonId: string): Promise<{
-    id: string;
     name: string;
+    id: string;
     createdAt: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
-    division: number;
     startDate: Date;
     endDate: Date;
+    status: import(".prisma/client").$Enums.SeasonStatus;
+    division: number;
 }>;

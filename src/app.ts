@@ -1,6 +1,8 @@
 // deep imports
 
 import Fastify from "fastify";
+import path from "path";
+import fastifyStatic from "@fastify/static";
 
 // plugin imports
 import prismaPlugin from "./plugins/prisma.plugin";
@@ -23,11 +25,15 @@ import adminRoutes from "./modules/admin/admin.routes";
 import playerRoutes from "./modules/player/player.routes";
 import pressurePlugin from "./plugins/pressure.plugin";
 import cachingPlugin from "./plugins/caching.plugin";
+import syncPlugin from "./plugins/sync.plugin";
 
 // function buildApp (check documentation)
 
 export function buildApp() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    logger: true,
+    pluginTimeout: 30000,
+  });
 
   // plugin register
   app.register(corsPlugin);
@@ -36,6 +42,7 @@ export function buildApp() {
   app.register(swaggerPlugin);
   app.register(pressurePlugin);
   app.register(cachingPlugin);
+  app.register(syncPlugin);
 
   // route register
   app.register(userRoutes, { prefix: "/api/v1" });
@@ -50,7 +57,10 @@ export function buildApp() {
   app.register(adminTaskRoutes, { prefix: "/api/v1" });
   app.register(adminRoutes, { prefix: "/api/v1" });
   app.register(playerRoutes, { prefix: "/api/v1" });
-
+  app.register(fastifyStatic, {
+    root: path.join(__dirname, "../public"), // путь к твоей папке public
+    prefix: "/", // префикс, который будет в URL
+  });
   // health endoint
   app.get("/api/v1/health", async () => ({
     status: "ok",

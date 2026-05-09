@@ -41,7 +41,6 @@ const matchController = {
     async accept(req, reply) {
         try {
             const result = await (0, match_service_1.acceptMatch)(req.server, req.user.userId, req.params.matchId);
-            console.log("dsadad", req.params.matchId, result);
             reply.send(result);
         }
         catch (err) {

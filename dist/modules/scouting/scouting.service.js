@@ -58,7 +58,7 @@ async function hireScount(app, userId, region, tier = "COMMON", targetRole, ageM
             : []),
     ]);
     // Immediately trigger sync for this user to generate the player
-    await syncScoutStates(app, userId);
+    syncScoutStates(app, userId);
     return scout;
 }
 async function syncScoutStates(app, userId) {
@@ -69,7 +69,7 @@ async function syncScoutStates(app, userId) {
         where: { userId, status: "ACTIVE" },
     });
     const scoutingLevel = user.scoutingLevel || 1;
-    for (const scout of scouts) {
+    await Promise.all(scouts.map(async (scout) => {
         if (new Date() >= scout.endsAt) {
             // Scout completed — generate result
             const tierConfig = constants_1.SCOUTING.TIERS[scout.tier] || constants_1.SCOUTING.TIERS.COMMON;
@@ -79,7 +79,7 @@ async function syncScoutStates(app, userId) {
             const [baseMin, baseMax] = tierConfig.OVR_RANGE;
             const ovrMin = Math.min(95, baseMin + levelBoost);
             const ovrMax = Math.min(99, baseMax + levelBoost);
-            const generated = (0, player_generator_1.generatePlayer)({
+            const generated = await (0, player_generator_1.generatePlayer)({
                 role: scout.targetRole || undefined,
                 ovrMin,
                 ovrMax,
@@ -105,7 +105,7 @@ async function syncScoutStates(app, userId) {
                 data: { status: "COMPLETED" },
             });
         }
-    }
+    }));
 }
 async function getScoutResults(app, userId) {
     await syncScoutStates(app, userId);
@@ -130,18 +130,28 @@ async function collectScoutResult(app, userId, scoutId) {
     });
     if (!team)
         throw new Error("No team found. Complete the draft first.");
-    for (const result of scout.results) {
-        await app.prisma.teamPlayer.create({
-            data: {
-                teamId: team.id,
-                playerId: result.playerId,
-                isStarter: false,
-            },
+    await app.prisma.$transaction(async (tx) => {
+        for (const result of scout.results) {
+            // Avoid unique constraint error if already collected or in case of double-click
+            const exists = await tx.teamPlayer.findUnique({
+                where: {
+                    teamId_playerId: { teamId: team.id, playerId: result.playerId },
+                },
+            });
+            if (!exists) {
+                await tx.teamPlayer.create({
+                    data: {
+                        teamId: team.id,
+                        playerId: result.playerId,
+                        isStarter: false,
+                    },
+                });
+            }
+        }
+        await tx.scout.update({
+            where: { id: scoutId },
+            data: { status: "COLLECTED" },
         });
-    }
-    await app.prisma.scout.update({
-        where: { id: scoutId },
-        data: { status: "COLLECTED" },
     });
     // Scouting growth: +25 EXP per collect
     const EXP_PER_SCOUT = 25;

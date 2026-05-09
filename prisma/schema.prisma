@@ -46,6 +46,8 @@ model User {
   draftSessions  DraftSession[]
   eventDrafts    EventDraft[]
   userTasks      UserTask[]
+  lessorContracts RentContract[] @relation("LessorContracts")
+  renterContracts RentContract[] @relation("RenterContracts")
 }
 
 model Referral {
@@ -159,8 +161,11 @@ model Player {
   beardColor  String? @default("none")
   emotion     String? @default("neutral")
   rarity      String? @default("common")
+  imageUrl    String?
   
   ownerId           String?
+  isOnRent          Boolean @default(false)
+  rentPrice         Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -170,6 +175,7 @@ model Player {
   draftOptions  DraftOption[]
   matchEvents   MatchEvent[]
   rent          PlayerRent?
+  rentContracts RentContract[]
 }
 
 model PlayerRent {
@@ -549,4 +555,29 @@ model Training {
   player Player @relation(fields: [playerId], references: [id])
 
   createdAt DateTime @default(now())
+}
+// ─── RENTALS ──────────────────────────────────────────────────
+enum RentStatus {
+  ACTIVE
+  FINISHED
+}
+
+model RentContract {
+  id          String     @id @default(uuid())
+  playerId    String
+  lessorId    String     // Owner
+  renterId    String     // Renter
+  price       Int
+  startDate   DateTime   @default(now())
+  endDate     DateTime
+  status      RentStatus @default(ACTIVE)
+
+  player      Player     @relation(fields: [playerId], references: [id])
+  lessor      User       @relation("LessorContracts", fields: [lessorId], references: [id])
+  renter      User       @relation("RenterContracts", fields: [renterId], references: [id])
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status, endDate])
 }

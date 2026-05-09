@@ -3,10 +3,8 @@ export declare function getMyTeam(app: FastifyInstance, userId: string): Promise
     starters: ({
         player: {
             age: number;
-            id: string;
             name: string;
-            createdAt: Date;
-            updatedAt: Date;
+            id: string;
             surname: string | null;
             overallRating: number;
             position: import(".prisma/client").$Enums.Position;
@@ -57,22 +55,25 @@ export declare function getMyTeam(app: FastifyInstance, userId: string): Promise
             beardColor: string | null;
             emotion: string | null;
             rarity: string | null;
+            imageUrl: string | null;
             ownerId: string | null;
+            isOnRent: boolean;
+            rentPrice: number | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
-        teamId: string;
         playerId: string;
         isStarter: boolean;
         positionInFormation: string | null;
+        teamId: string;
     })[];
     reserves: ({
         player: {
             age: number;
-            id: string;
             name: string;
-            createdAt: Date;
-            updatedAt: Date;
+            id: string;
             surname: string | null;
             overallRating: number;
             position: import(".prisma/client").$Enums.Position;
@@ -123,23 +124,26 @@ export declare function getMyTeam(app: FastifyInstance, userId: string): Promise
             beardColor: string | null;
             emotion: string | null;
             rarity: string | null;
+            imageUrl: string | null;
             ownerId: string | null;
+            isOnRent: boolean;
+            rentPrice: number | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
-        teamId: string;
         playerId: string;
         isStarter: boolean;
         positionInFormation: string | null;
+        teamId: string;
     })[];
     synergy: import("../player/synergy.engine").SynergyResult;
     players: ({
         player: {
             age: number;
-            id: string;
             name: string;
-            createdAt: Date;
-            updatedAt: Date;
+            id: string;
             surname: string | null;
             overallRating: number;
             position: import(".prisma/client").$Enums.Position;
@@ -190,24 +194,29 @@ export declare function getMyTeam(app: FastifyInstance, userId: string): Promise
             beardColor: string | null;
             emotion: string | null;
             rarity: string | null;
+            imageUrl: string | null;
             ownerId: string | null;
+            isOnRent: boolean;
+            rentPrice: number | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
-        teamId: string;
         playerId: string;
         isStarter: boolean;
         positionInFormation: string | null;
+        teamId: string;
     })[];
-    id: string;
     name: string;
+    id: string;
+    createdAt: Date;
+    updatedAt: Date;
     rating: number;
     formation: string;
     userId: string;
     isEvent: boolean;
     eventId: string | null;
-    createdAt: Date;
-    updatedAt: Date;
 }>;
 export declare function updateLineup(app: FastifyInstance, userId: string, starterIds: string[], formation?: string): Promise<{
     success: boolean;

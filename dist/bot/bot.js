@@ -16,7 +16,7 @@ const startBot = () => {
                     [
                         {
                             text: "Open Web App",
-                            web_app: { url: "https://your-mini-app-url.vercel.app/" }, // Replace with actual URL
+                            web_app: { url: "https://soundly-primary-protozoa.cloudpub.ru/" },
                         },
                     ],
                 ],

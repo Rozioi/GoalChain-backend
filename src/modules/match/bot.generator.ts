@@ -9,25 +9,25 @@ export async function generateBotTeam(
   const ovrMin = Math.max(40, Math.round(targetRating - 10));
   const ovrMax = Math.min(95, Math.round(targetRating + 5));
 
-  const gk = generateMultiplePlayers(1, {
+  const gk = await generateMultiplePlayers(1, {
     role: "GOALKEEPER" as PlayerRole,
     ovrMin,
     ovrMax,
     seed: `bot-gk-${Date.now()}`,
   });
-  const def = generateMultiplePlayers(4, {
+  const def = await generateMultiplePlayers(4, {
     role: "DEFENDER" as PlayerRole,
     ovrMin,
     ovrMax,
     seed: `bot-def-${Date.now()}`,
   });
-  const mid = generateMultiplePlayers(4, {
+  const mid = await generateMultiplePlayers(4, {
     role: "MIDFIELDER" as PlayerRole,
     ovrMin,
     ovrMax,
     seed: `bot-mid-${Date.now()}`,
   });
-  const fwd = generateMultiplePlayers(2, {
+  const fwd = await generateMultiplePlayers(2, {
     role: "FORWARD" as PlayerRole,
     ovrMin,
     ovrMax,

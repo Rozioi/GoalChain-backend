@@ -81,11 +81,8 @@ async function playFriendlyMatch(app, userId) {
             createdAt: { gte: new Date(Date.now() - 30000) },
         },
     });
-    if (myExistingLobby) {
-        console.log(`Matchmaking: User ${userId} already has an active lobby ${myExistingLobby.id}. Reusing.`);
-        // Re-run the wait loop for this existing lobby
-        return waitForOpponent(app, userId, myExistingLobby);
-    }
+    // Re-run the wait loop for this existing lobby
+    return waitForOpponent(app, userId, myExistingLobby);
     // 1. Try to find an existing pending lobby from OTHER users
     const existingLobby = await app.prisma.match.findFirst({
         where: {
@@ -97,7 +94,6 @@ async function playFriendlyMatch(app, userId) {
         orderBy: { createdAt: "asc" },
     });
     if (existingLobby) {
-        console.log(`Matchmaking: User ${userId} joining existing lobby ${existingLobby.id}`);
         // We are the AWAY player joining an existing lobby
         const seed = (0, crypto_1.randomUUID)();
         const homeTeamData = await getTeamForMatch(app, existingLobby.homeTeamId);
@@ -144,7 +140,6 @@ async function playFriendlyMatch(app, userId) {
     }
     else {
         // 2. No lobby found — create our own
-        console.log(`Matchmaking: User ${userId} creating new lobby`);
         // Find or create a bot team placeholder
         const botUser = await app.prisma.user.upsert({
             where: { telegramId: "bot-system" },
@@ -222,7 +217,6 @@ async function waitForOpponent(app, userId, lobby) {
         }
     }
     // 3. Timeout — play against bot
-    console.log(`Matchmaking: User ${userId} lobby ${lobby.id} timed out. Falling back to bot.`);
     // Verify match hasn't been completed at the very last second
     const finalCheck = await app.prisma.match.findUnique({
         where: { id: lobby.id },

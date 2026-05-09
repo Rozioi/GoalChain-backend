@@ -2,9 +2,9 @@ import { FastifyInstance } from "fastify";
 import { PlayerRole } from "@prisma/client";
 export declare function hireScount(app: FastifyInstance, userId: string, region: string, tier?: "COMMON" | "PRO" | "MASTER", targetRole?: PlayerRole, ageMin?: number, ageMax?: number): Promise<{
     id: string;
-    userId: string;
     createdAt: Date;
     status: import(".prisma/client").$Enums.ScoutStatus;
+    userId: string;
     region: string;
     ageMin: number;
     ageMax: number;
@@ -19,10 +19,8 @@ export declare function getScoutResults(app: FastifyInstance, userId: string): P
     results: ({
         player: {
             age: number;
-            id: string;
             name: string;
-            createdAt: Date;
-            updatedAt: Date;
+            id: string;
             surname: string | null;
             overallRating: number;
             position: import(".prisma/client").$Enums.Position;
@@ -73,20 +71,25 @@ export declare function getScoutResults(app: FastifyInstance, userId: string): P
             beardColor: string | null;
             emotion: string | null;
             rarity: string | null;
+            imageUrl: string | null;
             ownerId: string | null;
+            isOnRent: boolean;
+            rentPrice: number | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
-        playerId: string;
-        createdAt: Date;
         isNft: boolean;
+        createdAt: Date;
+        playerId: string;
         scoutId: string;
     })[];
 } & {
     id: string;
-    userId: string;
     createdAt: Date;
     status: import(".prisma/client").$Enums.ScoutStatus;
+    userId: string;
     region: string;
     ageMin: number;
     ageMax: number;

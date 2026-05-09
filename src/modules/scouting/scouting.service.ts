@@ -74,7 +74,7 @@ export async function hireScount(
   ]);
 
   // Immediately trigger sync for this user to generate the player
-  await syncScoutStates(app, userId);
+  syncScoutStates(app, userId);
 
   return scout;
 }
@@ -89,52 +89,55 @@ export async function syncScoutStates(app: FastifyInstance, userId: string) {
 
   const scoutingLevel = user.scoutingLevel || 1;
 
-  for (const scout of scouts) {
-    if (new Date() >= scout.endsAt) {
-      // Scout completed — generate result
-      const tierConfig = (SCOUTING.TIERS as any)[scout.tier] || SCOUTING.TIERS.COMMON;
-      
-      const isNft = Math.random() < tierConfig.NFT_CHANCE;
+  await Promise.all(
+    scouts.map(async (scout) => {
+      if (new Date() >= scout.endsAt) {
+        // Scout completed — generate result
+        const tierConfig =
+          (SCOUTING.TIERS as any)[scout.tier] || SCOUTING.TIERS.COMMON;
 
-      // Level-based OVR boost (less aggressive now)
-      const levelBoost = Math.floor((scoutingLevel - 1) / 2);
-      
-      const [baseMin, baseMax] = tierConfig.OVR_RANGE;
-      const ovrMin = Math.min(95, baseMin + levelBoost);
-      const ovrMax = Math.min(99, baseMax + levelBoost);
+        const isNft = Math.random() < tierConfig.NFT_CHANCE;
 
-      const generated = generatePlayer({
-        role: (scout.targetRole as PlayerRole) || undefined,
-        ovrMin,
-        ovrMax,
-        seed: `scout-${scout.id}`,
-      });
+        // Level-based OVR boost (less aggressive now)
+        const levelBoost = Math.floor((scoutingLevel - 1) / 2);
 
-      const player = await app.prisma.player.create({
-        data: {
-          ...generated,
-          isNft,
-          ownerId: scout.userId,
-          age: Math.floor(
-            Math.random() * (scout.ageMax - scout.ageMin + 1) + scout.ageMin,
-          ),
-        },
-      });
+        const [baseMin, baseMax] = tierConfig.OVR_RANGE;
+        const ovrMin = Math.min(95, baseMin + levelBoost);
+        const ovrMax = Math.min(99, baseMax + levelBoost);
 
-      await app.prisma.scoutResult.create({
-        data: {
-          scoutId: scout.id,
-          playerId: player.id,
-          isNft,
-        },
-      });
+        const generated = await generatePlayer({
+          role: (scout.targetRole as PlayerRole) || undefined,
+          ovrMin,
+          ovrMax,
+          seed: `scout-${scout.id}`,
+        });
 
-      await app.prisma.scout.update({
-        where: { id: scout.id },
-        data: { status: "COMPLETED" },
-      });
-    }
-  }
+        const player = await app.prisma.player.create({
+          data: {
+            ...generated,
+            isNft,
+            ownerId: scout.userId,
+            age: Math.floor(
+              Math.random() * (scout.ageMax - scout.ageMin + 1) + scout.ageMin,
+            ),
+          },
+        });
+
+        await app.prisma.scoutResult.create({
+          data: {
+            scoutId: scout.id,
+            playerId: player.id,
+            isNft,
+          },
+        });
+
+        await app.prisma.scout.update({
+          where: { id: scout.id },
+          data: { status: "COMPLETED" },
+        });
+      }
+    }),
+  );
 }
 
 export async function getScoutResults(app: FastifyInstance, userId: string) {
@@ -167,19 +170,30 @@ export async function collectScoutResult(
 
   if (!team) throw new Error("No team found. Complete the draft first.");
 
-  for (const result of scout.results) {
-    await app.prisma.teamPlayer.create({
-      data: {
-        teamId: team.id,
-        playerId: result.playerId,
-        isStarter: false,
-      },
-    });
-  }
+  await app.prisma.$transaction(async (tx) => {
+    for (const result of scout.results) {
+      // Avoid unique constraint error if already collected or in case of double-click
+      const exists = await tx.teamPlayer.findUnique({
+        where: {
+          teamId_playerId: { teamId: team.id, playerId: result.playerId },
+        },
+      });
 
-  await app.prisma.scout.update({
-    where: { id: scoutId },
-    data: { status: "COLLECTED" },
+      if (!exists) {
+        await tx.teamPlayer.create({
+          data: {
+            teamId: team.id,
+            playerId: result.playerId,
+            isStarter: false,
+          },
+        });
+      }
+    }
+
+    await tx.scout.update({
+      where: { id: scoutId },
+      data: { status: "COLLECTED" },
+    });
   });
 
   // Scouting growth: +25 EXP per collect

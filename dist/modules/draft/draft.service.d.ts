@@ -2,11 +2,11 @@ import { FastifyInstance } from "fastify";
 import { PlayerRole, DraftStep } from "@prisma/client";
 export declare function startDraft(app: FastifyInstance, userId: string): Promise<{
     id: string;
-    teamId: string | null;
-    userId: string;
     createdAt: Date;
     updatedAt: Date;
     status: import(".prisma/client").$Enums.DraftStatus;
+    userId: string;
+    teamId: string | null;
     step: import(".prisma/client").$Enums.DraftStep;
 }>;
 export declare function getDraftOptions(app: FastifyInstance, userId: string, step: string): Promise<{
@@ -14,10 +14,8 @@ export declare function getDraftOptions(app: FastifyInstance, userId: string, st
         options: ({
             player: {
                 age: number;
-                id: string;
                 name: string;
-                createdAt: Date;
-                updatedAt: Date;
+                id: string;
                 surname: string | null;
                 overallRating: number;
                 position: import(".prisma/client").$Enums.Position;
@@ -68,7 +66,12 @@ export declare function getDraftOptions(app: FastifyInstance, userId: string, st
                 beardColor: string | null;
                 emotion: string | null;
                 rarity: string | null;
+                imageUrl: string | null;
                 ownerId: string | null;
+                isOnRent: boolean;
+                rentPrice: number | null;
+                createdAt: Date;
+                updatedAt: Date;
             };
         } & {
             id: string;
@@ -79,11 +82,11 @@ export declare function getDraftOptions(app: FastifyInstance, userId: string, st
         })[];
     } & {
         id: string;
-        teamId: string | null;
-        userId: string;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.DraftStatus;
+        userId: string;
+        teamId: string | null;
         step: import(".prisma/client").$Enums.DraftStep;
     };
     options: any[];

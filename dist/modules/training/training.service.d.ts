@@ -2,10 +2,10 @@ import { FastifyInstance } from "fastify";
 export declare function startTraining(app: FastifyInstance, userId: string, playerId: string, stat: string): Promise<{
     training: {
         id: string;
-        playerId: string;
-        userId: string;
         createdAt: Date;
         status: import(".prisma/client").$Enums.TrainingStatus;
+        playerId: string;
+        userId: string;
         endsAt: Date;
         cost: number;
         stat: string;

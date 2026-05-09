@@ -6,6 +6,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildApp = buildApp;
 const fastify_1 = __importDefault(require("fastify"));
+const path_1 = __importDefault(require("path"));
+const static_1 = __importDefault(require("@fastify/static"));
 // plugin imports
 const prisma_plugin_1 = __importDefault(require("./plugins/prisma.plugin"));
 const cors_plugin_1 = __importDefault(require("./plugins/cors.plugin"));
@@ -26,9 +28,13 @@ const admin_routes_1 = __importDefault(require("./modules/admin/admin.routes"));
 const player_routes_1 = __importDefault(require("./modules/player/player.routes"));
 const pressure_plugin_1 = __importDefault(require("./plugins/pressure.plugin"));
 const caching_plugin_1 = __importDefault(require("./plugins/caching.plugin"));
+const sync_plugin_1 = __importDefault(require("./plugins/sync.plugin"));
 // function buildApp (check documentation)
 function buildApp() {
-    const app = (0, fastify_1.default)({ logger: true });
+    const app = (0, fastify_1.default)({
+        logger: true,
+        pluginTimeout: 30000,
+    });
     // plugin register
     app.register(cors_plugin_1.default);
     app.register(prisma_plugin_1.default);
@@ -36,6 +42,7 @@ function buildApp() {
     app.register(swagger_1.default);
     app.register(pressure_plugin_1.default);
     app.register(caching_plugin_1.default);
+    app.register(sync_plugin_1.default);
     // route register
     app.register(user_routes_1.default, { prefix: "/api/v1" });
     app.register(draft_routes_1.default, { prefix: "/api/v1" });
@@ -49,6 +56,10 @@ function buildApp() {
     app.register(admin_task_routes_1.default, { prefix: "/api/v1" });
     app.register(admin_routes_1.default, { prefix: "/api/v1" });
     app.register(player_routes_1.default, { prefix: "/api/v1" });
+    app.register(static_1.default, {
+        root: path_1.default.join(__dirname, "../public"), // путь к твоей папке public
+        prefix: "/", // префикс, который будет в URL
+    });
     // health endoint
     app.get("/api/v1/health", async () => ({
         status: "ok",
