@@ -124,7 +124,6 @@ export function simulateMatch(
   const homeBench = [...home.bench];
   const awayBench = [...away.bench];
 
-  // Initialize fatigue and form if not present
   homeActive.forEach((p) => {
     p.fatigue = p.fatigue ?? 0;
     p.formValue = p.formValue ?? 1.0;
@@ -229,9 +228,8 @@ export function simulateMatch(
         const outPlayer = active[playerIdx];
         const inPlayer = bench.splice(benchIdx, 1)[0];
 
-        // Adjust fatigue and form values for substituted player
-        inPlayer.fatigue = 0; // Fresh sub
-        inPlayer.formValue = Math.min(1.2, (inPlayer.formValue || 1.0) + 0.1); // Motivation boost
+        inPlayer.fatigue = 0;
+        inPlayer.formValue = Math.min(1.2, (inPlayer.formValue || 1.0) + 0.1);
 
         active[playerIdx] = inPlayer;
 

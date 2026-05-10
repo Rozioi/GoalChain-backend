@@ -103,6 +103,11 @@ export const REFERRAL = {
   INVITEE_REWARD: 300,
 };
 
+// ─── RENT ───────────────────────────────────────────────────────
+export const RENT = {
+  COMMISSION_RATE: 0.1, // 10% platform fee
+};
+
 // ─── PLAYER NAMES ───────────────────────────────────────────────
 export const PLAYER_FIRST_NAMES = [
   "Ivan",

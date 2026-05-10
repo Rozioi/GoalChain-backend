@@ -100,6 +100,8 @@ export async function getDraftOptions(
     seed: `draft-${session.id}-${stepUpper}`,
   });
 
+  // Potential error
+
   const options = [];
   for (const gp of generatedPlayers) {
     const player = await app.prisma.player.create({
@@ -200,7 +202,6 @@ export async function completeDraft(app: FastifyInstance, userId: string) {
     throw new Error(`Need 11 starters, have ${starters.length}`);
   }
 
-  // Generate reserve players
   const reserveConfig = [
     { role: "GOALKEEPER" as PlayerRole, count: DRAFT.RESERVE_GK },
     { role: "DEFENDER" as PlayerRole, count: DRAFT.RESERVE_DEF },

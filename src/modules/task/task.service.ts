@@ -25,7 +25,6 @@ export async function getTasksForUser(app: FastifyInstance, userId: string) {
   for (const task of tasks) {
     let userTask = task.userTasks[0] ?? null;
 
-    // Daily Reset Logic
     if (
       userTask &&
       task.type === "DAILY" &&
@@ -46,6 +45,7 @@ export async function getTasksForUser(app: FastifyInstance, userId: string) {
       reward: task.reward,
       goal: task.goal,
       icon: task.icon,
+      link: task.link,
       progress: userTask?.progress ?? 0,
       claimed: userTask?.claimed ?? false,
       claimedAt: userTask?.claimedAt ?? null,
@@ -71,7 +71,6 @@ export async function claimTask(
   if (userTask.claimed) throw new Error("Reward already claimed");
   if (userTask.progress < task.goal) throw new Error("Task not completed yet");
 
-  // Award coins and mark as claimed
   await app.prisma.$transaction([
     app.prisma.userTask.update({
       where: { userId_taskId: { userId, taskId } },
@@ -80,6 +79,14 @@ export async function claimTask(
     app.prisma.user.update({
       where: { id: userId },
       data: { coins: { increment: task.reward } },
+    }),
+    app.prisma.economyLog.create({
+      data: {
+        userId,
+        amount: task.reward,
+        source: "TASK_REWARD",
+        details: { taskId },
+      },
     }),
   ]);
 
@@ -94,7 +101,6 @@ export async function updateTaskProgress(
 ) {
   const now = new Date();
 
-  // Find all active tasks with this objective
   const activeTasks = await app.prisma.task.findMany({
     where: { objective, isActive: true },
   });
@@ -136,7 +142,6 @@ export async function updateTaskProgress(
     await app.prisma.$transaction(updates);
   }
 }
-// ----------- ADMIN METHODS -----------
 
 export async function createTask(
   app: FastifyInstance,
@@ -148,6 +153,7 @@ export async function createTask(
     reward: number;
     goal: number;
     icon?: string;
+    link?: string;
   },
 ) {
   return app.prisma.task.create({ data });
@@ -164,6 +170,7 @@ export async function updateTask(
     reward: number;
     goal: number;
     icon: string;
+    link: string;
     isActive: boolean;
   }>,
 ) {
@@ -171,7 +178,6 @@ export async function updateTask(
 }
 
 export async function deleteTask(app: FastifyInstance, taskId: string) {
-  // Delete related userTasks first due to FK
   await app.prisma.userTask.deleteMany({ where: { taskId } });
   return app.prisma.task.delete({ where: { id: taskId } });
 }

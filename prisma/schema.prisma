@@ -48,6 +48,7 @@ model User {
   userTasks      UserTask[]
   lessorContracts RentContract[] @relation("LessorContracts")
   renterContracts RentContract[] @relation("RenterContracts")
+  economyLogs     EconomyLog[]
 }
 
 model Referral {
@@ -504,6 +505,8 @@ enum TaskObjective {
   MATCHES
   CLEAN_SHEETS
   REFERRALS
+  SOCIAL_JOIN
+  EXTERNAL_LINK
 }
 
 model Task {
@@ -515,6 +518,7 @@ model Task {
   reward      Int       // coins reward for completion
   goal        Int       // target progress value
   icon        String?   // optional icon key
+  link        String?   // URL for external tasks or social joins
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   userTasks   UserTask[]
@@ -582,4 +586,32 @@ model RentContract {
   updatedAt   DateTime   @updatedAt
 
   @@index([status, endDate])
+}
+
+// ─── ECONOMY ANALYTICS ──────────────────────────────────────────
+
+enum EconomySource {
+  RENTAL_FEE
+  MATCH_REWARD
+  TASK_REWARD
+  SCOUTING_COST
+  TRAINING_COST
+  REFERRAL_REWARD
+  ADMIN_ADJUSTMENT
+}
+
+model EconomyLog {
+  id        String        @id @default(uuid())
+  userId    String
+  amount    Int           // Positive for income, negative for expense
+  currency  String        @default("COIN")
+  source    EconomySource
+  details   Json?         // E.g., { matchId: "..." } or { playerId: "..." }
+  
+  user      User          @relation(fields: [userId], references: [id])
+
+  createdAt DateTime      @default(now())
+  
+  @@index([userId, createdAt])
+  @@index([source, createdAt])
 }

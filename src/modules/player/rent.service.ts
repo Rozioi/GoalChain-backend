@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { RentStatus } from "@prisma/client";
+import { RENT } from "../../config/constants";
 
 export const rentService = {
   async listPlayerForRent(
@@ -58,6 +59,9 @@ export const rentService = {
     if (!owner) throw new Error("Owner not found");
     if (renter.coins < player.rentPrice) throw new Error("Insufficient funds");
 
+    const commission = Math.floor(player.rentPrice * RENT.COMMISSION_RATE);
+    const ownerGain = player.rentPrice - commission;
+
     const startDate = new Date();
     const endDate = new Date(
       startDate.getTime() + durationDays * 24 * 60 * 60 * 1000,
@@ -69,9 +73,27 @@ export const rentService = {
         data: { coins: { decrement: player.rentPrice! } },
       });
 
+      await tx.economyLog.create({
+        data: {
+          userId: renterId,
+          amount: -player.rentPrice!,
+          source: "RENTAL_FEE",
+          details: { playerId, role: "renter" },
+        },
+      });
+
       await tx.user.update({
         where: { id: player.ownerId! },
-        data: { coins: { increment: player.rentPrice! } },
+        data: { coins: { increment: ownerGain } },
+      });
+
+      await tx.economyLog.create({
+        data: {
+          userId: player.ownerId!,
+          amount: ownerGain,
+          source: "RENTAL_FEE",
+          details: { playerId, role: "owner", commission },
+        },
       });
 
       const contract = await tx.rentContract.create({

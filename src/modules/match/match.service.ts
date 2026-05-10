@@ -44,7 +44,6 @@ async function getTeamForMatch(app: FastifyInstance, teamId: string) {
   };
 }
 export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
-  // Check daily limit
   const user = await app.prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("User not found");
 
@@ -61,14 +60,11 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
     );
   }
 
-  // Get user's team
   const myTeam = await app.prisma.team.findFirst({
     where: { userId, isEvent: false },
   });
   if (!myTeam) throw new Error("No team found. Complete the draft first.");
 
-  // Logic: Lobbies via PENDING matches
-  // 0. Check if we already HAVE an active pending lobby to prevent double-matchmaking
   const myExistingLobby = await app.prisma.match.findFirst({
     where: {
       type: "FRIENDLY",
@@ -79,11 +75,9 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
   });
 
   if (myExistingLobby) {
-    // Re-run the wait loop for this existing lobby
     return waitForOpponent(app, userId, myExistingLobby);
   }
 
-  // 1. Try to find an existing pending lobby from OTHER users
   const existingLobby = await app.prisma.match.findFirst({
     where: {
       type: "FRIENDLY",
@@ -95,14 +89,11 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
   });
 
   if (existingLobby) {
-
-    // We are the AWAY player joining an existing lobby
     const seed = randomUUID();
     const homeTeamData = await getTeamForMatch(app, existingLobby.homeTeamId);
     const awayTeamData = await getTeamForMatch(app, myTeam.id);
     const result = simulateMatch(homeTeamData, awayTeamData, seed);
 
-    // Update existingLobby locally and in DB so home user looping picks it up
     existingLobby.awayUserId = userId;
     existingLobby.awayTeamId = myTeam.id;
     await app.prisma.match.update({
@@ -110,17 +101,14 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
       data: { awayUserId: userId, awayTeamId: myTeam.id },
     });
 
-    // Calculate rewards for AWAY (us) based on our daily limit
     const awayMatchNumber = user.dailyMatchesPlayed + 1;
     const awayDiminish = Math.pow(
       MATCH.REWARDS.DIMINISHING_FACTOR,
       awayMatchNumber - 1,
     );
 
-    // 1. Update match record and award rewards via helper
     await handleMatchCompletion(app, existingLobby, result, seed);
 
-    // 2. Update daily match counts
     await app.prisma.user.updateMany({
       where: { id: { in: [existingLobby.homeUserId!, userId] } },
       data: { dailyMatchesPlayed: { increment: 1 } },
@@ -150,9 +138,6 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
       isBot: false,
     };
   } else {
-    // 2. No lobby found — create our own
-
-    // Find or create a bot team placeholder
     const botUser = await app.prisma.user.upsert({
       where: { telegramId: "bot-system" },
       update: {},
@@ -197,7 +182,8 @@ async function waitForOpponent(
   userId: string,
   lobby: any,
 ) {
-  if (!lobby || !lobby.id) throw new Error("Invalid lobby provided to waitForOpponent");
+  if (!lobby || !lobby.id)
+    throw new Error("Invalid lobby provided to waitForOpponent");
   const waitStart = Date.now();
   const timeout = 12000; // Wait up to 12 seconds
 
@@ -234,7 +220,7 @@ async function waitForOpponent(
             if (type === "yellow_card") type = "yellowCard";
             if (type === "red_card") type = "redCard";
             if (type === "tactic_change") type = "tacticChange";
-            
+
             return {
               minute: e.minute,
               type,
@@ -253,9 +239,6 @@ async function waitForOpponent(
     }
   }
 
-  // 3. Timeout — play against bot
-
-  // Verify match hasn't been completed at the very last second
   const finalCheck = await app.prisma.match.findUnique({
     where: { id: lobby.id },
   });
@@ -361,7 +344,6 @@ export async function updateMatchTactics(
 
   const team = isHome ? "home" : "away";
 
-  // Determine current minute based on existing events
   const lastEvent =
     match.events.length > 0
       ? match.events.reduce(
@@ -371,7 +353,6 @@ export async function updateMatchTactics(
       : null;
   const currentMinute = lastEvent ? Math.min(lastEvent.minute + 1, 90) : 1;
 
-  // Record tactical change event
   const tacticEvent = await app.prisma.matchEvent.create({
     data: {
       matchId,
@@ -386,7 +367,6 @@ export async function updateMatchTactics(
     },
   });
 
-  // Update match record if pressing type changed
   if (tactics.pressingType) {
     await app.prisma.match.update({
       where: { id: matchId },
@@ -396,7 +376,6 @@ export async function updateMatchTactics(
     });
   }
 
-  // Gather all PREVIOUS tactical changes and substitutions from event history
   const allEvents = [...match.events, tacticEvent];
   const pressingChanges: any[] = [];
   const manualSubstitutions: any[] = [];
@@ -422,7 +401,6 @@ export async function updateMatchTactics(
       // For now we assume the current call adds the newest batch
     }
 
-    // Lock all "non-tactical" events that already happened
     if (
       e.minute < currentMinute &&
       !["TACTIC_CHANGE", "SUBSTITUTION"].includes(e.type)
@@ -449,11 +427,9 @@ export async function updateMatchTactics(
     }
   }
 
-  // RE-SIMULATE: Fetch updated data and re-run simulation from seed
   const homeTeamData = await getTeamForMatch(app, match.homeTeamId);
   const awayTeamData = await getTeamForMatch(app, match.awayTeamId);
 
-  // Sync pressing types from match record (which was just updated)
   homeTeamData.pressingType = match.homePressingType;
   awayTeamData.pressingType = match.awayPressingType;
 
@@ -464,12 +440,11 @@ export async function updateMatchTactics(
     skipUntilMinute: currentMinute,
   });
 
-  // Update match result and events (REPLACE future events)
   await app.prisma.matchEvent.deleteMany({
     where: {
       matchId,
       minute: { gte: currentMinute },
-      id: { not: tacticEvent.id }, // Keep the trigger event
+      id: { not: tacticEvent.id },
     },
   });
 
@@ -512,7 +487,6 @@ export async function inviteFriend(
   });
   if (!myTeam) throw new Error("No team found");
 
-  // Find friend
   const friend = await app.prisma.user.findUnique({
     where: { telegramId: friendTelegramId },
   });
@@ -523,7 +497,6 @@ export async function inviteFriend(
   });
   if (!friendTeam) throw new Error("Friend has no team");
 
-  // Create pending match
   const match = await app.prisma.match.create({
     data: {
       type: "CHALLENGE",
@@ -550,8 +523,6 @@ export async function createOpenChallenge(
   });
   if (!myTeam) throw new Error("No team found");
 
-  // Create pending match without an away user
-  // Using bot team as a temporary placeholder for awayTeamId because it's required
   const botUser = await app.prisma.user.upsert({
     where: { telegramId: "bot-system" },
     update: {},
@@ -599,7 +570,6 @@ async function handleMatchCompletion(
   result: any,
   seed: string,
 ) {
-  // 1. Update match record
   await app.prisma.match.update({
     where: { id: match.id },
     data: {
@@ -628,7 +598,6 @@ async function handleMatchCompletion(
     },
   });
 
-  // 2. Award coins & reputation (if not already awarded)
   const homeId = match.homeUserId;
   const awayId = match.awayUserId;
 
@@ -646,7 +615,6 @@ async function handleMatchCompletion(
     const points =
       result.winner === role ? 25 : result.winner === "draw" ? 10 : -15;
 
-    // Get current user to check level
     const user = await app.prisma.user.findUnique({ where: { id: uid } });
     if (!user) return;
 
@@ -654,7 +622,6 @@ async function handleMatchCompletion(
     let newLevel = (user as any).level;
     const newPoints = Math.max(0, (user as any).points + points);
 
-    // Level formula: level * 500
     while (newExp >= newLevel * 500) {
       newExp -= newLevel * 500;
       newLevel += 1;
@@ -670,7 +637,17 @@ async function handleMatchCompletion(
       } as any,
     });
 
-    // 3. Update Tasks
+    if (coins > 0) {
+      await app.prisma.economyLog.create({
+        data: {
+          userId: uid,
+          amount: coins,
+          source: "MATCH_REWARD",
+          details: { matchId: match.id, role, result: result.winner },
+        },
+      });
+    }
+
     await updateTaskProgress(app, uid, "MATCHES", 1);
 
     if (result.winner === role) {
@@ -717,7 +694,6 @@ export async function acceptMatch(
   if (match.status !== "PENDING")
     throw new Error("This match has already started or been completed");
 
-  // If match has a specific inviteee, verify it.
   if (match.awayUserId && match.awayUserId !== userId) {
     throw new Error("This invitation is intended for another player");
   }
@@ -727,7 +703,6 @@ export async function acceptMatch(
   });
   if (!myTeam) throw new Error("No team found. Complete the draft first.");
 
-  // For open challenges, we update the match record with the actual joiner's team
   if (!match.awayUserId || match.awayTeamId !== myTeam.id) {
     await app.prisma.match.update({
       where: { id: matchId },
@@ -790,7 +765,6 @@ export async function getMatchById(app: FastifyInstance, matchId: string) {
 
   if (!match) return null;
 
-  // If match is completed, reconstruct the "result" object for simulation replay
   let result = null;
   if (match.status === "COMPLETED") {
     result = {

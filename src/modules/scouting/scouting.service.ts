@@ -69,11 +69,18 @@ export async function hireScount(
             where: { id: userId },
             data: { coins: { decrement: tierConfig.COST } },
           }),
+          app.prisma.economyLog.create({
+            data: {
+              userId,
+              amount: -tierConfig.COST,
+              source: "SCOUTING_COST",
+              details: { tier, region },
+            },
+          }),
         ]
       : []),
   ]);
 
-  // Immediately trigger sync for this user to generate the player
   syncScoutStates(app, userId);
 
   return scout;
@@ -92,13 +99,11 @@ export async function syncScoutStates(app: FastifyInstance, userId: string) {
   await Promise.all(
     scouts.map(async (scout) => {
       if (new Date() >= scout.endsAt) {
-        // Scout completed — generate result
         const tierConfig =
           (SCOUTING.TIERS as any)[scout.tier] || SCOUTING.TIERS.COMMON;
 
         const isNft = Math.random() < tierConfig.NFT_CHANCE;
 
-        // Level-based OVR boost (less aggressive now)
         const levelBoost = Math.floor((scoutingLevel - 1) / 2);
 
         const [baseMin, baseMax] = tierConfig.OVR_RANGE;
@@ -163,7 +168,6 @@ export async function collectScoutResult(
   if (!scout) throw new Error("Scout not found or not completed");
   if (scout.results.length === 0) throw new Error("No results to collect");
 
-  // Add player to team
   const team = await app.prisma.team.findFirst({
     where: { userId, isEvent: false },
   });
@@ -172,7 +176,6 @@ export async function collectScoutResult(
 
   await app.prisma.$transaction(async (tx) => {
     for (const result of scout.results) {
-      // Avoid unique constraint error if already collected or in case of double-click
       const exists = await tx.teamPlayer.findUnique({
         where: {
           teamId_playerId: { teamId: team.id, playerId: result.playerId },
@@ -196,7 +199,6 @@ export async function collectScoutResult(
     });
   });
 
-  // Scouting growth: +25 EXP per collect
   const EXP_PER_SCOUT = 25;
   const EXP_FOR_LEVEL = 100;
 

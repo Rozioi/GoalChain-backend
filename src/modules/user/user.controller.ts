@@ -39,7 +39,6 @@ export const userController = {
 
   async me(req: FastifyRequest, reply: FastifyReply) {
     try {
-      // sync scouting states on every profile request for live updates
       await syncScoutStates(req.server, req.user.userId);
 
       const user = await getUserProfile(req.server, req.user.userId);

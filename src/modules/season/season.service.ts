@@ -77,7 +77,6 @@ export async function registerForSeason(app: FastifyInstance, userId: string) {
 
   if (!team) throw new Error("No team. Complete draft first.");
 
-  // Check if already registered
   const existing = await app.prisma.seasonStanding.findUnique({
     where: { seasonId_teamId: { seasonId: season.id, teamId: team.id } },
   });
@@ -173,7 +172,6 @@ export async function endSeason(app: FastifyInstance, seasonId: string) {
   if (season.status === "COMPLETED")
     throw new Error("Season already completed");
 
-  // Distribute rewards
   const rewards = [
     SEASON.REWARDS.FIRST_PLACE,
     SEASON.REWARDS.SECOND_PLACE,
@@ -201,7 +199,6 @@ export async function endSeason(app: FastifyInstance, seasonId: string) {
   });
 }
 export async function playSeasonMatch(app: FastifyInstance, userId: string) {
-  // 1. Find active season for user
   const team = await app.prisma.team.findFirst({
     where: { userId, isEvent: false },
   });
@@ -215,11 +212,10 @@ export async function playSeasonMatch(app: FastifyInstance, userId: string) {
   if (!standing) throw new Error("No active season membership found");
   const seasonId = standing.seasonId;
 
-  // 2. Find opponent in the same season (any other team)
   const opponentStanding = await app.prisma.seasonStanding.findFirst({
     where: {
       seasonId,
-      teamId: { not: team.id }
+      teamId: { not: team.id },
     },
     include: { team: true },
   });
@@ -228,14 +224,14 @@ export async function playSeasonMatch(app: FastifyInstance, userId: string) {
 
   const { randomUUID } = await import("crypto");
   const { simulateMatch } = await import("../match/match.simulator");
-  const { getTeamForMatch, handleMatchCompletion } = await import("../match/match.service") as any;
+  const { getTeamForMatch, handleMatchCompletion } =
+    (await import("../match/match.service")) as any;
   const seed = randomUUID();
   const homeTeamData = await getTeamForMatch(app, team.id);
   const awayTeamData = await getTeamForMatch(app, opponentStanding.team.id);
 
   const result = simulateMatch(homeTeamData, awayTeamData, seed);
 
-  // 3. Create Match record
   const match = await app.prisma.match.create({
     data: {
       type: "SEASON",
@@ -251,14 +247,17 @@ export async function playSeasonMatch(app: FastifyInstance, userId: string) {
     },
   });
 
-  // 4. Update standings for both
   await updateStandings(
     app,
     seasonId,
     team.id,
     result.homeScore,
     result.awayScore,
-    result.winner === "home" ? "win" : result.winner === "draw" ? "draw" : "loss"
+    result.winner === "home"
+      ? "win"
+      : result.winner === "draw"
+        ? "draw"
+        : "loss",
   );
 
   await updateStandings(
@@ -267,10 +266,13 @@ export async function playSeasonMatch(app: FastifyInstance, userId: string) {
     opponentStanding.team.id,
     result.awayScore,
     result.homeScore,
-    result.winner === "away" ? "win" : result.winner === "draw" ? "draw" : "loss"
+    result.winner === "away"
+      ? "win"
+      : result.winner === "draw"
+        ? "draw"
+        : "loss",
   );
 
-  // 5. Finalize match (awards rewards and updates tasks)
   await handleMatchCompletion(app, match, result, seed);
 
   return { match, result };

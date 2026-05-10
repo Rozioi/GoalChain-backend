@@ -2,7 +2,6 @@ import { FastifyInstance } from "fastify";
 import { userController } from "./user.controller";
 
 async function userRoutes(app: FastifyInstance) {
-  // public routes
   app.post(
     "/auth/register",
     {
@@ -24,7 +23,6 @@ async function userRoutes(app: FastifyInstance) {
     userController.register,
   );
 
-  // protected routes
   app.get(
     "/user/me",
     {

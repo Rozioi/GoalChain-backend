@@ -104,7 +104,7 @@ export class FootballApiService {
           club: s.team.name,
           clubId: s.team.id,
           leagueId: s.league.id,
-          leagueDivisionId: 1, // Assumption
+          leagueDivisionId: 1,
           imageUrl: p.photo,
           face: "face_1",
           rarity: overallRating > 85 ? "gold" : "common",

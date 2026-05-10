@@ -2,14 +2,12 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { adminController } from "./admin.controller";
 
 async function adminGuard(request: FastifyRequest, reply: FastifyReply) {
-  // 1. Ensure authenticated
   try {
     await request.jwtVerify();
   } catch (err) {
     return reply.status(401).send({ error: "Unauthorized" });
   }
 
-  // 2. Check isAdmin in DB
   const userId = (request.user as any).userId;
   const user = await (request.server as any).prisma.user.findUnique({
     where: { id: userId },

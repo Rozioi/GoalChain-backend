@@ -18,18 +18,23 @@ export const startBot = () => {
             [
               {
                 text: "Open Web App",
-                web_app: { url: "https://soundly-primary-protozoa.cloudpub.ru/" },
+                web_app: {
+                  url: "https://soundly-primary-protozoa.cloudpub.ru/",
+                },
               },
             ],
           ],
         },
-      }
+      },
     );
   });
 
-  bot.launch()
+  bot
+    .launch()
     .then(() => console.log("Telegram bot launched successfully."))
-    .catch((err: Error) => console.error("Failed to launch Telegram bot:", err));
+    .catch((err: Error) =>
+      console.error("Failed to launch Telegram bot:", err),
+    );
 
   // Enable graceful stop
   process.once("SIGINT", () => bot.stop("SIGINT"));
