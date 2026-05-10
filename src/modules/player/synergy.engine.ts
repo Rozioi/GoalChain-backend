@@ -30,12 +30,12 @@ const ROLE_SYNERGY: Record<string, number> = {
 };
 
 const POSITION_SYNERGY: Record<string, number> = {
-  "CB-CDM": 4, // Defensive cover
-  "CDM-CM": 3, // Build-up
-  "CM-CAM": 3, // Creativity
-  "CAM-ST": 4, // Playmaking
-  "LW-ST": 3, // Winger service
-  "RW-ST": 3, // Winger service
+  "CB-CDM": 4,
+  "CDM-CM": 3,
+  "CM-CAM": 3,
+  "CAM-ST": 4,
+  "LW-ST": 3,
+  "RW-ST": 3,
   "LW-CAM": 2,
   "RW-CAM": 2,
 };
@@ -104,7 +104,8 @@ export function calculateTeamSynergy(players: SynergyPlayer[]): SynergyResult {
 export function calculateTeamRating(players: SynergyPlayer[]): number {
   if (players.length === 0) return 0;
 
-  const avgOvr = players.reduce((sum, p) => sum + p.overallRating, 0) / players.length;
+  const avgOvr =
+    players.reduce((sum, p) => sum + p.overallRating, 0) / players.length;
 
   const synergy = calculateTeamSynergy(players);
   return Math.round((avgOvr + synergy.totalBonus) * 10) / 10;

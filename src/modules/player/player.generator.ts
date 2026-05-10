@@ -24,22 +24,18 @@ async function processPlayerImage(
     const arrayBuffer = await response.arrayBuffer();
     const imageBuffer = Buffer.from(arrayBuffer);
 
-    // 1. Создаем папки
     const tempDir = "./temp/raw-players/";
     const publicDir = "./public/generated-players/";
     [tempDir, publicDir].forEach((dir) => {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     });
 
-    // 2. Сохраняем исходник во временный файл
     const tempPath = path.resolve(`${tempDir}${fileName}_raw.jpg`);
     fs.writeFileSync(tempPath, imageBuffer);
 
     try {
       console.log(`[ImageGen] Удаление фона из файла: ${tempPath}`);
 
-      // Передаем ПУТЬ к файлу, а не Buffer.
-      // Библиотека сама откроет его через свои внутренние механизмы.
       const resultBlob = await removeBackground(tempPath);
 
       const resultBuffer = Buffer.from(await resultBlob.arrayBuffer());
@@ -47,7 +43,6 @@ async function processPlayerImage(
 
       fs.writeFileSync(finalPath, resultBuffer);
 
-      // Чистим временный файл
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
 
       return `https://lividly-hot-gaur.cloudpub.ru/generated-players/${fileName}.png`;
@@ -138,7 +133,6 @@ function generateImageUrl(player: Partial<GeneratedPlayer>): string {
     .replace(/\s+/g, " ")
     .trim();
 
-  // Добавили параметры для улучшения качества и фиксации стиля
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=flux`;
 }
 
@@ -199,13 +193,11 @@ function randomInt(rng: seedrandom.PRNG, min: number, max: number): number {
   return Math.floor(rng() * (max - min + 1)) + min;
 }
 
-// Добавляем readonly перед T[]
 function pickRandom<T>(rng: seedrandom.PRNG, arr: readonly T[]): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
 function generateName(rng: seedrandom.PRNG): { name: string; surname: string } {
-  // Теперь это сработает, даже если массивы заморожены через "as const"
   const name = pickRandom(rng, PLAYER_FIRST_NAMES);
   const surname = pickRandom(rng, PLAYER_LAST_NAMES);
   return { name, surname };
@@ -243,7 +235,6 @@ function generateStatsForRole(
         : randomInt(rng, 5, 20),
   };
 
-  // Style bonuses
   switch (style) {
     case "SPEEDY":
       stats.pace = Math.min(99, stats.pace + 10);
@@ -267,7 +258,6 @@ function generateStatsForRole(
       break;
   }
 
-  // Role adjustments
   switch (role) {
     case "GOALKEEPER":
       stats.defending = Math.min(99, stats.defending + 5);
@@ -290,9 +280,6 @@ function generateStatsForRole(
   return stats;
 }
 
-/**
- * Maps nationality to visual characteristics
- */
 function mapAppearanceFromNationality(
   rng: seedrandom.PRNG,
   nationality: string,
@@ -354,12 +341,10 @@ export async function generatePlayer(
 ): Promise<GeneratedPlayer> {
   const rng = seedrandom(options.seed || Math.random().toString());
 
-  // League-based stat scaling
-  const leagueLevel = randomInt(rng, 1, 70); // 35 first + 35 second
+  const leagueLevel = randomInt(rng, 1, 70);
   const leagueDivisionId = leagueLevel > 35 ? 2 : 1;
   const leagueId = leagueLevel > 35 ? leagueLevel - 35 : leagueLevel;
 
-  // The better the league (lower leagueLevel), the higher the OVR
   const leagueBaseOVR = Math.max(40, 95 - leagueLevel);
   const overallRating = randomInt(
     rng,
@@ -384,13 +369,12 @@ export async function generatePlayer(
     Math.min(99, potentialMin + 15),
   );
 
-  const formValue = 1.0 + randomInt(rng, -10, 20) / 100; // 0.9 to 1.2
+  const formValue = 1.0 + randomInt(rng, -10, 20) / 100;
   const age = randomInt(rng, 17, 34);
   const nationality = pickRandom(rng, PLAYER_NATIONALITIES);
   const club = pickRandom(rng, PLAYER_CLUBS);
   const clubId = randomInt(rng, 1, 100);
 
-  // Physicals and Skills
   const heightCm = randomInt(rng, 165, 205);
   const weightKg = randomInt(rng, 60, 95);
   const foot = rng() > 0.7 ? "Left" : "Right";
@@ -398,7 +382,6 @@ export async function generatePlayer(
   const weakFoot = randomInt(rng, 1, 5);
   const country = nationality || "RU";
 
-  // Visuals based on nationality
   const appearance = mapAppearanceFromNationality(rng, nationality);
 
   const rarity =
