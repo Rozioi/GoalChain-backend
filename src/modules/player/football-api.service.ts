@@ -3,8 +3,7 @@ import { Position, PlayerRole, PlayerStyle } from "@prisma/client";
 import { generatePlayer } from "../player/player.generator";
 
 export class FootballApiService {
-  private apiKey =
-    process.env.FOOTBALL_API_KEY || "9fcdea0c865d008bbaacd648b9bedd90";
+  private apiKey = process.env.FOOTBALL_API_KEY || "null";
   private baseUrl = "https://v3.football.api-sports.io";
 
   constructor(private app: FastifyInstance) {}
@@ -33,9 +32,6 @@ export class FootballApiService {
     return data;
   }
 
-  /**
-   * Maps and saves external players to the database
-   */
   async importPlayersForLeague(leagueId: number, season: number = 2024) {
     this.app.log.info(
       `Importing players for league ${leagueId}, season ${season}...`,
@@ -69,22 +65,19 @@ export class FootballApiService {
 
       const playersToCreate = playersData.map((item: any) => {
         const p = item.player;
-        const s = item.statistics[0]; // Take first statistics entry
+        const s = item.statistics[0];
 
-        // Simple position mapping
         let position: Position = "ST";
         if (s.games.position === "Goalkeeper") position = "GK";
         else if (s.games.position === "Defender") position = "CB";
         else if (s.games.position === "Midfielder") position = "CM";
         else if (s.games.position === "Attacker") position = "ST";
 
-        // Map role based on position
         let role: PlayerRole = "FORWARD";
         if (position === "GK") role = "GOALKEEPER";
         else if (["CB", "LB", "RB"].includes(position)) role = "DEFENDER";
         else if (["CM", "CDM", "CAM"].includes(position)) role = "MIDFIELDER";
 
-        // Map stats (scale from 0-99)
         const overallRating = s.games.rating
           ? Math.round(parseFloat(s.games.rating) * 10)
           : 70;
@@ -95,8 +88,8 @@ export class FootballApiService {
           overallRating: Math.min(99, overallRating),
           position,
           role,
-          style: "TECHNICAL" as PlayerStyle, // Default style
-          pace: 70, // API doesn't always provide detailed pace/shooting in the basic response
+          style: "TECHNICAL" as PlayerStyle,
+          pace: 70,
           shooting: 70,
           passing: 70,
           dribbling: 70,
@@ -119,10 +112,9 @@ export class FootballApiService {
         };
       });
 
-      // Batch create in DB
       await this.app.prisma.player.createMany({
         data: playersToCreate,
-        skipDuplicates: true, // Avoid duplicates if re-running
+        skipDuplicates: true,
       });
 
       importedCount += playersToCreate.length;
@@ -131,20 +123,15 @@ export class FootballApiService {
       );
       currentPage++;
 
-      // Rate limiting: sleep briefly between pages
       await new Promise((r) => setTimeout(r, 1000));
     } while (currentPage <= totalPages);
 
     return { leagueId, importedCount };
   }
 
-  /**
-   * Generates a batch of real-world-like players based on the requested count
-   */
   async populateInitialDatabase(count: number = 68000) {
     this.app.log.info(`Starting population of ${count} players...`);
 
-    // We'll process in batches to avoid memory issues
     const batchSize = 100;
     const batches = Math.ceil(count / batchSize);
 
