@@ -6,7 +6,7 @@ export const rentService = {
     app: FastifyInstance,
     userId: string,
     playerId: string,
-    price: number
+    price: number,
   ) {
     const player = await app.prisma.player.findUnique({
       where: { id: playerId },
@@ -14,15 +14,14 @@ export const rentService = {
     });
 
     if (!player) throw new Error("Player not found");
-    if (player.ownerId !== userId) throw new Error("You do not own this player");
+    if (player.ownerId !== userId)
+      throw new Error("You do not own this player");
 
     return app.prisma.$transaction(async (tx) => {
-      // 1. Remove from owner's active lineup (TeamPlayer)
       await tx.teamPlayer.deleteMany({
         where: { playerId, team: { userId } },
       });
 
-      // 2. Set rent flags on Player
       return tx.player.update({
         where: { id: playerId },
         data: {
@@ -37,27 +36,34 @@ export const rentService = {
     app: FastifyInstance,
     renterId: string,
     playerId: string,
-    durationDays: number
+    durationDays: number,
   ) {
     const player = await app.prisma.player.findUnique({
       where: { id: playerId, isOnRent: true },
     });
 
-    if (!player || !player.rentPrice) throw new Error("Player not available for rent");
-    if (player.ownerId === renterId) throw new Error("You cannot rent your own player");
+    if (!player || !player.rentPrice)
+      throw new Error("Player not available for rent");
+    if (player.ownerId === renterId)
+      throw new Error("You cannot rent your own player");
 
-    const renter = await app.prisma.user.findUnique({ where: { id: renterId } });
-    const owner = await app.prisma.user.findUnique({ where: { id: player.ownerId! } });
+    const renter = await app.prisma.user.findUnique({
+      where: { id: renterId },
+    });
+    const owner = await app.prisma.user.findUnique({
+      where: { id: player.ownerId! },
+    });
 
     if (!renter) throw new Error("Renter not found");
     if (!owner) throw new Error("Owner not found");
     if (renter.coins < player.rentPrice) throw new Error("Insufficient funds");
 
     const startDate = new Date();
-    const endDate = new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    const endDate = new Date(
+      startDate.getTime() + durationDays * 24 * 60 * 60 * 1000,
+    );
 
     return app.prisma.$transaction(async (tx) => {
-      // 1. Balances update
       await tx.user.update({
         where: { id: renterId },
         data: { coins: { decrement: player.rentPrice! } },
@@ -68,7 +74,6 @@ export const rentService = {
         data: { coins: { increment: player.rentPrice! } },
       });
 
-      // 2. Create RentContract
       const contract = await tx.rentContract.create({
         data: {
           playerId,
@@ -81,7 +86,6 @@ export const rentService = {
         },
       });
 
-      // 3. Move player to renter's team
       const renterTeam = await tx.team.findFirst({
         where: { userId: renterId, isEvent: false },
       });
@@ -96,10 +100,9 @@ export const rentService = {
         },
       });
 
-      // 4. Update player rent status
       await tx.player.update({
         where: { id: playerId },
-        data: { isOnRent: false }, // No longer on market, it's now rented
+        data: { isOnRent: false },
       });
 
       return contract;
@@ -111,16 +114,16 @@ export const rentService = {
       where: { playerId, status: "ACTIVE" },
     });
 
-    if (!contract) throw new Error("No active rent contract found for this player");
-    if (contract.renterId !== userId) throw new Error("Only the renter can return the player early");
+    if (!contract)
+      throw new Error("No active rent contract found for this player");
+    if (contract.renterId !== userId)
+      throw new Error("Only the renter can return the player early");
 
     return app.prisma.$transaction(async (tx) => {
-      // 1. Remove from renter's team
       await tx.teamPlayer.deleteMany({
         where: { playerId, team: { userId: contract.renterId } },
       });
 
-      // 2. Add back to owner's team (optional, will be added when they next open team)
       const ownerTeam = await tx.team.findFirst({
         where: { userId: contract.lessorId, isEvent: false },
       });
@@ -135,13 +138,11 @@ export const rentService = {
         });
       }
 
-      // 3. Close contract
       await tx.rentContract.update({
         where: { id: contract.id },
         data: { status: "FINISHED" },
       });
 
-      // 4. Reset player flags
       return tx.player.update({
         where: { id: playerId },
         data: { isOnRent: false, rentPrice: null },
@@ -155,13 +156,15 @@ export const rentService = {
     });
 
     if (!contract) throw new Error("This player is not currently rented out");
-    if (contract.lessorId !== userId) throw new Error("Only the owner can recall the player");
+    if (contract.lessorId !== userId)
+      throw new Error("Only the owner can recall the player");
 
     return app.prisma.$transaction(async (tx) => {
-      // 1. Owner pays back the renter
       const owner = await tx.user.findUnique({ where: { id: userId } });
       if (!owner || owner.coins < contract.price) {
-        throw new Error("Insufficient coins to recall player (need " + contract.price + ")");
+        throw new Error(
+          "Insufficient coins to recall player (need " + contract.price + ")",
+        );
       }
 
       await tx.user.update({
@@ -174,12 +177,10 @@ export const rentService = {
         data: { coins: { increment: contract.price } },
       });
 
-      // 2. Remove from renter's team
       await tx.teamPlayer.deleteMany({
         where: { playerId, team: { userId: contract.renterId } },
       });
 
-      // 3. Add back to owner's team
       const ownerTeam = await tx.team.findFirst({
         where: { userId: userId, isEvent: false },
       });
@@ -194,13 +195,11 @@ export const rentService = {
         });
       }
 
-      // 4. Close contract
       await tx.rentContract.update({
         where: { id: contract.id },
         data: { status: "FINISHED" },
       });
 
-      // 5. Reset player flags
       return tx.player.update({
         where: { id: playerId },
         data: { isOnRent: false, rentPrice: null },
@@ -218,23 +217,40 @@ export const rentService = {
 
     for (const contract of expiredContracts) {
       try {
-        // Auto-return doesn't need a userId, so we pass a system flag or just handle directly
         await app.prisma.$transaction(async (tx) => {
-          await tx.teamPlayer.deleteMany({ where: { playerId: contract.playerId } });
-          const ownerTeam = await tx.team.findFirst({ where: { userId: contract.lessorId, isEvent: false } });
+          await tx.teamPlayer.deleteMany({
+            where: { playerId: contract.playerId },
+          });
+          const ownerTeam = await tx.team.findFirst({
+            where: { userId: contract.lessorId, isEvent: false },
+          });
           if (ownerTeam) {
-            await tx.teamPlayer.create({ data: { teamId: ownerTeam.id, playerId: contract.playerId, isStarter: false } });
+            await tx.teamPlayer.create({
+              data: {
+                teamId: ownerTeam.id,
+                playerId: contract.playerId,
+                isStarter: false,
+              },
+            });
           }
-          await tx.rentContract.update({ where: { id: contract.id }, data: { status: "FINISHED" } });
-          await tx.player.update({ where: { id: contract.playerId }, data: { isOnRent: false, rentPrice: null } });
+          await tx.rentContract.update({
+            where: { id: contract.id },
+            data: { status: "FINISHED" },
+          });
+          await tx.player.update({
+            where: { id: contract.playerId },
+            data: { isOnRent: false, rentPrice: null },
+          });
         });
         app.log.info(`Auto-returned player ${contract.playerId} from rental`);
       } catch (e) {
-        app.log.error(`Failed to auto-return player ${contract.playerId}: ${e}`);
+        app.log.error(
+          `Failed to auto-return player ${contract.playerId}: ${e}`,
+        );
       }
     }
   },
 };
 
-// Backward compatibility alias
-export const checkExpiredRentals = (app: FastifyInstance) => rentService.syncExpiredRentals(app);
+export const checkExpiredRentals = (app: FastifyInstance) =>
+  rentService.syncExpiredRentals(app);
