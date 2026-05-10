@@ -55,6 +55,8 @@ export interface MatchEvent {
   team: "home" | "away";
   playerId?: string;
   playerName?: string;
+  playerOutId?: string;
+  playerOutName?: string;
   description: string;
 }
 
@@ -239,7 +241,8 @@ export function simulateMatch(
           team: sub.team,
           playerId: inPlayer.id,
           playerName: inPlayer.name,
-
+          playerOutId: outPlayer.id,
+          playerOutName: outPlayer.name,
           description: `Substitution: ${inPlayer.name} replaces ${outPlayer.name}. Team energy restored!`,
         });
       }
@@ -357,6 +360,8 @@ export function simulateMatch(
             team,
             playerId: sub.id,
             playerName: sub.name,
+            playerOutId: player.id,
+            playerOutName: player.name,
             description: `Substitution: ${sub.name} comes on for injured ${player.name}.`,
           });
         }

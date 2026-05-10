@@ -7,7 +7,7 @@
     "dev": "npm run db:push && ts-node-dev --respawn --transpile-only src/server.ts",
     "db:push": "prisma db push --accept-data-loss",
     "build": "tsc",
-    "start": "npm run db:push && node dist/server.js",
+    "start": "node dist/server.js",
     "stress:basic": "node tests/stress/basic.js",
     "stress:k6": "k6 run tests/stress/scenario.k6.js"
   },

@@ -112,7 +112,8 @@ export class FootballApiService {
           clubId: s.team.id,
           leagueId: s.league.id,
           leagueDivisionId: 1, // Assumption
-          face: p.photo, // Save API image URL as face
+          imageUrl: p.photo,
+          face: "face_1",
           rarity: overallRating > 85 ? "gold" : "common",
           formValue: 1.0,
         };

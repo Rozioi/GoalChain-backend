@@ -62,15 +62,13 @@ export async function updateLineup(
     });
 
     // Set starters
-    for (const playerId of starterIds) {
-        const player = await app.prisma.player.findUnique({
-            where: { id: playerId },
-        });
+    for (let i = 0; i < starterIds.length; i++) {
+        const playerId = starterIds[i];
         await app.prisma.teamPlayer.update({
             where: { teamId_playerId: { teamId: team.id, playerId } },
             data: {
                 isStarter: true,
-                positionInFormation: player?.position || null,
+                positionInFormation: i.toString(),
             },
         });
     }

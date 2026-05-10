@@ -65,7 +65,7 @@ export async function getUserProfile(app: FastifyInstance, userId: string) {
                 include: {
                     players: {
                         include: { player: true },
-                        orderBy: { isStarter: "desc" },
+                        orderBy: [{ isStarter: "desc" }, { positionInFormation: "asc" }],
                     },
                 },
             },

@@ -241,6 +241,8 @@ async function waitForOpponent(
               team: e.team,
               playerId: e.playerId,
               playerName: e.playerName,
+              playerOutId: e.playerOutId,
+              playerOutName: e.playerOutName,
               description: e.description,
             };
           }),
@@ -489,6 +491,8 @@ export async function updateMatchTactics(
             team: e.team,
             playerId: e.playerId,
             playerName: e.playerName,
+            playerOutId: e.playerOutId,
+            playerOutName: e.playerOutName,
             description: e.description,
           })),
       },
