@@ -116,6 +116,7 @@ export interface GeneratedPlayer {
 function generateImageUrl(player: Partial<GeneratedPlayer>): string {
   const prompt = `
     Professional sports photography,
+    pixel art style, high contrast, 8-bit game character,
     close-up portrait of a football player,
     ${player.name} ${player.surname},
     wearing ${player.nationality} national kit,

@@ -1,16 +1,16 @@
-import { Telegraf } from "telegraf";
+import { Bot } from "grammy";
 import { env } from "../config/env";
 
-export const startBot = () => {
+export const startBot = async () => {
   if (!env.BOT_TOKEN) {
     console.warn("BOT_TOKEN is not provided. Telegram bot will not start.");
     return;
   }
 
-  const bot = new Telegraf(env.BOT_TOKEN);
+  const bot = new Bot(env.BOT_TOKEN);
 
-  bot.start((ctx) => {
-    ctx.reply(
+  bot.command("start", async (ctx) => {
+    await ctx.reply(
       "Welcome to Football Manager! Manage your team, rent players, and climb the leaderboards.",
       {
         reply_markup: {
@@ -29,14 +29,16 @@ export const startBot = () => {
     );
   });
 
-  bot
-    .launch()
-    .then(() => console.log("Telegram bot launched successfully."))
-    .catch((err: Error) =>
-      console.error("Failed to launch Telegram bot:", err),
-    );
+  bot.catch((err) => {
+    console.error("Error in bot:", err);
+  });
 
-  // Enable graceful stop
-  process.once("SIGINT", () => bot.stop("SIGINT"));
-  process.once("SIGTERM", () => bot.stop("SIGTERM"));
+  bot.start({
+    onStart: (botInfo) => {
+      console.log(`Telegram bot (@${botInfo.username}) launched successfully.`);
+    },
+  });
+
+  process.once("SIGINT", () => bot.stop());
+  process.once("SIGTERM", () => bot.stop());
 };
