@@ -84,97 +84,93 @@ export async function playFriendlyMatch(app: FastifyInstance, userId: string) {
       status: "PENDING",
       awayUserId: null,
       homeUserId: { not: userId },
+      homeUser: {
+        points: {
+          gte: user.points - 300,
+          lte: user.points + 300,
+        },
+      },
     },
     orderBy: { createdAt: "asc" },
   });
 
   if (existingLobby) {
-    const seed = randomUUID();
-    const homeTeamData = await getTeamForMatch(app, existingLobby.homeTeamId);
-    const awayTeamData = await getTeamForMatch(app, myTeam.id);
-    const result = simulateMatch(homeTeamData, awayTeamData, seed);
-
-    existingLobby.awayUserId = userId;
-    existingLobby.awayTeamId = myTeam.id;
-    await app.prisma.match.update({
-      where: { id: existingLobby.id },
-      data: { awayUserId: userId, awayTeamId: myTeam.id },
-    });
-
-    const awayMatchNumber = user.dailyMatchesPlayed + 1;
-    const awayDiminish = Math.pow(
-      MATCH.REWARDS.DIMINISHING_FACTOR,
-      awayMatchNumber - 1,
-    );
-
-    await handleMatchCompletion(app, existingLobby, result, seed);
-
-    await app.prisma.user.updateMany({
-      where: { id: { in: [existingLobby.homeUserId!, userId] } },
-      data: { dailyMatchesPlayed: { increment: 1 } },
-    });
-
-    return {
-      match: {
-        ...existingLobby,
-        homeScore: result.homeScore,
-        awayScore: result.awayScore,
-      },
-      result,
-      rewards: {
-        coins:
-          result.winner === "away"
-            ? Math.floor(MATCH.REWARDS.WIN_COINS * awayDiminish)
-            : result.winner === "draw"
-              ? Math.floor(MATCH.REWARDS.DRAW_COINS * awayDiminish)
-              : Math.floor(MATCH.REWARDS.LOSS_COINS * awayDiminish),
-        exp:
-          result.winner === "away"
-            ? Math.floor(MATCH.REWARDS.WIN_EXP * awayDiminish)
-            : result.winner === "draw"
-              ? Math.floor(MATCH.REWARDS.DRAW_EXP * awayDiminish)
-              : Math.floor(MATCH.REWARDS.LOSS_EXP * awayDiminish),
-      },
-      isBot: false,
-    };
-  } else {
-    const botUser = await app.prisma.user.upsert({
-      where: { telegramId: "bot-system" },
-      update: {},
-      create: {
-        telegramId: "bot-system",
-        username: "bot_system",
-        firstName: "Bot",
-        lastName: "System",
-        referralCode: "BOT-SYSTEM-" + randomUUID().slice(0, 8),
-      },
-    });
-
-    let botTeam = await app.prisma.team.findFirst({
-      where: { userId: botUser.id },
-    });
-    if (!botTeam) {
-      botTeam = await app.prisma.team.create({
-        data: {
-          name: "System Placeholder Team",
-          userId: botUser.id,
-          rating: 50,
-        },
-      });
-    }
-
-    const myLobby = await app.prisma.match.create({
-      data: {
-        type: "FRIENDLY",
+    // Atomic join attempt
+    const updateResult = await app.prisma.match.updateMany({
+      where: {
+        id: existingLobby.id,
+        awayUserId: null,
         status: "PENDING",
-        homeUserId: userId,
-        homeTeamId: myTeam.id,
-        awayTeamId: botTeam.id,
+      },
+      data: {
+        awayUserId: userId,
+        awayTeamId: myTeam.id,
       },
     });
 
-    return waitForOpponent(app, userId, myLobby);
+    if (updateResult.count > 0) {
+      const seed = randomUUID();
+      const homeTeamData = await getTeamForMatch(app, existingLobby.homeTeamId);
+      const awayTeamData = await getTeamForMatch(app, myTeam.id);
+      const result = simulateMatch(homeTeamData, awayTeamData, seed);
+
+      const awayMatchNumber = user.dailyMatchesPlayed + 1;
+      const awayDiminish = Math.pow(
+        MATCH.REWARDS.DIMINISHING_FACTOR,
+        awayMatchNumber - 1,
+      );
+
+      await handleMatchCompletion(
+        app,
+        { ...existingLobby, awayUserId: userId, awayTeamId: myTeam.id },
+        result,
+        seed,
+      );
+
+      await app.prisma.user.updateMany({
+        where: { id: { in: [existingLobby.homeUserId!, userId] } },
+        data: { dailyMatchesPlayed: { increment: 1 } },
+      });
+
+      return {
+        match: {
+          ...existingLobby,
+          awayUserId: userId,
+          awayTeamId: myTeam.id,
+          homeScore: result.homeScore,
+          awayScore: result.awayScore,
+        },
+        result,
+        rewards: {
+          coins:
+            result.winner === "away"
+              ? Math.floor(MATCH.REWARDS.WIN_COINS * awayDiminish)
+              : result.winner === "draw"
+                ? Math.floor(MATCH.REWARDS.DRAW_COINS * awayDiminish)
+                : Math.floor(MATCH.REWARDS.LOSS_COINS * awayDiminish),
+          exp:
+            result.winner === "away"
+              ? Math.floor(MATCH.REWARDS.WIN_EXP * awayDiminish)
+              : result.winner === "draw"
+                ? Math.floor(MATCH.REWARDS.DRAW_EXP * awayDiminish)
+                : Math.floor(MATCH.REWARDS.LOSS_EXP * awayDiminish),
+        },
+        isBot: false,
+      };
+    }
   }
+
+  // If no lobby found or join failed, create a new one
+  const myLobby = await app.prisma.match.create({
+    data: {
+      type: "FRIENDLY",
+      status: "PENDING",
+      homeUserId: userId,
+      homeTeamId: myTeam.id,
+    },
+  });
+
+  return waitForOpponent(app, userId, myLobby);
 }
 
 async function waitForOpponent(
@@ -198,6 +194,10 @@ async function waitForOpponent(
         awayUser: true,
       },
     });
+
+    if (updatedMatch && updatedMatch.status === "CANCELLED") {
+      throw new Error("Matchmaking cancelled by user");
+    }
 
     if (
       updatedMatch &&
@@ -480,7 +480,7 @@ export async function updateMatchTactics(
 export async function inviteFriend(
   app: FastifyInstance,
   userId: string,
-  friendTelegramId: string,
+  friendId: string,
 ) {
   const myTeam = await app.prisma.team.findFirst({
     where: { userId, isEvent: false },
@@ -488,7 +488,7 @@ export async function inviteFriend(
   if (!myTeam) throw new Error("No team found");
 
   const friend = await app.prisma.user.findUnique({
-    where: { telegramId: friendTelegramId },
+    where: { id: friendId },
   });
   if (!friend) throw new Error("Friend not found");
 
@@ -508,9 +508,32 @@ export async function inviteFriend(
     },
   });
 
+  const inviter = await app.prisma.user.findUnique({ where: { id: userId } });
+  const inviteLink = `https://t.me/goalchaintest_bot/startapp?startapp=challenge_${match.id}`;
+
+  const { bot } = await import("../../bot/bot");
+  if (bot && friend.telegramId) {
+    const text = `⚽️ *${inviter?.firstName || "Твой друг"}* бросил тебе вызов в Football Manager!\n\nТвоя команда готова к матчу?`;
+    await bot.api
+      .sendMessage(friend.telegramId, text, {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Принять вызов ⚔️",
+                url: inviteLink,
+              },
+            ],
+          ],
+        },
+      })
+      .catch((err) => console.warn("Failed to send bot notification:", err));
+  }
+
   return {
     matchId: match.id,
-    inviteLink: `https://t.me/hdixhrjidj_bot/startapp?startapp=challenge_${match.id}`,
+    inviteLink,
   };
 }
 
@@ -795,6 +818,27 @@ export async function getMatchById(app: FastifyInstance, matchId: string) {
   }
 
   return { match, result };
+}
+
+export async function cancelMatchmaking(app: FastifyInstance, userId: string) {
+  const match = await app.prisma.match.findFirst({
+    where: {
+      homeUserId: userId,
+      status: "PENDING",
+      type: "FRIENDLY",
+      createdAt: { gte: new Date(Date.now() - 60000) },
+    },
+  });
+
+  if (match) {
+    await app.prisma.match.update({
+      where: { id: match.id },
+      data: { status: "CANCELLED" },
+    });
+    return { success: true };
+  }
+
+  return { success: false, message: "No active matchmaking found" };
 }
 
 export async function getMatchHistory(

@@ -107,7 +107,7 @@ export class FootballApiService {
           leagueDivisionId: 1,
           imageUrl: p.photo,
           face: "face_1",
-          rarity: overallRating > 85 ? "gold" : "common",
+          rarity: overallRating >= 75 ? "gold" : overallRating >= 65 ? "silver" : "bronze",
           formValue: 1.0,
         };
       });

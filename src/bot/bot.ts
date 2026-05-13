@@ -1,13 +1,15 @@
 import { Bot } from "grammy";
 import { env } from "../config/env";
 
+export let bot: Bot;
+
 export const startBot = async () => {
   if (!env.BOT_TOKEN) {
     console.warn("BOT_TOKEN is not provided. Telegram bot will not start.");
     return;
   }
 
-  const bot = new Bot(env.BOT_TOKEN);
+  bot = new Bot(env.BOT_TOKEN);
 
   bot.command("start", async (ctx) => {
     await ctx.reply(

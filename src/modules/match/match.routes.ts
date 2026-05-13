@@ -145,6 +145,17 @@ async function matchRoutes(app: FastifyInstance) {
     },
     matchController.get,
   );
+
+  app.post(
+    "/match/cancel",
+    {
+      schema: {
+        tags: ["Match"],
+        summary: "Отменить поиск матча",
+      },
+    },
+    matchController.cancel,
+  );
 }
 
 export default matchRoutes;

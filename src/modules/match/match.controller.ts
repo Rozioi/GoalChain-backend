@@ -8,6 +8,7 @@ import {
   updateMatchTactics,
   createOpenChallenge,
   getMatchById,
+  cancelMatchmaking,
 } from "./match.service";
 
 const matchController = {
@@ -112,6 +113,14 @@ const matchController = {
         return reply.status(404).send({ error: "Match not found" });
       }
       reply.send(matchData);
+    } catch (err: any) {
+      reply.status(500).send({ error: err.message });
+    }
+  },
+  async cancel(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const result = await cancelMatchmaking(req.server, req.user.userId);
+      reply.send(result);
     } catch (err: any) {
       reply.status(500).send({ error: err.message });
     }

@@ -13,45 +13,106 @@ import sharp from "sharp";
 
 import path from "path";
 
+const LOCAL_AI_URL = process.env.LOCAL_AI_URL; // Например, http://127.0.0.1:7860/sdapi/v1/txt2img
+
+async function fetchLocalImage(prompt: string): Promise<Buffer> {
+  if (!LOCAL_AI_URL) throw new Error("LOCAL_AI_URL is not set");
+  
+  const response = await fetch(LOCAL_AI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt,
+      negative_prompt: "blurry, low quality, distorted, extra limbs, bad anatomy, text, watermark",
+      steps: 25,
+      width: 512,
+      height: 512,
+      cfg_scale: 7,
+      sampler_name: "Euler a",
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Local AI error: ${response.statusText}`);
+  const data: any = await response.json();
+  // Automatic1111 возвращает base64 в массиве images
+  return Buffer.from(data.images[0], "base64");
+}
+
 async function processPlayerImage(
-  imageUrl: string,
+  promptOrUrl: string,
   fileName: string,
+  isUrl: boolean = true
 ): Promise<string> {
+  const publicDir = "./public/generated-players/";
+  const relativeUrl = `/generated-players/${fileName}.png`;
+
+  let imageBuffer: Buffer | null = null;
+  let lastError: any = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      if (isUrl) {
+        console.log(`[Pollinations] Попытка ${attempt} для ${fileName}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+        const response = await fetch(promptOrUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+          imageBuffer = Buffer.from(await response.arrayBuffer());
+          break;
+        }
+      } else {
+        console.log(`[LocalAI] Попытка ${attempt} для ${fileName}`);
+        imageBuffer = await fetchLocalImage(promptOrUrl);
+        break;
+      }
+    } catch (err) {
+      lastError = err;
+      console.warn(`[ImageGen] Ошибка при попытке ${attempt}:`, err);
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+
+  if (!imageBuffer) {
+    console.error("[processPlayerImage] Не удалось получить изображение:", lastError);
+    return isUrl ? promptOrUrl : ""; 
+  }
+
   try {
-    const response = await fetch(imageUrl);
-    if (!response.ok) return imageUrl;
+    if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
 
-    const arrayBuffer = await response.arrayBuffer();
-    const imageBuffer = Buffer.from(arrayBuffer);
+    // Нормализуем изображение через sharp перед удалением фона
+    const normalizedBuffer = await sharp(imageBuffer).png().toBuffer();
 
-    const tempDir = "./temp/raw-players/";
-    const publicDir = "./public/generated-players/";
-    [tempDir, publicDir].forEach((dir) => {
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    });
+    const tempDir = "./temp/bg-removal/";
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempPath = path.resolve(`${tempDir}${fileName}_temp.png`);
+    fs.writeFileSync(tempPath, normalizedBuffer);
 
-    const tempPath = path.resolve(`${tempDir}${fileName}_raw.jpg`);
-    fs.writeFileSync(tempPath, imageBuffer);
+    let resultBuffer = normalizedBuffer;
 
     try {
-      console.log(`[ImageGen] Удаление фона из файла: ${tempPath}`);
-
+      console.log(`[ImageGen] Удаление фона через файл: ${tempPath}`);
       const resultBlob = await removeBackground(tempPath);
-
-      const resultBuffer = Buffer.from(await resultBlob.arrayBuffer());
-      const finalPath = `${publicDir}${fileName}.png`;
-
-      fs.writeFileSync(finalPath, resultBuffer);
-
+      resultBuffer = Buffer.from(await resultBlob.arrayBuffer());
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-
-      return `https://lividly-hot-gaur.cloudpub.ru/generated-players/${fileName}.png`;
-    } catch (removeBgError) {
-      console.error("[@imgly] Ошибка нейросети:", removeBgError);
-      return imageUrl;
+    } catch (bgError) {
+      console.warn("[BG Removal] Ошибка при обработке файла:", bgError);
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
     }
+
+    const pixelatedBuffer = await sharp(resultBuffer)
+      .resize(128, 128, { kernel: sharp.kernel.nearest })
+      .resize(512, 512, { kernel: sharp.kernel.nearest })
+      .png()
+      .toBuffer();
+
+    const finalPath = path.resolve(`${publicDir}${fileName}.png`);
+    fs.writeFileSync(finalPath, pixelatedBuffer);
+
+    return relativeUrl;
   } catch (error) {
-    console.error("Критическая ошибка:", error);
+    console.error("[processPlayerImage] Критическая ошибка при обработке:", error);
     return imageUrl;
   }
 }
@@ -113,28 +174,21 @@ export interface GeneratedPlayer {
   imageUrl?: string;
 }
 
-function generateImageUrl(player: Partial<GeneratedPlayer>): string {
-  const prompt = `
-    Professional sports photography,
-    pixel art style, high contrast, 8-bit game character,
-    close-up portrait of a football player,
+function generateImagePrompt(player: Partial<GeneratedPlayer>): string {
+  return `
+    Pixel art 16-bit SNES football player headshot,
     ${player.name} ${player.surname},
-    wearing ${player.nationality} national kit,
-    ${player.skinColor} skin,
-    ${player.hairStyle} ${player.hairColor} hair,
-    ${player.beardStyle !== "none" ? player.beardStyle + " beard" : "no beard"},
-    ${player.emotion} expression,
-    isolated on white background,
-    studio lighting,
-    high contrast,
-    8k resolution,
-    EA Sports FC render style,
-    no background
+    ${player.nationality} national kit,
+    full frontal view, looking at camera,
+    white background, sharp pixels, retro game
   `
     .replace(/\s+/g, " ")
     .trim();
+}
 
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=flux`;
+function generateImageUrlFromPrompt(prompt: string): string {
+  const seed = Math.floor(Math.random() * 1000000);
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${seed}`;
 }
 
 const FACES = [
@@ -373,8 +427,9 @@ export async function generatePlayer(
   const formValue = 1.0 + randomInt(rng, -10, 20) / 100;
   const age = randomInt(rng, 17, 34);
   const nationality = pickRandom(rng, PLAYER_NATIONALITIES);
-  const club = pickRandom(rng, PLAYER_CLUBS);
-  const clubId = randomInt(rng, 1, 100);
+  const clubIndex = Math.floor(rng() * PLAYER_CLUBS.length);
+  const club = PLAYER_CLUBS[clubIndex];
+  const clubId = clubIndex + 1; // 1-indexed for emblems
 
   const heightCm = randomInt(rng, 165, 205);
   const weightKg = randomInt(rng, 60, 95);
@@ -386,7 +441,7 @@ export async function generatePlayer(
   const appearance = mapAppearanceFromNationality(rng, nationality);
 
   const rarity =
-    overallRating > 85 ? "gold" : overallRating > 75 ? "rare" : "common";
+    overallRating >= 75 ? "gold" : overallRating >= 65 ? "silver" : "bronze";
 
   const { name, surname } = generateName(rng);
 
@@ -428,9 +483,13 @@ export async function generatePlayer(
   };
 
   const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
+  const prompt = generateImagePrompt(playerData);
+  const useLocal = !!LOCAL_AI_URL;
+
   const finalImageUrl = await processPlayerImage(
-    generateImageUrl(playerData),
+    useLocal ? prompt : generateImageUrlFromPrompt(prompt),
     fileName,
+    !useLocal,
   );
 
   return {
