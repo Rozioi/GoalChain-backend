@@ -9,6 +9,7 @@ Modern football management game backend built with Fastify and Prisma.
 - **Telegram Integration:** [GrammY](https://grammy.dev/)
 - **Validation:** JSON Schema (Fastify native)
 
+  
 ## Project Structure
 ```
 src/
