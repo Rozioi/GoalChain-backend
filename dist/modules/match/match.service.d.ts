@@ -1,6 +1,86 @@
 import { FastifyInstance } from "fastify";
 export declare function playFriendlyMatch(app: FastifyInstance, userId: string): Promise<{
     match: {
+        homeUser: {
+            level: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            telegramId: string;
+            referralCode: string;
+            username: string | null;
+            firstName: string | null;
+            lastName: string | null;
+            photoUrl: string | null;
+            coins: number;
+            reputation: number;
+            points: number;
+            experience: number;
+            isAdmin: boolean;
+            scoutingLevel: number;
+            scoutingExp: number;
+            referredById: string | null;
+            dailyMatchesPlayed: number;
+            dailyMatchesResetAt: Date;
+        } | null;
+        awayUser: {
+            level: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            telegramId: string;
+            referralCode: string;
+            username: string | null;
+            firstName: string | null;
+            lastName: string | null;
+            photoUrl: string | null;
+            coins: number;
+            reputation: number;
+            points: number;
+            experience: number;
+            isAdmin: boolean;
+            scoutingLevel: number;
+            scoutingExp: number;
+            referredById: string | null;
+            dailyMatchesPlayed: number;
+            dailyMatchesResetAt: Date;
+        } | null;
+        homeTeam: {
+            name: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            rating: number;
+            formation: string;
+            userId: string;
+            isEvent: boolean;
+            eventId: string | null;
+        };
+        awayTeam: {
+            name: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            rating: number;
+            formation: string;
+            userId: string;
+            isEvent: boolean;
+            eventId: string | null;
+        } | null;
+        events: {
+            description: string;
+            team: string;
+            id: string;
+            createdAt: Date;
+            playerId: string | null;
+            type: string;
+            minute: number;
+            matchId: string;
+            playerName: string | null;
+            playerOutId: string | null;
+            playerOutName: string | null;
+        }[];
+    } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -11,7 +91,45 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
-        awayTeamId: string;
+        awayTeamId: string | null;
+        isBot: boolean;
+        homeScore: number | null;
+        awayScore: number | null;
+        overtime: boolean;
+        homePressingType: import(".prisma/client").$Enums.PressingType;
+        awayPressingType: import(".prisma/client").$Enums.PressingType;
+        homeCoins: number;
+        awayCoins: number;
+        homeExp: number;
+        awayExp: number;
+        seasonId: string | null;
+    };
+    result: {
+        homeScore: number;
+        awayScore: number;
+        winner: string;
+        events: {
+            minute: number;
+            type: string;
+            team: string;
+            playerId: string | null;
+            playerName: string | null;
+            description: string;
+        }[];
+    } | null;
+} | {
+    match: {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        status: import(".prisma/client").$Enums.MatchStatus;
+        eventId: string | null;
+        type: import(".prisma/client").$Enums.MatchType;
+        seed: string | null;
+        homeUserId: string | null;
+        awayUserId: string | null;
+        homeTeamId: string;
+        awayTeamId: string | null;
         isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
@@ -86,6 +204,8 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
             minute: number;
             matchId: string;
             playerName: string | null;
+            playerOutId: string | null;
+            playerOutName: string | null;
         }[];
     } & {
         id: string;
@@ -98,7 +218,7 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
-        awayTeamId: string;
+        awayTeamId: string | null;
         isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
@@ -121,6 +241,8 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
             team: string;
             playerId: string | null;
             playerName: string | null;
+            playerOutId: string | null;
+            playerOutName: string | null;
             description: string;
         }[];
     };
@@ -129,38 +251,7 @@ export declare function playFriendlyMatch(app: FastifyInstance, userId: string):
         exp: number;
     };
     isBot: boolean;
-} | {
-    match: {
-        homeScore: number;
-        awayScore: number;
-        id?: string | undefined;
-        createdAt?: Date | undefined;
-        updatedAt?: Date | undefined;
-        status?: import(".prisma/client").$Enums.MatchStatus | undefined;
-        eventId?: string | null | undefined;
-        type?: import(".prisma/client").$Enums.MatchType | undefined;
-        seed?: string | null | undefined;
-        homeUserId?: string | null | undefined;
-        awayUserId?: string | null | undefined;
-        homeTeamId?: string | undefined;
-        awayTeamId?: string | undefined;
-        isBot?: boolean | undefined;
-        overtime?: boolean | undefined;
-        homePressingType?: import(".prisma/client").$Enums.PressingType | undefined;
-        awayPressingType?: import(".prisma/client").$Enums.PressingType | undefined;
-        homeCoins?: number | undefined;
-        awayCoins?: number | undefined;
-        homeExp?: number | undefined;
-        awayExp?: number | undefined;
-        seasonId?: string | null | undefined;
-    };
-    result: import("./match.simulator").MatchResult;
-    rewards: {
-        coins: number;
-        exp: number;
-    };
-    isBot: boolean;
-}>;
+} | null>;
 export declare function playBotMatch(app: FastifyInstance, userId: string): Promise<{
     match: {
         id: string;
@@ -173,7 +264,7 @@ export declare function playBotMatch(app: FastifyInstance, userId: string): Prom
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
-        awayTeamId: string;
+        awayTeamId: string | null;
         isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
@@ -202,7 +293,7 @@ export declare function updateMatchTactics(app: FastifyInstance, matchId: string
 }): Promise<{
     result: import("./match.simulator").MatchResult;
 }>;
-export declare function inviteFriend(app: FastifyInstance, userId: string, friendTelegramId: string): Promise<{
+export declare function inviteFriend(app: FastifyInstance, userId: string, friendId: string): Promise<{
     matchId: string;
     inviteLink: string;
 }>;
@@ -267,7 +358,7 @@ export declare function acceptMatch(app: FastifyInstance, userId: string, matchI
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
-        awayTeamId: string;
+        awayTeamId: string | null;
         isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
@@ -354,7 +445,7 @@ export declare function getMatchById(app: FastifyInstance, matchId: string): Pro
             userId: string;
             isEvent: boolean;
             eventId: string | null;
-        };
+        } | null;
         events: {
             description: string;
             team: string;
@@ -365,6 +456,8 @@ export declare function getMatchById(app: FastifyInstance, matchId: string): Pro
             minute: number;
             matchId: string;
             playerName: string | null;
+            playerOutId: string | null;
+            playerOutName: string | null;
         }[];
     } & {
         id: string;
@@ -377,7 +470,7 @@ export declare function getMatchById(app: FastifyInstance, matchId: string): Pro
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
-        awayTeamId: string;
+        awayTeamId: string | null;
         isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
@@ -404,6 +497,13 @@ export declare function getMatchById(app: FastifyInstance, matchId: string): Pro
         }[];
     } | null;
 } | null>;
+export declare function cancelMatchmaking(app: FastifyInstance, userId: string): Promise<{
+    success: boolean;
+    message?: undefined;
+} | {
+    success: boolean;
+    message: string;
+}>;
 export declare function getMatchHistory(app: FastifyInstance, userId: string, limit?: number): Promise<({
     homeTeam: {
         name: string;
@@ -426,7 +526,7 @@ export declare function getMatchHistory(app: FastifyInstance, userId: string, li
         userId: string;
         isEvent: boolean;
         eventId: string | null;
-    };
+    } | null;
     events: {
         description: string;
         team: string;
@@ -437,6 +537,8 @@ export declare function getMatchHistory(app: FastifyInstance, userId: string, li
         minute: number;
         matchId: string;
         playerName: string | null;
+        playerOutId: string | null;
+        playerOutName: string | null;
     }[];
 } & {
     id: string;
@@ -449,7 +551,7 @@ export declare function getMatchHistory(app: FastifyInstance, userId: string, li
     homeUserId: string | null;
     awayUserId: string | null;
     homeTeamId: string;
-    awayTeamId: string;
+    awayTeamId: string | null;
     isBot: boolean;
     homeScore: number | null;
     awayScore: number | null;

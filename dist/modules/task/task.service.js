@@ -26,7 +26,6 @@ async function getTasksForUser(app, userId) {
     const results = [];
     for (const task of tasks) {
         let userTask = task.userTasks[0] ?? null;
-        // Daily Reset Logic
         if (userTask &&
             task.type === "DAILY" &&
             !isSameDay(userTask.updatedAt, now)) {
@@ -44,6 +43,7 @@ async function getTasksForUser(app, userId) {
             reward: task.reward,
             goal: task.goal,
             icon: task.icon,
+            link: task.link,
             progress: userTask?.progress ?? 0,
             claimed: userTask?.claimed ?? false,
             claimedAt: userTask?.claimedAt ?? null,
@@ -64,7 +64,6 @@ async function claimTask(app, userId, taskId) {
         throw new Error("Reward already claimed");
     if (userTask.progress < task.goal)
         throw new Error("Task not completed yet");
-    // Award coins and mark as claimed
     await app.prisma.$transaction([
         app.prisma.userTask.update({
             where: { userId_taskId: { userId, taskId } },
@@ -74,12 +73,19 @@ async function claimTask(app, userId, taskId) {
             where: { id: userId },
             data: { coins: { increment: task.reward } },
         }),
+        app.prisma.economyLog.create({
+            data: {
+                userId,
+                amount: task.reward,
+                source: "TASK_REWARD",
+                details: { taskId },
+            },
+        }),
     ]);
     return { success: true, reward: task.reward };
 }
 async function updateTaskProgress(app, userId, objective, increment = 1) {
     const now = new Date();
-    // Find all active tasks with this objective
     const activeTasks = await app.prisma.task.findMany({
         where: { objective, isActive: true },
     });
@@ -113,7 +119,6 @@ async function updateTaskProgress(app, userId, objective, increment = 1) {
         await app.prisma.$transaction(updates);
     }
 }
-// ----------- ADMIN METHODS -----------
 async function createTask(app, data) {
     return app.prisma.task.create({ data });
 }
@@ -121,7 +126,6 @@ async function updateTask(app, taskId, data) {
     return app.prisma.task.update({ where: { id: taskId }, data });
 }
 async function deleteTask(app, taskId) {
-    // Delete related userTasks first due to FK
     await app.prisma.userTask.deleteMany({ where: { taskId } });
     return app.prisma.task.delete({ where: { id: taskId } });
 }

@@ -53,7 +53,8 @@ export const TRAINING = {
 
 export const SCOUTING = {
   MAX_ACTIVE_SCOUTS: 3,
-  DURATION_MS: 0,
+  // Default scouting duration: 1 hour
+  DURATION_MS: 60 * 60 * 1000,
   REGIONS: [
     "Europe",
     "South America",

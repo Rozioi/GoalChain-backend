@@ -16,12 +16,12 @@ const ROLE_SYNERGY = {
     "DEFENDER-FORWARD": 1,
 };
 const POSITION_SYNERGY = {
-    "CB-CDM": 4, // Defensive cover
-    "CDM-CM": 3, // Build-up
-    "CM-CAM": 3, // Creativity
-    "CAM-ST": 4, // Playmaking
-    "LW-ST": 3, // Winger service
-    "RW-ST": 3, // Winger service
+    "CB-CDM": 4,
+    "CDM-CM": 3,
+    "CM-CAM": 3,
+    "CAM-ST": 4,
+    "LW-ST": 3,
+    "RW-ST": 3,
     "LW-CAM": 2,
     "RW-CAM": 2,
 };

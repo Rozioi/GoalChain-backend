@@ -77,5 +77,14 @@ const matchController = {
             reply.status(500).send({ error: err.message });
         }
     },
+    async cancel(req, reply) {
+        try {
+            const result = await (0, match_service_1.cancelMatchmaking)(req.server, req.user.userId);
+            reply.send(result);
+        }
+        catch (err) {
+            reply.status(500).send({ error: err.message });
+        }
+    },
 };
 exports.default = matchController;

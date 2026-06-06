@@ -1,25 +1,133 @@
 import { FastifyInstance } from "fastify";
-import { randomBytes } from "crypto";
+import { randomBytes, createHmac } from "crypto";
+import { AppError } from "../../utils/app-error";
+
+interface TelegramUserData {
+  id: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+}
+
+export function verifyTelegramInitData(initData: string, botToken: string): boolean {
+  if (process.env.NODE_ENV !== "production" && (!initData || initData === "mock")) {
+    return true;
+  }
+
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get("hash");
+    if (!hash) return false;
+
+    params.delete("hash");
+
+    const keys = Array.from(params.keys()).sort();
+    const dataCheckString = keys
+      .map((key) => `${key}=${params.get(key)}`)
+      .join("\n");
+
+    const secretKey = createHmac("sha256", "WebAppData")
+      .update(botToken)
+      .digest();
+
+    const calculatedHash = createHmac("sha256", secretKey)
+      .update(dataCheckString)
+      .digest("hex");
+
+    return calculatedHash === hash;
+  } catch (e) {
+    return false;
+  }
+}
+
+export function parseTelegramInitData(initData: string): TelegramUserData | null {
+  if (process.env.NODE_ENV !== "production" && (!initData || initData === "mock")) {
+    return {
+      id: 12345678,
+      username: "test_user",
+      first_name: "Test",
+      last_name: "User",
+    };
+  }
+
+  try {
+    const params = new URLSearchParams(initData);
+    const userString = params.get("user");
+    if (!userString) return null;
+    return JSON.parse(userString) as TelegramUserData;
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function loginUser(
+  app: FastifyInstance,
+  initData: string,
+) {
+  const botToken = process.env.BOT_TOKEN || "";
+  const isValid = verifyTelegramInitData(initData, botToken);
+  if (!isValid) {
+    throw new AppError("Invalid Telegram signature", 401);
+  }
+
+  const tgUser = parseTelegramInitData(initData);
+  if (!tgUser) {
+    throw new AppError("Could not parse Telegram user data", 400);
+  }
+
+  const telegramId = String(tgUser.id);
+  const existing = await app.prisma.user.findUnique({
+    where: { telegramId },
+  });
+
+  if (!existing) {
+    return { isRegistered: false };
+  }
+
+  if (tgUser.photo_url && existing.photoUrl !== tgUser.photo_url) {
+    await app.prisma.user.update({
+      where: { id: existing.id },
+      data: { photoUrl: tgUser.photo_url },
+    });
+    existing.photoUrl = tgUser.photo_url;
+  }
+
+  const token = app.jwt.sign({
+    userId: existing.id,
+    telegramId: existing.telegramId,
+  });
+
+  return { user: existing, token, isRegistered: true };
+}
 
 export async function registerUser(
   app: FastifyInstance,
-  telegramId: string,
-  username?: string,
-  firstName?: string,
-  lastName?: string,
-  photoUrl?: string,
+  initData: string,
 ) {
+  const botToken = process.env.BOT_TOKEN || "";
+  const isValid = verifyTelegramInitData(initData, botToken);
+  if (!isValid) {
+    throw new AppError("Invalid Telegram signature", 401);
+  }
+
+  const tgUser = parseTelegramInitData(initData);
+  if (!tgUser) {
+    throw new AppError("Could not parse Telegram user data", 400);
+  }
+
+  const telegramId = String(tgUser.id);
   const existing = await app.prisma.user.findUnique({
     where: { telegramId },
   });
 
   if (existing) {
-    if (photoUrl && existing.photoUrl !== photoUrl) {
+    if (tgUser.photo_url && existing.photoUrl !== tgUser.photo_url) {
       await app.prisma.user.update({
         where: { id: existing.id },
-        data: { photoUrl },
+        data: { photoUrl: tgUser.photo_url },
       });
-      existing.photoUrl = photoUrl;
+      existing.photoUrl = tgUser.photo_url;
     }
 
     const token = app.jwt.sign({
@@ -34,10 +142,10 @@ export async function registerUser(
   const user = await app.prisma.user.create({
     data: {
       telegramId,
-      username,
-      firstName,
-      lastName,
-      photoUrl,
+      username: tgUser.username,
+      firstName: tgUser.first_name,
+      lastName: tgUser.last_name,
+      photoUrl: tgUser.photo_url,
       referralCode,
     },
   });

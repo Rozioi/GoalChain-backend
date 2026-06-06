@@ -108,5 +108,11 @@ async function matchRoutes(app) {
             },
         },
     }, match_controller_1.default.get);
+    app.post("/match/cancel", {
+        schema: {
+            tags: ["Match"],
+            summary: "Отменить поиск матча",
+        },
+    }, match_controller_1.default.cancel);
 }
 exports.default = matchRoutes;

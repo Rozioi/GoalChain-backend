@@ -53,7 +53,7 @@ export declare function getEventStandings(app: FastifyInstance, eventId: string)
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
-        awayTeamId: string;
+        awayTeamId: string | null;
         isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;

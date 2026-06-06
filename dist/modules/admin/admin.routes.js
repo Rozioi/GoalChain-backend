@@ -2,14 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const admin_controller_1 = require("./admin.controller");
 async function adminGuard(request, reply) {
-    // 1. Ensure authenticated
     try {
         await request.jwtVerify();
     }
     catch (err) {
         return reply.status(401).send({ error: "Unauthorized" });
     }
-    // 2. Check isAdmin in DB
     const userId = request.user.userId;
     const user = await request.server.prisma.user.findUnique({
         where: { id: userId },

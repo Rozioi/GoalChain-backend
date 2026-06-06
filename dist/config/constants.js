@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PLAYER_CLUBS = exports.PLAYER_NATIONALITIES = exports.PLAYER_LAST_NAMES = exports.PLAYER_FIRST_NAMES = exports.REFERRAL = exports.SEASON = exports.SCOUTING = exports.TRAINING = exports.MATCH = exports.DRAFT = void 0;
+exports.PLAYER_CLUBS = exports.PLAYER_NATIONALITIES = exports.PLAYER_LAST_NAMES = exports.PLAYER_FIRST_NAMES = exports.RENT = exports.REFERRAL = exports.SEASON = exports.SCOUTING = exports.TRAINING = exports.MATCH = exports.DRAFT = void 0;
 // ─── DRAFT ──────────────────────────────────────────────────────
 exports.DRAFT = {
     STARTER_GK_OPTIONS: 4,
@@ -95,6 +95,10 @@ exports.SEASON = {
 exports.REFERRAL = {
     INVITER_REWARD: 500,
     INVITEE_REWARD: 300,
+};
+// ─── RENT ───────────────────────────────────────────────────────
+exports.RENT = {
+    COMMISSION_RATE: 0.1, // 10% platform fee
 };
 // ─── PLAYER NAMES ───────────────────────────────────────────────
 exports.PLAYER_FIRST_NAMES = [
@@ -312,21 +316,24 @@ exports.PLAYER_NATIONALITIES = [
     "PA", // Panama
 ];
 exports.PLAYER_CLUBS = [
-    "London Lions",
-    "Paris Pride",
-    "Madrid Kings",
-    "Munich Stars",
-    "Milan Giants",
-    "Manchester United",
-    "Barcelona FC",
-    "Liverpool Red",
-    "Inter Milan",
+    "Real Madrid",
+    "Manchester City",
+    "Liverpool FC",
+    "FC Barcelona",
     "Bayern Munich",
-    "Ajax Amsterdan",
-    "Porto Dragoes",
-    "Dortmund Yellow",
-    "Juventus Old",
+    "Paris Saint-Germain",
+    "Inter Milan",
+    "Arsenal FC",
+    "Bayer Leverkusen",
+    "AC Milan",
+    "Borussia Dortmund",
     "Atletico Madrid",
-    "CSKA",
-    "Dinamo Brest",
+    "Juventus",
+    "Chelsea FC",
+    "Tottenham Hotspur",
+    "Benfica",
+    "Napoli",
+    "Ajax",
+    "Sporting CP",
+    "Aston Villa",
 ];

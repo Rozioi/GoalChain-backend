@@ -3,19 +3,32 @@ import { userController } from "./user.controller";
 
 async function userRoutes(app: FastifyInstance) {
   app.post(
+    "/auth/login",
+    {
+      schema: {
+        tags: ["Auth"],
+        body: {
+          type: "object",
+          required: ["initData"],
+          properties: {
+            initData: { type: "string" },
+          },
+        },
+      },
+    },
+    userController.login,
+  );
+
+  app.post(
     "/auth/register",
     {
       schema: {
         tags: ["Auth"],
         body: {
           type: "object",
-          required: ["telegramId"],
+          required: ["initData"],
           properties: {
-            telegramId: { type: "string" },
-            username: { type: "string" },
-            firstName: { type: "string" },
-            lastName: { type: "string" },
-            photoUrl: { type: "string" },
+            initData: { type: "string" },
           },
         },
       },

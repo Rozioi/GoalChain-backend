@@ -25,7 +25,95 @@ export declare function registerUser(app: FastifyInstance, telegramId: string, u
     token: string;
     isNew: boolean;
 }>;
-export declare function getUserProfile(app: FastifyInstance, userId: string): Promise<({
+export declare function getUserProfile(app: FastifyInstance, userId: string): Promise<{
+    rentIncomeCoins: number;
+    rentIncomeGems: number;
+    rentedOutPlayers: {
+        activeContract: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            price: number;
+            startDate: Date;
+            endDate: Date;
+            status: import(".prisma/client").$Enums.RentStatus;
+            playerId: string;
+            lessorId: string;
+            renterId: string;
+        };
+        hourlyIncome: number;
+        rentContracts: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            price: number;
+            startDate: Date;
+            endDate: Date;
+            status: import(".prisma/client").$Enums.RentStatus;
+            playerId: string;
+            lessorId: string;
+            renterId: string;
+        }[];
+        age: number;
+        name: string;
+        id: string;
+        surname: string | null;
+        overallRating: number;
+        position: import(".prisma/client").$Enums.Position;
+        role: import(".prisma/client").$Enums.PlayerRole;
+        style: import(".prisma/client").$Enums.PlayerStyle;
+        pace: number;
+        paceBonus: number;
+        shooting: number;
+        shootingBonus: number;
+        passing: number;
+        passingBonus: number;
+        dribbling: number;
+        dribblingBonus: number;
+        defending: number;
+        defendingBonus: number;
+        physical: number;
+        physicalBonus: number;
+        goalkeeping: number;
+        formValue: number;
+        fatigue: number;
+        country: string;
+        potentialMin: number;
+        potentialMax: number;
+        heightCm: number;
+        weightKg: number;
+        foot: string;
+        skillMoves: number;
+        weakFoot: number;
+        injuryType: string | null;
+        injuryEndsAt: Date | null;
+        isNft: boolean;
+        mintedAt: Date | null;
+        tokenId: string | null;
+        nationality: string;
+        clubId: number | null;
+        club: string;
+        leagueId: number | null;
+        leagueDivisionId: number | null;
+        trainingLevel: number;
+        trainingLevelMax: number;
+        trainingExperience: number;
+        trainingExperienceRequired: number;
+        face: string | null;
+        hairStyle: string | null;
+        hairColor: string | null;
+        skinColor: string | null;
+        beardStyle: string | null;
+        beardColor: string | null;
+        emotion: string | null;
+        rarity: string | null;
+        imageUrl: string | null;
+        ownerId: string | null;
+        isOnRent: boolean;
+        rentPrice: number | null;
+        createdAt: Date;
+        updatedAt: Date;
+    }[];
     teams: ({
         players: ({
             player: {
@@ -110,7 +198,6 @@ export declare function getUserProfile(app: FastifyInstance, userId: string): Pr
     _count: {
         referralsMade: number;
     };
-} & {
     level: number;
     id: string;
     createdAt: Date;
@@ -131,7 +218,7 @@ export declare function getUserProfile(app: FastifyInstance, userId: string): Pr
     referredById: string | null;
     dailyMatchesPlayed: number;
     dailyMatchesResetAt: Date;
-}) | null>;
+} | null>;
 export declare function applyReferralCode(app: FastifyInstance, userId: string, code: string): Promise<{
     success: boolean;
     bonus: number;

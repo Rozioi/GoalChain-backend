@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const user_controller_1 = require("./user.controller");
 async function userRoutes(app) {
-    // public routes
     app.post("/auth/register", {
         schema: {
             tags: ["Auth"],
@@ -19,7 +18,6 @@ async function userRoutes(app) {
             },
         },
     }, user_controller_1.userController.register);
-    // protected routes
     app.get("/user/me", {
         schema: {
             tags: ["User"],

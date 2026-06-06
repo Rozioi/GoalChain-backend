@@ -34,7 +34,13 @@ async function rentController(app) {
         return contract;
     });
     app.post("/rent/return", async (req, reply) => {
-        const result = await rent_service_1.rentService.returnPlayer(app, req.body.playerId);
+        const userId = req.user.userId;
+        const result = await rent_service_1.rentService.returnPlayer(app, userId, req.body.playerId);
+        return result;
+    });
+    app.post("/rent/recall", async (req, reply) => {
+        const userId = req.user.userId;
+        const result = await rent_service_1.rentService.recallPlayer(app, userId, req.body.playerId);
         return result;
     });
 }

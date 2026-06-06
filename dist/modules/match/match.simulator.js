@@ -33,7 +33,6 @@ function simulateMatch(home, away, seed, options = {}) {
     const awayActive = [...away.starters];
     const homeBench = [...home.bench];
     const awayBench = [...away.bench];
-    // Initialize fatigue and form if not present
     homeActive.forEach((p) => {
         p.fatigue = p.fatigue ?? 0;
         p.formValue = p.formValue ?? 1.0;
@@ -106,9 +105,8 @@ function simulateMatch(home, away, seed, options = {}) {
             if (playerIdx !== -1 && benchIdx !== -1) {
                 const outPlayer = active[playerIdx];
                 const inPlayer = bench.splice(benchIdx, 1)[0];
-                // Adjust fatigue and form values for substituted player
-                inPlayer.fatigue = 0; // Fresh sub
-                inPlayer.formValue = Math.min(1.2, (inPlayer.formValue || 1.0) + 0.1); // Motivation boost
+                inPlayer.fatigue = 0;
+                inPlayer.formValue = Math.min(1.2, (inPlayer.formValue || 1.0) + 0.1);
                 active[playerIdx] = inPlayer;
                 events.push({
                     minute,
@@ -116,6 +114,8 @@ function simulateMatch(home, away, seed, options = {}) {
                     team: sub.team,
                     playerId: inPlayer.id,
                     playerName: inPlayer.name,
+                    playerOutId: outPlayer.id,
+                    playerOutName: outPlayer.name,
                     description: `Substitution: ${inPlayer.name} replaces ${outPlayer.name}. Team energy restored!`,
                 });
             }
@@ -219,6 +219,8 @@ function simulateMatch(home, away, seed, options = {}) {
                         team,
                         playerId: sub.id,
                         playerName: sub.name,
+                        playerOutId: player.id,
+                        playerOutName: player.name,
                         description: `Substitution: ${sub.name} comes on for injured ${player.name}.`,
                     });
                 }

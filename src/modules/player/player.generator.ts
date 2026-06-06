@@ -17,13 +17,14 @@ const LOCAL_AI_URL = process.env.LOCAL_AI_URL; // Например, http://127.0
 
 async function fetchLocalImage(prompt: string): Promise<Buffer> {
   if (!LOCAL_AI_URL) throw new Error("LOCAL_AI_URL is not set");
-  
+
   const response = await fetch(LOCAL_AI_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       prompt,
-      negative_prompt: "blurry, low quality, distorted, extra limbs, bad anatomy, text, watermark",
+      negative_prompt:
+        "blurry, low quality, distorted, extra limbs, bad anatomy, text, watermark",
       steps: 25,
       width: 512,
       height: 512,
@@ -41,7 +42,7 @@ async function fetchLocalImage(prompt: string): Promise<Buffer> {
 async function processPlayerImage(
   promptOrUrl: string,
   fileName: string,
-  isUrl: boolean = true
+  isUrl: boolean = true,
 ): Promise<string> {
   const publicDir = "./public/generated-players/";
   const relativeUrl = `/generated-players/${fileName}.png`;
@@ -55,7 +56,9 @@ async function processPlayerImage(
         console.log(`[Pollinations] Попытка ${attempt} для ${fileName}`);
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000);
-        const response = await fetch(promptOrUrl, { signal: controller.signal });
+        const response = await fetch(promptOrUrl, {
+          signal: controller.signal,
+        });
         clearTimeout(timeoutId);
         if (response.ok) {
           imageBuffer = Buffer.from(await response.arrayBuffer());
@@ -74,8 +77,11 @@ async function processPlayerImage(
   }
 
   if (!imageBuffer) {
-    console.error("[processPlayerImage] Не удалось получить изображение:", lastError);
-    return isUrl ? promptOrUrl : ""; 
+    console.error(
+      "[processPlayerImage] Не удалось получить изображение:",
+      lastError,
+    );
+    return isUrl ? promptOrUrl : "";
   }
 
   try {
@@ -112,8 +118,11 @@ async function processPlayerImage(
 
     return relativeUrl;
   } catch (error) {
-    console.error("[processPlayerImage] Критическая ошибка при обработке:", error);
-    return imageUrl;
+    console.error(
+      "[processPlayerImage] Критическая ошибка при обработке:",
+      error,
+    );
+    return isUrl ? promptOrUrl : "";
   }
 }
 interface GenerateOptions {
@@ -482,19 +491,19 @@ export async function generatePlayer(
     physicalBonus: 0,
   };
 
-  const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
-  const prompt = generateImagePrompt(playerData);
-  const useLocal = !!LOCAL_AI_URL;
+  // const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
+  // const prompt = generateImagePrompt(playerData);
+  // const useLocal = !!LOCAL_AI_URL;
 
-  const finalImageUrl = await processPlayerImage(
-    useLocal ? prompt : generateImageUrlFromPrompt(prompt),
-    fileName,
-    !useLocal,
-  );
+  // const finalImageUrl = await processPlayerImage(
+  //   useLocal ? prompt : generateImageUrlFromPrompt(prompt),
+  //   fileName,
+  //   !useLocal,
+  // );
 
   return {
     ...playerData,
-    imageUrl: finalImageUrl,
+    imageUrl: "ф.png",
   };
 }
 
@@ -510,5 +519,6 @@ export async function generateMultiplePlayers(
     });
     players.push(player);
   }
+  console.log("sadsad", players);
   return players;
 }

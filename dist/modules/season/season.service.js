@@ -111,7 +111,6 @@ async function registerForSeason(app, userId) {
     });
     if (!team)
         throw new Error("No team. Complete draft first.");
-    // Check if already registered
     const existing = await app.prisma.seasonStanding.findUnique({
         where: { seasonId_teamId: { seasonId: season.id, teamId: team.id } },
     });
@@ -189,7 +188,6 @@ async function endSeason(app, seasonId) {
         throw new Error("Season not found");
     if (season.status === "COMPLETED")
         throw new Error("Season already completed");
-    // Distribute rewards
     const rewards = [
         constants_1.SEASON.REWARDS.FIRST_PLACE,
         constants_1.SEASON.REWARDS.SECOND_PLACE,
@@ -213,7 +211,6 @@ async function endSeason(app, seasonId) {
     });
 }
 async function playSeasonMatch(app, userId) {
-    // 1. Find active season for user
     const team = await app.prisma.team.findFirst({
         where: { userId, isEvent: false },
     });
@@ -226,11 +223,10 @@ async function playSeasonMatch(app, userId) {
     if (!standing)
         throw new Error("No active season membership found");
     const seasonId = standing.seasonId;
-    // 2. Find opponent in the same season (any other team)
     const opponentStanding = await app.prisma.seasonStanding.findFirst({
         where: {
             seasonId,
-            teamId: { not: team.id }
+            teamId: { not: team.id },
         },
         include: { team: true },
     });
@@ -238,12 +234,11 @@ async function playSeasonMatch(app, userId) {
         throw new Error("No opponents found in this season");
     const { randomUUID } = await Promise.resolve().then(() => __importStar(require("crypto")));
     const { simulateMatch } = await Promise.resolve().then(() => __importStar(require("../match/match.simulator")));
-    const { getTeamForMatch, handleMatchCompletion } = await Promise.resolve().then(() => __importStar(require("../match/match.service")));
+    const { getTeamForMatch, handleMatchCompletion } = (await Promise.resolve().then(() => __importStar(require("../match/match.service"))));
     const seed = randomUUID();
     const homeTeamData = await getTeamForMatch(app, team.id);
     const awayTeamData = await getTeamForMatch(app, opponentStanding.team.id);
     const result = simulateMatch(homeTeamData, awayTeamData, seed);
-    // 3. Create Match record
     const match = await app.prisma.match.create({
         data: {
             type: "SEASON",
@@ -258,10 +253,16 @@ async function playSeasonMatch(app, userId) {
             seasonId,
         },
     });
-    // 4. Update standings for both
-    await updateStandings(app, seasonId, team.id, result.homeScore, result.awayScore, result.winner === "home" ? "win" : result.winner === "draw" ? "draw" : "loss");
-    await updateStandings(app, seasonId, opponentStanding.team.id, result.awayScore, result.homeScore, result.winner === "away" ? "win" : result.winner === "draw" ? "draw" : "loss");
-    // 5. Finalize match (awards rewards and updates tasks)
+    await updateStandings(app, seasonId, team.id, result.homeScore, result.awayScore, result.winner === "home"
+        ? "win"
+        : result.winner === "draw"
+            ? "draw"
+            : "loss");
+    await updateStandings(app, seasonId, opponentStanding.team.id, result.awayScore, result.homeScore, result.winner === "away"
+        ? "win"
+        : result.winner === "draw"
+            ? "draw"
+            : "loss");
     await handleMatchCompletion(app, match, result, seed);
     return { match, result };
 }

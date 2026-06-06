@@ -309,7 +309,7 @@ model Match {
   homeUserId  String?
   awayUserId  String?
   homeTeamId  String
-  awayTeamId  String
+  awayTeamId  String?
   isBot       Boolean     @default(false)
 
   homeScore   Int?
@@ -332,7 +332,7 @@ model Match {
   homeUser    User?   @relation("HomeUser", fields: [homeUserId], references: [id])
   awayUser    User?   @relation("AwayUser", fields: [awayUserId], references: [id])
   homeTeam    Team    @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeam    Team    @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  awayTeam    Team?   @relation("AwayTeam", fields: [awayTeamId], references: [id])
   season      Season? @relation(fields: [seasonId], references: [id])
   event       Event?  @relation(fields: [eventId], references: [id])
 

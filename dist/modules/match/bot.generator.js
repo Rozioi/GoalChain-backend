@@ -5,25 +5,25 @@ const player_generator_1 = require("../player/player.generator");
 async function generateBotTeam(app, targetRating) {
     const ovrMin = Math.max(40, Math.round(targetRating - 10));
     const ovrMax = Math.min(95, Math.round(targetRating + 5));
-    const gk = (0, player_generator_1.generateMultiplePlayers)(1, {
+    const gk = await (0, player_generator_1.generateMultiplePlayers)(1, {
         role: "GOALKEEPER",
         ovrMin,
         ovrMax,
         seed: `bot-gk-${Date.now()}`,
     });
-    const def = (0, player_generator_1.generateMultiplePlayers)(4, {
+    const def = await (0, player_generator_1.generateMultiplePlayers)(4, {
         role: "DEFENDER",
         ovrMin,
         ovrMax,
         seed: `bot-def-${Date.now()}`,
     });
-    const mid = (0, player_generator_1.generateMultiplePlayers)(4, {
+    const mid = await (0, player_generator_1.generateMultiplePlayers)(4, {
         role: "MIDFIELDER",
         ovrMin,
         ovrMax,
         seed: `bot-mid-${Date.now()}`,
     });
-    const fwd = (0, player_generator_1.generateMultiplePlayers)(2, {
+    const fwd = await (0, player_generator_1.generateMultiplePlayers)(2, {
         role: "FORWARD",
         ovrMin,
         ovrMax,

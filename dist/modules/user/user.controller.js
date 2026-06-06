@@ -16,7 +16,6 @@ exports.userController = {
     },
     async me(req, reply) {
         try {
-            // sync scouting states on every profile request for live updates
             await (0, scouting_service_1.syncScoutStates)(req.server, req.user.userId);
             const user = await (0, user_service_1.getUserProfile)(req.server, req.user.userId);
             if (!user)

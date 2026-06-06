@@ -56,6 +56,7 @@ async function getDraftOptions(app, userId, step) {
         where: { userId, status: "IN_PROGRESS" },
         include: { options: { include: { player: true } } },
     });
+    console.log(session);
     if (!session)
         throw new Error("No active draft session");
     const stepUpper = step.toUpperCase();
@@ -68,6 +69,7 @@ async function getDraftOptions(app, userId, step) {
             session,
             options: existingOptions.map((o) => ({
                 ...o.player,
+                ovr: o.player.overallRating,
                 optionId: o.id,
             })),
             config: STEP_CONFIG[stepUpper],
@@ -76,12 +78,14 @@ async function getDraftOptions(app, userId, step) {
     const config = STEP_CONFIG[stepUpper];
     if (!config)
         throw new Error(`Invalid draft step: ${stepUpper}`);
-    const generatedPlayers = (0, player_generator_1.generateMultiplePlayers)(config.count, {
+    console.log("final step: ", config);
+    const generatedPlayers = await (0, player_generator_1.generateMultiplePlayers)(config.count, {
         role: config.role,
         ovrMin: constants_1.DRAFT.STARTER_OVR_MIN,
         ovrMax: constants_1.DRAFT.STARTER_OVR_MAX,
         seed: `draft-${session.id}-${stepUpper}`,
     });
+    console.log(generatedPlayers);
     const options = [];
     for (const gp of generatedPlayers) {
         const player = await app.prisma.player.create({
@@ -94,10 +98,11 @@ async function getDraftOptions(app, userId, step) {
                 step: stepUpper,
             },
         });
-        options.push({ ...player, optionId: option.id });
+        options.push({ ...player, ovr: player.overallRating, optionId: option.id });
     }
     const pickedOptions = session.options.filter((o) => o.isPicked);
     const pickedPlayers = pickedOptions.map((o) => o.player);
+    console.log("final step: ", session, config);
     const suggestions = options.map((opt) => {
         const testTeam = [
             ...pickedPlayers.map((p) => ({
@@ -116,10 +121,12 @@ async function getDraftOptions(app, userId, step) {
         const synergy = (0, synergy_engine_1.calculateTeamSynergy)(testTeam);
         return {
             ...opt,
+            ovr: opt.overallRating,
             synergy: synergy.totalBonus,
             synergyDetails: synergy.details,
         };
     });
+    console.log("final step: ", session, suggestions, config);
     return { session, options: suggestions, config };
 }
 async function pickDraftPlayers(app, userId, optionIds) {
@@ -166,7 +173,6 @@ async function completeDraft(app, userId) {
     if (starters.length !== 11) {
         throw new Error(`Need 11 starters, have ${starters.length}`);
     }
-    // Generate reserve players
     const reserveConfig = [
         { role: "GOALKEEPER", count: constants_1.DRAFT.RESERVE_GK },
         { role: "DEFENDER", count: constants_1.DRAFT.RESERVE_DEF },
@@ -175,7 +181,7 @@ async function completeDraft(app, userId) {
     ];
     const reserves = [];
     for (const rc of reserveConfig) {
-        const generated = (0, player_generator_1.generateMultiplePlayers)(rc.count, {
+        const generated = await (0, player_generator_1.generateMultiplePlayers)(rc.count, {
             role: rc.role,
             ovrMin: constants_1.DRAFT.RESERVE_OVR_MIN,
             ovrMax: constants_1.DRAFT.RESERVE_OVR_MAX,
@@ -195,13 +201,21 @@ async function completeDraft(app, userId) {
             userId,
         },
     });
-    for (const player of starters) {
+    // Sort starters: FORWARD -> MIDFIELDER -> DEFENDER -> GOALKEEPER
+    // To align with the UI formation layout indexes: 0-1 (FWD), 2-5 (MID), 6-9 (DEF), 10 (GK)
+    const fwds = starters.filter((p) => p.role === "FORWARD");
+    const mids = starters.filter((p) => p.role === "MIDFIELDER");
+    const defs = starters.filter((p) => p.role === "DEFENDER");
+    const gks = starters.filter((p) => p.role === "GOALKEEPER");
+    const sortedStarters = [...fwds, ...mids, ...defs, ...gks];
+    for (let i = 0; i < sortedStarters.length; i++) {
+        const player = sortedStarters[i];
         await app.prisma.teamPlayer.create({
             data: {
                 teamId: team.id,
                 playerId: player.id,
                 isStarter: true,
-                positionInFormation: player.position,
+                positionInFormation: i.toString(),
             },
         });
     }

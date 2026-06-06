@@ -81,6 +81,9 @@ export declare const REFERRAL: {
     INVITER_REWARD: number;
     INVITEE_REWARD: number;
 };
+export declare const RENT: {
+    COMMISSION_RATE: number;
+};
 export declare const PLAYER_FIRST_NAMES: string[];
 export declare const PLAYER_LAST_NAMES: string[];
 export declare const PLAYER_NATIONALITIES: readonly ["FR", "DE", "GB", "ES", "IT", "NL", "PT", "BE", "HR", "NO", "DK", "SE", "CH", "AT", "PL", "UA", "TR", "GR", "IE", "CZ", "SK", "HU", "RS", "SI", "GE", "BY", "LT", "LV", "EE", "FI", "BR", "AR", "UY", "CO", "CL", "EC", "PY", "PE", "BO", "VE", "SN", "EG", "MA", "NG", "DZ", "CM", "CI", "GH", "TN", "ML", "JP", "KR", "SA", "IR", "AU", "AE", "QA", "UZ", "CN", "US", "MX", "CA", "CR", "JM", "PA"];

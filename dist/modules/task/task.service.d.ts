@@ -9,6 +9,7 @@ export declare function getTasksForUser(app: FastifyInstance, userId: string): P
     reward: number;
     goal: number;
     icon: string | null;
+    link: string | null;
     progress: number;
     claimed: boolean;
     claimedAt: Date | null;
@@ -26,7 +27,9 @@ export declare function createTask(app: FastifyInstance, data: {
     reward: number;
     goal: number;
     icon?: string;
+    link?: string;
 }): Promise<{
+    link: string | null;
     title: string;
     description: string | null;
     id: string;
@@ -46,8 +49,10 @@ export declare function updateTask(app: FastifyInstance, taskId: string, data: P
     reward: number;
     goal: number;
     icon: string;
+    link: string;
     isActive: boolean;
 }>): Promise<{
+    link: string | null;
     title: string;
     description: string | null;
     id: string;
@@ -60,6 +65,7 @@ export declare function updateTask(app: FastifyInstance, taskId: string, data: P
     isActive: boolean;
 }>;
 export declare function deleteTask(app: FastifyInstance, taskId: string): Promise<{
+    link: string | null;
     title: string;
     description: string | null;
     id: string;
@@ -72,6 +78,7 @@ export declare function deleteTask(app: FastifyInstance, taskId: string): Promis
     isActive: boolean;
 }>;
 export declare function getAllTasks(app: FastifyInstance): Promise<{
+    link: string | null;
     title: string;
     description: string | null;
     id: string;

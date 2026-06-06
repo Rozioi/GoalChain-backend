@@ -6,6 +6,11 @@ export declare const playerController: {
             season?: number;
         };
     }>, reply: FastifyReply): Promise<void>;
+    getPlayerImage(req: FastifyRequest<{
+        Params: {
+            id: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
     populate(req: FastifyRequest<{
         Body: {
             count?: number;

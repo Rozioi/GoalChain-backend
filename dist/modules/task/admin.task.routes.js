@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const task_controller_1 = require("./task.controller");
-// Simple admin middleware: checks X-Admin-Token header against env
 async function adminGuard(request, reply) {
     const adminToken = process.env.ADMIN_TOKEN;
     if (!adminToken) {
@@ -31,7 +30,10 @@ async function adminTaskRoutes(app) {
                     title: { type: "string" },
                     description: { type: "string" },
                     type: { type: "string", enum: ["SEASON", "DAILY", "INTRO"] },
-                    objective: { type: "string", enum: ["GOALS", "WINS", "MATCHES", "CLEAN_SHEETS", "REFERRALS"] },
+                    objective: {
+                        type: "string",
+                        enum: ["GOALS", "WINS", "MATCHES", "CLEAN_SHEETS", "REFERRALS"],
+                    },
                     reward: { type: "number" },
                     goal: { type: "number" },
                     icon: { type: "string" },
@@ -50,7 +52,10 @@ async function adminTaskRoutes(app) {
                     title: { type: "string" },
                     description: { type: "string" },
                     type: { type: "string", enum: ["SEASON", "DAILY", "INTRO"] },
-                    objective: { type: "string", enum: ["GOALS", "WINS", "MATCHES", "CLEAN_SHEETS", "REFERRALS"] },
+                    objective: {
+                        type: "string",
+                        enum: ["GOALS", "WINS", "MATCHES", "CLEAN_SHEETS", "REFERRALS"],
+                    },
                     reward: { type: "number" },
                     goal: { type: "number" },
                     icon: { type: "string" },

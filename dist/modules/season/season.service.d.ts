@@ -122,7 +122,7 @@ export declare function playSeasonMatch(app: FastifyInstance, userId: string): P
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
-        awayTeamId: string;
+        awayTeamId: string | null;
         isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;

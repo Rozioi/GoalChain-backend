@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
   registerUser,
+  loginUser,
   getUserProfile,
   applyReferralCode,
   getUserReferrals,
@@ -9,31 +10,37 @@ import {
 import { syncScoutStates } from "../scouting/scouting.service";
 
 export const userController = {
-  async register(
+  async login(
     req: FastifyRequest<{
       Body: {
-        telegramId: string;
-        username?: string;
-        firstName?: string;
-        lastName?: string;
-        photoUrl?: string;
+        initData: string;
       };
     }>,
     reply: FastifyReply,
   ) {
     try {
-      const { telegramId, username, firstName, lastName, photoUrl } = req.body;
-      const result = await registerUser(
-        req.server,
-        telegramId,
-        username,
-        firstName,
-        lastName,
-        photoUrl,
-      );
+      const { initData } = req.body;
+      const result = await loginUser(req.server, initData);
       reply.send(result);
     } catch (err: any) {
-      reply.status(400).send({ error: err.message });
+      reply.status(err.statusCode || 400).send({ error: err.message });
+    }
+  },
+
+  async register(
+    req: FastifyRequest<{
+      Body: {
+        initData: string;
+      };
+    }>,
+    reply: FastifyReply,
+  ) {
+    try {
+      const { initData } = req.body;
+      const result = await registerUser(req.server, initData);
+      reply.send(result);
+    } catch (err: any) {
+      reply.status(err.statusCode || 400).send({ error: err.message });
     }
   },
 

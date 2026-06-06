@@ -54,10 +54,17 @@ async function hireScount(app, userId, region, tier = "COMMON", targetRole, ageM
                     where: { id: userId },
                     data: { coins: { decrement: tierConfig.COST } },
                 }),
+                app.prisma.economyLog.create({
+                    data: {
+                        userId,
+                        amount: -tierConfig.COST,
+                        source: "SCOUTING_COST",
+                        details: { tier, region },
+                    },
+                }),
             ]
             : []),
     ]);
-    // Immediately trigger sync for this user to generate the player
     syncScoutStates(app, userId);
     return scout;
 }
@@ -71,10 +78,8 @@ async function syncScoutStates(app, userId) {
     const scoutingLevel = user.scoutingLevel || 1;
     await Promise.all(scouts.map(async (scout) => {
         if (new Date() >= scout.endsAt) {
-            // Scout completed — generate result
             const tierConfig = constants_1.SCOUTING.TIERS[scout.tier] || constants_1.SCOUTING.TIERS.COMMON;
             const isNft = Math.random() < tierConfig.NFT_CHANCE;
-            // Level-based OVR boost (less aggressive now)
             const levelBoost = Math.floor((scoutingLevel - 1) / 2);
             const [baseMin, baseMax] = tierConfig.OVR_RANGE;
             const ovrMin = Math.min(95, baseMin + levelBoost);
@@ -124,7 +129,6 @@ async function collectScoutResult(app, userId, scoutId) {
         throw new Error("Scout not found or not completed");
     if (scout.results.length === 0)
         throw new Error("No results to collect");
-    // Add player to team
     const team = await app.prisma.team.findFirst({
         where: { userId, isEvent: false },
     });
@@ -132,7 +136,6 @@ async function collectScoutResult(app, userId, scoutId) {
         throw new Error("No team found. Complete the draft first.");
     await app.prisma.$transaction(async (tx) => {
         for (const result of scout.results) {
-            // Avoid unique constraint error if already collected or in case of double-click
             const exists = await tx.teamPlayer.findUnique({
                 where: {
                     teamId_playerId: { teamId: team.id, playerId: result.playerId },
@@ -153,7 +156,6 @@ async function collectScoutResult(app, userId, scoutId) {
             data: { status: "COLLECTED" },
         });
     });
-    // Scouting growth: +25 EXP per collect
     const EXP_PER_SCOUT = 25;
     const EXP_FOR_LEVEL = 100;
     const currentUser = await app.prisma.user.findUnique({

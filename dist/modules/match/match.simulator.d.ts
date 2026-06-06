@@ -40,6 +40,8 @@ export interface MatchEvent {
     team: "home" | "away";
     playerId?: string;
     playerName?: string;
+    playerOutId?: string;
+    playerOutName?: string;
     description: string;
 }
 export interface MatchResult {

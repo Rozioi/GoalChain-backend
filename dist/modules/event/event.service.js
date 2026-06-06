@@ -19,7 +19,6 @@ async function startEventDraft(app, userId, eventId) {
     if (event.status !== "DRAFT_PHASE") {
         throw new Error("Event is not in draft phase");
     }
-    // Check existing draft/team
     const existing = await app.prisma.eventDraft.findFirst({
         where: { eventId, userId },
     });

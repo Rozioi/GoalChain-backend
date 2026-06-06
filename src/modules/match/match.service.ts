@@ -4,6 +4,7 @@ import { simulateMatch, PressingType } from "./match.simulator";
 import { generateBotTeam } from "./bot.generator";
 import { MATCH } from "../../config/constants";
 import { updateTaskProgress } from "../task/task.service";
+import { calculateTeamRating } from "../player/synergy.engine";
 
 async function getTeamForMatch(app: FastifyInstance, teamId: string) {
   const team = await app.prisma.team.findUnique({
@@ -428,6 +429,7 @@ export async function updateMatchTactics(
   }
 
   const homeTeamData = await getTeamForMatch(app, match.homeTeamId);
+  if (!match.awayTeamId) throw new Error("Away team not set for this match");
   const awayTeamData = await getTeamForMatch(app, match.awayTeamId);
 
   homeTeamData.pressingType = match.homePressingType;
@@ -691,6 +693,36 @@ async function handleMatchCompletion(
 
   if (homeId) await updatePlayer(homeId, "home");
   if (awayId) await updatePlayer(awayId, "away");
+
+  // Recalculate team ratings for both sides so UI shows updated rating after match
+  const recalcTeam = async (teamId?: string | null) => {
+    if (!teamId) return;
+    try {
+      const team = await app.prisma.team.findUnique({
+        where: { id: teamId },
+        include: { players: { include: { player: true } } },
+      });
+      if (!team) return;
+      const starters = team.players
+        .filter((tp: any) => tp.isStarter)
+        .map((tp: any) => ({
+          position: tp.player.position,
+          role: tp.player.role,
+          style: tp.player.style,
+          overallRating: tp.player.overallRating,
+        }));
+      const newRating = calculateTeamRating(starters as any);
+      await app.prisma.team.update({
+        where: { id: teamId },
+        data: { rating: newRating },
+      });
+    } catch (err) {
+      console.warn("Failed to recalc team rating:", err);
+    }
+  };
+
+  await recalcTeam(match.homeTeamId);
+  await recalcTeam(match.awayTeamId);
 
   return {
     homeRewards: {

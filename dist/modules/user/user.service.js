@@ -46,11 +46,10 @@ async function registerUser(app, telegramId, username, firstName, lastName, phot
         where: { telegramId },
     });
     if (existing) {
-        // Update photoUrl dynamically if they uploaded a new one on Telegram
         if (photoUrl && existing.photoUrl !== photoUrl) {
             await app.prisma.user.update({
                 where: { id: existing.id },
-                data: { photoUrl }
+                data: { photoUrl },
             });
             existing.photoUrl = photoUrl;
         }
@@ -79,9 +78,10 @@ async function registerUser(app, telegramId, username, firstName, lastName, phot
 }
 const rent_service_1 = require("../player/rent.service");
 async function getUserProfile(app, userId) {
-    // Background cleanup: sync rentals
-    rent_service_1.rentService.syncExpiredRentals(app).catch(err => app.log.error(err, "Failed to sync rentals"));
-    return app.prisma.user.findUnique({
+    rent_service_1.rentService
+        .syncExpiredRentals(app)
+        .catch((err) => app.log.error(err, "Failed to sync rentals"));
+    const user = await app.prisma.user.findUnique({
         where: { id: userId },
         include: {
             teams: {
@@ -89,7 +89,7 @@ async function getUserProfile(app, userId) {
                 include: {
                     players: {
                         include: { player: true },
-                        orderBy: { isStarter: "desc" },
+                        orderBy: [{ isStarter: "desc" }, { positionInFormation: "asc" }],
                     },
                 },
             },
@@ -100,6 +100,50 @@ async function getUserProfile(app, userId) {
             },
         },
     });
+    if (!user)
+        return null;
+    const activeContracts = await app.prisma.rentContract.findMany({
+        where: { lessorId: userId, status: "ACTIVE" },
+    });
+    let rentIncomeCoins = 0;
+    activeContracts.forEach((contract) => {
+        const hours = Math.max(1, (contract.endDate.getTime() - contract.startDate.getTime()) /
+            (1000 * 60 * 60));
+        rentIncomeCoins += Math.floor(contract.price / hours);
+    });
+    const rentedOutPlayers = await app.prisma.player.findMany({
+        where: {
+            ownerId: userId,
+            rentContracts: { some: { status: "ACTIVE" } },
+        },
+        include: {
+            rentContracts: {
+                where: { status: "ACTIVE" },
+                orderBy: { startDate: "desc" },
+                take: 1,
+            },
+        },
+    });
+    const mappedRentedOut = rentedOutPlayers.map((p) => {
+        const contract = p.rentContracts[0];
+        let hourlyIncome = 0;
+        if (contract) {
+            const hours = Math.max(1, (contract.endDate.getTime() - contract.startDate.getTime()) /
+                (1000 * 60 * 60));
+            hourlyIncome = Math.floor(contract.price / hours);
+        }
+        return {
+            ...p,
+            activeContract: contract,
+            hourlyIncome,
+        };
+    });
+    return {
+        ...user,
+        rentIncomeCoins,
+        rentIncomeGems: 0,
+        rentedOutPlayers: mappedRentedOut,
+    };
 }
 async function applyReferralCode(app, userId, code) {
     const inviter = await app.prisma.user.findUnique({
@@ -155,11 +199,11 @@ async function getUserReferrals(app, userId) {
                     firstName: true,
                     lastName: true,
                     photoUrl: true,
-                    createdAt: true
-                }
-            }
+                    createdAt: true,
+                },
+            },
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: "desc" },
     });
 }
 async function getInviterInfoByCode(app, code) {
@@ -171,7 +215,7 @@ async function getInviterInfoByCode(app, code) {
             firstName: true,
             lastName: true,
             photoUrl: true,
-        }
+        },
     });
     if (!inviter) {
         throw new Error("Inviter not found");

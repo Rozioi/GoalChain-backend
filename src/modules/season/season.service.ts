@@ -141,6 +141,28 @@ export async function createSeason(
     },
   });
 }
+
+/**
+ * Automatically start seasons whose startDate has passed and are still UPCOMING
+ */
+export async function checkAndStartUpcomingSeasons(app: FastifyInstance) {
+  const now = new Date();
+  const startingSeasons = await app.prisma.season.findMany({
+    where: {
+      startDate: { lte: now },
+      status: "UPCOMING",
+    },
+  });
+
+  for (const season of startingSeasons) {
+    await app.prisma.season.update({
+      where: { id: season.id },
+      data: { status: "ACTIVE" },
+    });
+    app.log.info(`Season ${season.id} has been automatically started.`);
+  }
+}
+
 export async function checkAndEndExpiredSeasons(app: FastifyInstance) {
   const now = new Date();
   const expiredSeasons = await app.prisma.season.findMany({
@@ -198,6 +220,7 @@ export async function endSeason(app: FastifyInstance, seasonId: string) {
     data: { status: "COMPLETED" },
   });
 }
+
 export async function playSeasonMatch(app: FastifyInstance, userId: string) {
   const team = await app.prisma.team.findFirst({
     where: { userId, isEvent: false },

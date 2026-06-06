@@ -20,10 +20,10 @@ declare const matchController: {
         };
         Body: {
             pressingType?: "SOFT" | "MEDIUM" | "INTENSIVE";
-            substitution?: {
+            substitutions?: {
                 outId: string;
                 inId: string;
-            };
+            }[];
         };
     }>, reply: FastifyReply): Promise<void>;
     get(req: FastifyRequest<{
@@ -31,5 +31,6 @@ declare const matchController: {
             matchId: string;
         };
     }>, reply: FastifyReply): Promise<undefined>;
+    cancel(req: FastifyRequest, reply: FastifyReply): Promise<void>;
 };
 export default matchController;

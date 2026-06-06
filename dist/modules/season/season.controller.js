@@ -6,7 +6,6 @@ exports.seasonController = {
     async current(req, reply) {
         try {
             const season = await (0, season_service_1.getCurrentSeason)(req.server);
-            // Cache for 30 seconds
             reply.header("Cache-Control", "public, max-age=30");
             reply.send(season || { message: "No active season" });
         }

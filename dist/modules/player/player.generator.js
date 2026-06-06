@@ -10,68 +10,119 @@ const client_1 = require("@prisma/client");
 const constants_1 = require("../../config/constants");
 const background_removal_node_1 = require("@imgly/background-removal-node");
 const fs_1 = __importDefault(require("fs"));
+const sharp_1 = __importDefault(require("sharp"));
 const path_1 = __importDefault(require("path"));
-async function processPlayerImage(imageUrl, fileName) {
-    try {
-        const response = await fetch(imageUrl);
-        if (!response.ok)
-            return imageUrl;
-        const arrayBuffer = await response.arrayBuffer();
-        const imageBuffer = Buffer.from(arrayBuffer);
-        // 1. Создаем папки
-        const tempDir = "./temp/raw-players/";
-        const publicDir = "./public/generated-players/";
-        [tempDir, publicDir].forEach((dir) => {
-            if (!fs_1.default.existsSync(dir))
-                fs_1.default.mkdirSync(dir, { recursive: true });
-        });
-        // 2. Сохраняем исходник во временный файл
-        const tempPath = path_1.default.resolve(`${tempDir}${fileName}_raw.jpg`);
-        fs_1.default.writeFileSync(tempPath, imageBuffer);
+const LOCAL_AI_URL = process.env.LOCAL_AI_URL; // Например, http://127.0.0.1:7860/sdapi/v1/txt2img
+async function fetchLocalImage(prompt) {
+    if (!LOCAL_AI_URL)
+        throw new Error("LOCAL_AI_URL is not set");
+    const response = await fetch(LOCAL_AI_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            prompt,
+            negative_prompt: "blurry, low quality, distorted, extra limbs, bad anatomy, text, watermark",
+            steps: 25,
+            width: 512,
+            height: 512,
+            cfg_scale: 7,
+            sampler_name: "Euler a",
+        }),
+    });
+    if (!response.ok)
+        throw new Error(`Local AI error: ${response.statusText}`);
+    const data = await response.json();
+    // Automatic1111 возвращает base64 в массиве images
+    return Buffer.from(data.images[0], "base64");
+}
+async function processPlayerImage(promptOrUrl, fileName, isUrl = true) {
+    const publicDir = "./public/generated-players/";
+    const relativeUrl = `/generated-players/${fileName}.png`;
+    let imageBuffer = null;
+    let lastError = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-            console.log(`[ImageGen] Удаление фона из файла: ${tempPath}`);
-            // Передаем ПУТЬ к файлу, а не Buffer.
-            // Библиотека сама откроет его через свои внутренние механизмы.
+            if (isUrl) {
+                console.log(`[Pollinations] Попытка ${attempt} для ${fileName}`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 20000);
+                const response = await fetch(promptOrUrl, {
+                    signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+                if (response.ok) {
+                    imageBuffer = Buffer.from(await response.arrayBuffer());
+                    break;
+                }
+            }
+            else {
+                console.log(`[LocalAI] Попытка ${attempt} для ${fileName}`);
+                imageBuffer = await fetchLocalImage(promptOrUrl);
+                break;
+            }
+        }
+        catch (err) {
+            lastError = err;
+            console.warn(`[ImageGen] Ошибка при попытке ${attempt}:`, err);
+            if (attempt < 3)
+                await new Promise((r) => setTimeout(r, 2000));
+        }
+    }
+    if (!imageBuffer) {
+        console.error("[processPlayerImage] Не удалось получить изображение:", lastError);
+        return isUrl ? promptOrUrl : "";
+    }
+    try {
+        if (!fs_1.default.existsSync(publicDir))
+            fs_1.default.mkdirSync(publicDir, { recursive: true });
+        // Нормализуем изображение через sharp перед удалением фона
+        const normalizedBuffer = await (0, sharp_1.default)(imageBuffer).png().toBuffer();
+        const tempDir = "./temp/bg-removal/";
+        if (!fs_1.default.existsSync(tempDir))
+            fs_1.default.mkdirSync(tempDir, { recursive: true });
+        const tempPath = path_1.default.resolve(`${tempDir}${fileName}_temp.png`);
+        fs_1.default.writeFileSync(tempPath, normalizedBuffer);
+        let resultBuffer = normalizedBuffer;
+        try {
+            console.log(`[ImageGen] Удаление фона через файл: ${tempPath}`);
             const resultBlob = await (0, background_removal_node_1.removeBackground)(tempPath);
-            const resultBuffer = Buffer.from(await resultBlob.arrayBuffer());
-            const finalPath = `${publicDir}${fileName}.png`;
-            fs_1.default.writeFileSync(finalPath, resultBuffer);
-            // Чистим временный файл
+            resultBuffer = Buffer.from(await resultBlob.arrayBuffer());
             if (fs_1.default.existsSync(tempPath))
                 fs_1.default.unlinkSync(tempPath);
-            return `https://lividly-hot-gaur.cloudpub.ru/generated-players/${fileName}.png`;
         }
-        catch (removeBgError) {
-            console.error("[@imgly] Ошибка нейросети:", removeBgError);
-            return imageUrl;
+        catch (bgError) {
+            console.warn("[BG Removal] Ошибка при обработке файла:", bgError);
+            if (fs_1.default.existsSync(tempPath))
+                fs_1.default.unlinkSync(tempPath);
         }
+        const pixelatedBuffer = await (0, sharp_1.default)(resultBuffer)
+            .resize(128, 128, { kernel: sharp_1.default.kernel.nearest })
+            .resize(512, 512, { kernel: sharp_1.default.kernel.nearest })
+            .png()
+            .toBuffer();
+        const finalPath = path_1.default.resolve(`${publicDir}${fileName}.png`);
+        fs_1.default.writeFileSync(finalPath, pixelatedBuffer);
+        return relativeUrl;
     }
     catch (error) {
-        console.error("Критическая ошибка:", error);
-        return imageUrl;
+        console.error("[processPlayerImage] Критическая ошибка при обработке:", error);
+        return isUrl ? promptOrUrl : "";
     }
 }
-function generateImageUrl(player) {
-    const prompt = `
-    Professional sports photography,
-    close-up portrait of a football player,
+function generateImagePrompt(player) {
+    return `
+    Pixel art 16-bit SNES football player headshot,
     ${player.name} ${player.surname},
-    wearing ${player.nationality} national kit,
-    ${player.skinColor} skin,
-    ${player.hairStyle} ${player.hairColor} hair,
-    ${player.beardStyle !== "none" ? player.beardStyle + " beard" : "no beard"},
-    ${player.emotion} expression,
-    isolated on white background,
-    studio lighting,
-    high contrast,
-    8k resolution,
-    EA Sports FC render style,
-    no background
+    ${player.nationality} national kit,
+    full frontal view, looking at camera,
+    white background, sharp pixels, retro game
   `
         .replace(/\s+/g, " ")
         .trim();
-    // Добавили параметры для улучшения качества и фиксации стиля
-    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${Math.floor(Math.random() * 1000000)}&model=flux`;
+}
+function generateImageUrlFromPrompt(prompt) {
+    const seed = Math.floor(Math.random() * 1000000);
+    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${seed}`;
 }
 const FACES = [
     "face_1",
@@ -126,12 +177,10 @@ const STYLES_BY_ROLE = {
 function randomInt(rng, min, max) {
     return Math.floor(rng() * (max - min + 1)) + min;
 }
-// Добавляем readonly перед T[]
 function pickRandom(rng, arr) {
     return arr[Math.floor(rng() * arr.length)];
 }
 function generateName(rng) {
-    // Теперь это сработает, даже если массивы заморожены через "as const"
     const name = pickRandom(rng, constants_1.PLAYER_FIRST_NAMES);
     const surname = pickRandom(rng, constants_1.PLAYER_LAST_NAMES);
     return { name, surname };
@@ -151,7 +200,6 @@ function generateStatsForRole(rng, role, style, overallRating) {
             ? randomInt(rng, overallRating - 5, Math.min(99, overallRating + 10))
             : randomInt(rng, 5, 20),
     };
-    // Style bonuses
     switch (style) {
         case "SPEEDY":
             stats.pace = Math.min(99, stats.pace + 10);
@@ -174,7 +222,6 @@ function generateStatsForRole(rng, role, style, overallRating) {
             stats.defending = Math.min(99, stats.defending + 5);
             break;
     }
-    // Role adjustments
     switch (role) {
         case "GOALKEEPER":
             stats.defending = Math.min(99, stats.defending + 5);
@@ -195,9 +242,6 @@ function generateStatsForRole(rng, role, style, overallRating) {
     }
     return stats;
 }
-/**
- * Maps nationality to visual characteristics
- */
 function mapAppearanceFromNationality(rng, nationality) {
     let skinColor = pickRandom(rng, SKIN_COLORS);
     let hairColor = pickRandom(rng, HAIR_COLORS);
@@ -252,11 +296,9 @@ function mapAppearanceFromNationality(rng, nationality) {
 }
 async function generatePlayer(options = {}) {
     const rng = (0, seedrandom_1.default)(options.seed || Math.random().toString());
-    // League-based stat scaling
-    const leagueLevel = randomInt(rng, 1, 70); // 35 first + 35 second
+    const leagueLevel = randomInt(rng, 1, 70);
     const leagueDivisionId = leagueLevel > 35 ? 2 : 1;
     const leagueId = leagueLevel > 35 ? leagueLevel - 35 : leagueLevel;
-    // The better the league (lower leagueLevel), the higher the OVR
     const leagueBaseOVR = Math.max(40, 95 - leagueLevel);
     const overallRating = randomInt(rng, leagueBaseOVR - 5, Math.min(99, leagueBaseOVR + 5));
     const role = options.role ?? pickRandom(rng, Object.values(client_1.PlayerRole));
@@ -265,21 +307,20 @@ async function generatePlayer(options = {}) {
     const stats = generateStatsForRole(rng, role, style, overallRating);
     const potentialMin = randomInt(rng, overallRating + 2, Math.min(99, overallRating + 10));
     const potentialMax = randomInt(rng, potentialMin + 5, Math.min(99, potentialMin + 15));
-    const formValue = 1.0 + randomInt(rng, -10, 20) / 100; // 0.9 to 1.2
+    const formValue = 1.0 + randomInt(rng, -10, 20) / 100;
     const age = randomInt(rng, 17, 34);
     const nationality = pickRandom(rng, constants_1.PLAYER_NATIONALITIES);
-    const club = pickRandom(rng, constants_1.PLAYER_CLUBS);
-    const clubId = randomInt(rng, 1, 100);
-    // Physicals and Skills
+    const clubIndex = Math.floor(rng() * constants_1.PLAYER_CLUBS.length);
+    const club = constants_1.PLAYER_CLUBS[clubIndex];
+    const clubId = clubIndex + 1; // 1-indexed for emblems
     const heightCm = randomInt(rng, 165, 205);
     const weightKg = randomInt(rng, 60, 95);
     const foot = rng() > 0.7 ? "Left" : "Right";
     const skillMoves = randomInt(rng, 1, 5);
     const weakFoot = randomInt(rng, 1, 5);
     const country = nationality || "RU";
-    // Visuals based on nationality
     const appearance = mapAppearanceFromNationality(rng, nationality);
-    const rarity = overallRating > 85 ? "gold" : overallRating > 75 ? "rare" : "common";
+    const rarity = overallRating >= 75 ? "gold" : overallRating >= 65 ? "silver" : "bronze";
     const { name, surname } = generateName(rng);
     const playerData = {
         name,
@@ -317,11 +358,17 @@ async function generatePlayer(options = {}) {
         defendingBonus: 0,
         physicalBonus: 0,
     };
-    const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
-    const finalImageUrl = await processPlayerImage(generateImageUrl(playerData), fileName);
+    // const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
+    // const prompt = generateImagePrompt(playerData);
+    // const useLocal = !!LOCAL_AI_URL;
+    // const finalImageUrl = await processPlayerImage(
+    //   useLocal ? prompt : generateImageUrlFromPrompt(prompt),
+    //   fileName,
+    //   !useLocal,
+    // );
     return {
         ...playerData,
-        imageUrl: finalImageUrl,
+        imageUrl: "ф.png",
     };
 }
 async function generateMultiplePlayers(count, options = {}) {
@@ -333,5 +380,6 @@ async function generateMultiplePlayers(count, options = {}) {
         });
         players.push(player);
     }
+    console.log("sadsad", players);
     return players;
 }

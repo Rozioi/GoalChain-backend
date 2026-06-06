@@ -15,6 +15,7 @@ exports.draftController = {
     async getOptions(req, reply) {
         try {
             const result = await (0, draft_service_1.getDraftOptions)(req.server, req.user.userId, req.params.step);
+            console.log("hello", result);
             reply.send(result);
         }
         catch (err) {

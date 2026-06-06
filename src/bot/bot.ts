@@ -10,6 +10,10 @@ export const startBot = async () => {
   }
 
   bot = new Bot(env.BOT_TOKEN);
+  if (!bot) {
+    console.warn("BOT_TOKEN is not provided. Telegram bot will not start.");
+    return;
+  }
 
   bot.command("start", async (ctx) => {
     await ctx.reply(
