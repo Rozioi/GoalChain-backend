@@ -5,6 +5,7 @@ import {
   getUserProfile,
   applyReferralCode,
   getUserReferrals,
+  ClubInfo,
   getInviterInfoByCode,
 } from "./user.service";
 import { syncScoutStates } from "../scouting/scouting.service";
@@ -26,18 +27,43 @@ export const userController = {
       reply.status(err.statusCode || 400).send({ error: err.message });
     }
   },
+  async deleteUser(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { id } = req.params as { id: string };
 
+      const prisma = req.server.prisma;
+      console.log(id);
+      const user = await prisma.user.findUnique({ where: { telegramId: id } });
+      console.log(user);
+      if (!user) {
+        return reply.status(404).send({ message: "Пользователь не найден" });
+      }
+
+      await prisma.user.delete({ where: { telegramId: id } });
+
+      return reply.send({
+        success: true,
+        message: "Пользователь и его команда полностью вычищены из базы",
+      });
+    } catch (error) {
+      req.log.error(error);
+      return reply
+        .status(500)
+        .send({ message: "Ошибка при удалении пользователя" });
+    }
+  },
   async register(
     req: FastifyRequest<{
       Body: {
         initData: string;
+        clubInfo: ClubInfo;
       };
     }>,
     reply: FastifyReply,
   ) {
     try {
-      const { initData } = req.body;
-      const result = await registerUser(req.server, initData);
+      const { initData, clubInfo } = req.body;
+      const result = await registerUser(req.server, initData, clubInfo);
       reply.send(result);
     } catch (err: any) {
       reply.status(err.statusCode || 400).send({ error: err.message });

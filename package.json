@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "npm run db:push && ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "ts-node-dev --respawn --poll --clear --transpile-only src/server.ts",
     "db:push": "prisma db push --accept-data-loss",
+    "migrate:dev": "npm run db:push && npm run dev",
     "build": "tsc",
     "start": "node dist/server.js",
     "stress:basic": "node tests/stress/basic.js",

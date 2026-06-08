@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { userController } from "./user.controller";
 
 async function userRoutes(app: FastifyInstance) {
+  // --- AUTH RUNS ---
   app.post(
     "/auth/login",
     {
@@ -26,9 +27,17 @@ async function userRoutes(app: FastifyInstance) {
         tags: ["Auth"],
         body: {
           type: "object",
-          required: ["initData"],
+          required: ["initData", "clubInfo"],
           properties: {
             initData: { type: "string" },
+            clubInfo: {
+              type: "object",
+              required: ["clubName"],
+              properties: {
+                clubName: { type: "string" },
+                clubIcon: { type: "string" },
+              },
+            },
           },
         },
       },
@@ -36,6 +45,23 @@ async function userRoutes(app: FastifyInstance) {
     userController.register,
   );
 
+  app.delete(
+    "/users/:id",
+    {
+      schema: {
+        tags: ["Admin"],
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string" },
+          },
+        },
+      },
+    },
+    userController.deleteUser,
+  );
+  // --- USER PROFILE RUNS ---
   app.get(
     "/user/me",
     {

@@ -10,8 +10,19 @@ interface TelegramUserData {
   photo_url?: string;
 }
 
-export function verifyTelegramInitData(initData: string, botToken: string): boolean {
-  if (process.env.NODE_ENV !== "production" && (!initData || initData === "mock")) {
+export interface ClubInfo {
+  clubName: string;
+  clubIcon: string;
+}
+
+export function verifyTelegramInitData(
+  initData: string,
+  botToken: string,
+): boolean {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    (!initData || initData === "mock")
+  ) {
     return true;
   }
 
@@ -41,8 +52,13 @@ export function verifyTelegramInitData(initData: string, botToken: string): bool
   }
 }
 
-export function parseTelegramInitData(initData: string): TelegramUserData | null {
-  if (process.env.NODE_ENV !== "production" && (!initData || initData === "mock")) {
+export function parseTelegramInitData(
+  initData: string,
+): TelegramUserData | null {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    (!initData || initData === "mock")
+  ) {
     return {
       id: 12345678,
       username: "test_user",
@@ -61,10 +77,7 @@ export function parseTelegramInitData(initData: string): TelegramUserData | null
   }
 }
 
-export async function loginUser(
-  app: FastifyInstance,
-  initData: string,
-) {
+export async function loginUser(app: FastifyInstance, initData: string) {
   const botToken = process.env.BOT_TOKEN || "";
   const isValid = verifyTelegramInitData(initData, botToken);
   if (!isValid) {
@@ -104,6 +117,7 @@ export async function loginUser(
 export async function registerUser(
   app: FastifyInstance,
   initData: string,
+  clubInfo: ClubInfo,
 ) {
   const botToken = process.env.BOT_TOKEN || "";
   const isValid = verifyTelegramInitData(initData, botToken);
@@ -138,13 +152,13 @@ export async function registerUser(
   }
 
   const referralCode = randomBytes(4).toString("hex").toUpperCase();
-
+  console.log(clubInfo);
   const user = await app.prisma.user.create({
     data: {
       telegramId,
       username: tgUser.username,
-      firstName: tgUser.first_name,
-      lastName: tgUser.last_name,
+      clubName: clubInfo.clubName,
+      clubIcon: clubInfo.clubIcon || "default",
       photoUrl: tgUser.photo_url,
       referralCode,
     },

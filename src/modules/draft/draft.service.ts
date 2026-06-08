@@ -130,7 +130,11 @@ export async function getDraftOptions(
           step: stepUpper as DraftStep,
         },
       });
-      createdOptions.push({ ...player, ovr: player.overallRating, optionId: option.id });
+      createdOptions.push({
+        ...player,
+        ovr: player.overallRating,
+        optionId: option.id,
+      });
     }
     return createdOptions;
   });
@@ -309,7 +313,11 @@ export async function pickDraftPlayers(
   }
 }
 
-export async function completeDraft(app: FastifyInstance, userId: string, clubName?: string) {
+export async function completeDraft(
+  app: FastifyInstance,
+  userId: string,
+  clubName?: string,
+) {
   try {
     const session = await app.prisma.draftSession.findFirst({
       where: { userId, status: "IN_PROGRESS" },
@@ -324,7 +332,10 @@ export async function completeDraft(app: FastifyInstance, userId: string, clubNa
       .filter(Boolean);
 
     if (starters.length < 11) {
-      throw new AppError(`Draft is not finished yet. You must pick 11 starters (have ${starters.length})`, 400);
+      throw new AppError(
+        `Draft is not finished yet. You must pick 11 starters (have ${starters.length})`,
+        400,
+      );
     }
 
     // Prevent creating duplicate team if one somehow exists
@@ -368,7 +379,7 @@ export async function completeDraft(app: FastifyInstance, userId: string, clubNa
       const cleanClubName = clubName?.trim();
       const team = await tx.team.create({
         data: {
-          name: cleanClubName || `${user?.firstName || "Player"}'s Team`,
+          name: cleanClubName || `${user?.clubName || "Player"}'s Team`,
           userId,
         },
       });
@@ -427,7 +438,11 @@ export async function completeDraft(app: FastifyInstance, userId: string, clubNa
 
       await tx.draftSession.update({
         where: { id: session.id },
-        data: { status: "COMPLETED", step: "DONE" as DraftStep, teamId: team.id },
+        data: {
+          status: "COMPLETED",
+          step: "DONE" as DraftStep,
+          teamId: team.id,
+        },
       });
 
       return {

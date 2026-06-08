@@ -11,24 +11,26 @@ datasource db {
 // ─── USER & REFERRALS ──────────────────────────────────────────
 
 model User {
-  id            String   @id @default(uuid())
-  telegramId    String   @unique
+  id            String  @id @default(uuid())
+  telegramId    String  @unique
   username      String?
-  firstName     String?
-  lastName      String?
+  clubName      String?
+  clubIcon      String?
   photoUrl      String?
-  coins               Int      @default(1000)
-  reputation          Int      @default(0) // legacy
-  points              Int      @default(0) // Division/Rank points
-  level               Int      @default(1)
-  experience          Int      @default(0)
-  isAdmin             Boolean  @default(false)
-  scoutingLevel       Int      @default(1)
-  scoutingExp         Int      @default(0)
-  referralCode        String   @unique
-  referredById        String?
-  referredBy          User?    @relation("UserReferrals", fields: [referredById], references: [id])
-  referrals           User[]   @relation("UserReferrals")
+  coins         Int     @default(1000)
+  reputation    Int     @default(0) // legacy
+  points        Int     @default(0) // Division/Rank points
+  level         Int     @default(1)
+  experience    Int     @default(0)
+  isAdmin       Boolean @default(false)
+  scoutingLevel Int     @default(1)
+  scoutingExp   Int     @default(0)
+  referralCode  String  @unique
+  referredById  String?
+
+  // При удалении пригласившего, связь зануляется (SetNull), чтобы приглашенный не удалился
+  referredBy User?  @relation("UserReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals  User[] @relation("UserReferrals")
 
   dailyMatchesPlayed  Int      @default(0)
   dailyMatchesResetAt DateTime @default(now())
@@ -36,29 +38,31 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  teams          Team[]
-  referralsMade  Referral[]     @relation("ReferralInviter")
-  referralsUsed  Referral[]     @relation("ReferralInvitee")
-  scouts         Scout[]
-  trainings      Training[]
-  matchesAsHome  Match[]        @relation("HomeUser")
-  matchesAsAway  Match[]        @relation("AwayUser")
-  draftSessions  DraftSession[]
-  eventDrafts    EventDraft[]
-  userTasks      UserTask[]
+  teams           Team[]
+  referralsMade   Referral[]     @relation("ReferralInviter")
+  referralsUsed   Referral[]     @relation("ReferralInvitee")
+  scouts          Scout[]
+  trainings       Training[]
+  matchesAsHome   Match[]        @relation("HomeUser")
+  matchesAsAway   Match[]        @relation("AwayUser")
+  draftSessions   DraftSession[]
+  eventDrafts     EventDraft[]
+  userTasks       UserTask[]
   lessorContracts RentContract[] @relation("LessorContracts")
   renterContracts RentContract[] @relation("RenterContracts")
   economyLogs     EconomyLog[]
 }
 
 model Referral {
-  id         String   @id @default(uuid())
-  inviterId  String
-  inviteeId  String
-  reward     Int      @default(500)
-  inviter    User     @relation("ReferralInviter", fields: [inviterId], references: [id])
-  invitee    User     @relation("ReferralInvitee", fields: [inviteeId], references: [id])
-  createdAt  DateTime @default(now())
+  id        String @id @default(uuid())
+  inviterId String
+  inviteeId String
+  reward    Int    @default(500)
+
+  // Если удаляется один из участников рефералки — запись лога реферала стирается
+  inviter   User     @relation("ReferralInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee   User     @relation("ReferralInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
   @@unique([inviterId, inviteeId])
 }
@@ -96,77 +100,73 @@ enum PlayerRole {
 }
 
 model Player {
-  id        String      @id @default(uuid())
-  name      String
-  surname   String?     @default("")
-  overallRating Int       @default(50)
-  position  Position
-  role      PlayerRole
-  style     PlayerStyle
+  id            String      @id @default(uuid())
+  name          String
+  surname       String?     @default("")
+  overallRating Int         @default(50)
+  position      Position
+  role          PlayerRole
+  style         PlayerStyle
 
-  // Detailed stats (0-99)
-  pace          Int @default(50)
-  paceBonus     Int @default(0)
-  shooting      Int @default(50)
-  shootingBonus Int @default(0)
-  passing       Int @default(50)
-  passingBonus  Int @default(0)
-  dribbling     Int @default(50)
+  pace           Int @default(50)
+  paceBonus      Int @default(0)
+  shooting       Int @default(50)
+  shootingBonus  Int @default(0)
+  passing        Int @default(50)
+  passingBonus   Int @default(0)
+  dribbling      Int @default(50)
   dribblingBonus Int @default(0)
-  defending     Int @default(50)
+  defending      Int @default(50)
   defendingBonus Int @default(0)
-  physical      Int @default(50)
-  physicalBonus Int @default(0)
-  goalkeeping   Int @default(50)
-  
-  formValue     Float @default(1.0)
-  fatigue       Int   @default(0)
+  physical       Int @default(50)
+  physicalBonus  Int @default(0)
+  goalkeeping    Int @default(50)
 
-  // Advanced production fields
-  country       String @default("RU")
-  potentialMin  Int    @default(80)
-  potentialMax  Int    @default(90)
-  heightCm      Int    @default(180)
-  weightKg      Int    @default(75)
-  foot          String @default("Right")
-  skillMoves    Int    @default(3)
-  weakFoot      Int    @default(3)
-  
-  injuryType    String?
-  injuryEndsAt  DateTime?
+  formValue Float @default(1.0)
+  fatigue   Int   @default(0)
 
-  isNft       Boolean @default(false)
-  mintedAt    DateTime?
-  tokenId     String?
-  
-  age         Int     @default(22)
-  nationality String  @default("Unknown")
-  clubId      Int?    @default(0)
-  club        String  @default("Free Agent")
-  
-  leagueId          Int? @default(0)
-  leagueDivisionId  Int? @default(0)
+  country      String @default("RU")
+  potentialMin Int    @default(80)
+  potentialMax Int    @default(90)
+  heightCm     Int    @default(180)
+  weightKg     Int    @default(75)
+  foot         String @default("Right")
+  skillMoves   Int    @default(3)
+  weakFoot     Int    @default(3)
 
-  // Training and Experience
-  trainingLevel             Int @default(1)
-  trainingLevelMax          Int @default(25)
-  trainingExperience        Int @default(0)
+  injuryType   String?
+  injuryEndsAt DateTime?
+
+  isNft    Boolean   @default(false)
+  mintedAt DateTime?
+  tokenId  String?
+
+  age         Int    @default(22)
+  nationality String @default("Unknown")
+  clubId      Int?   @default(0)
+  club        String @default("Free Agent")
+
+  leagueId         Int? @default(0)
+  leagueDivisionId Int? @default(0)
+
+  trainingLevel              Int @default(1)
+  trainingLevelMax           Int @default(25)
+  trainingExperience         Int @default(0)
   trainingExperienceRequired Int @default(200)
 
-  // Visual appearance
-  face        String? @default("face_1")
-  hairStyle   String? @default("short")
-  hairColor   String? @default("black")
-  skinColor   String? @default("light")
-  beardStyle  String? @default("none")
-  beardColor  String? @default("none")
-  emotion     String? @default("neutral")
-  rarity      String? @default("common")
-  imageUrl    String?
-  
-  ownerId           String?
-  isOnRent          Boolean @default(false)
-  rentPrice         Int?
+  face       String? @default("face_1")
+  hairStyle  String? @default("short")
+  hairColor  String? @default("black")
+  skinColor  String? @default("light")
+  beardStyle String? @default("none")
+  beardColor String? @default("none")
+  emotion    String? @default("neutral")
+  rarity     String? @default("common")
+  imageUrl   String?
+
+  ownerId   String?
+  isOnRent  Boolean  @default(false)
+  rentPrice Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -180,26 +180,25 @@ model Player {
 }
 
 model PlayerRent {
-  id               String   @id @default(uuid())
-  playerId         String   @unique
-  player           Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  
-  isRented         Boolean  @default(false)
-  rentedById       String?
-  
-  priceTon         Float?   @default(0)
-  priceCoin        Int?     @default(0)
-  
-  durationOptions  Json?    // Array of numbers (seconds)
-  conditions       Json?    // Array of strings
-  
-  startedAt        DateTime?
-  expiresAt        DateTime?
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-}
+  id       String @id @default(uuid())
+  playerId String @unique
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
+  isRented   Boolean @default(false)
+  rentedById String?
+
+  priceTon  Float? @default(0)
+  priceCoin Int?   @default(0)
+
+  durationOptions Json?
+  conditions      Json?
+
+  startedAt DateTime?
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
 // ─── TEAMS ──────────────────────────────────────────────────────
 
@@ -212,12 +211,13 @@ model Team {
   isEvent   Boolean @default(false)
   eventId   String?
 
-  user    User   @relation(fields: [userId], references: [id])
-  event   Event? @relation(fields: [eventId], references: [id])
+  // Удалили юзера -> удалилась его команда
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event? @relation(fields: [eventId], references: [id], onDelete: SetNull)
 
-  players      TeamPlayer[]
-  homeMatches  Match[]  @relation("HomeTeam")
-  awayMatches  Match[]  @relation("AwayTeam")
+  players     TeamPlayer[]
+  homeMatches Match[]      @relation("HomeTeam")
+  awayMatches Match[]      @relation("AwayTeam")
 
   seasonStandings SeasonStanding[]
 
@@ -226,14 +226,15 @@ model Team {
 }
 
 model TeamPlayer {
-  id         String   @id @default(uuid())
-  teamId     String
-  playerId   String
-  isStarter  Boolean  @default(false)
+  id                  String  @id @default(uuid())
+  teamId              String
+  playerId            String
+  isStarter           Boolean @default(false)
   positionInFormation String?
 
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  player Player @relation(fields: [playerId], references: [id])
+  // Если удаляется игрок (Player), он также убирается из состава команды
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, playerId])
 }
@@ -255,13 +256,14 @@ enum DraftStep {
 }
 
 model DraftSession {
-  id       String      @id @default(uuid())
-  userId   String
-  status   DraftStatus @default(IN_PROGRESS)
-  step     DraftStep   @default(GK)
-  teamId   String?
+  id     String      @id @default(uuid())
+  userId String
+  status DraftStatus @default(IN_PROGRESS)
+  step   DraftStep   @default(GK)
+  teamId String?
 
-  user    User          @relation(fields: [userId], references: [id])
+  // Удалили юзера -> удалилась сессия драфта
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   options DraftOption[]
 
   createdAt DateTime @default(now())
@@ -269,14 +271,14 @@ model DraftSession {
 }
 
 model DraftOption {
-  id             String  @id @default(uuid())
+  id             String    @id @default(uuid())
   draftSessionId String
   playerId       String
   step           DraftStep
-  isPicked       Boolean @default(false)
+  isPicked       Boolean   @default(false)
 
   draftSession DraftSession @relation(fields: [draftSessionId], references: [id], onDelete: Cascade)
-  player       Player       @relation(fields: [playerId], references: [id])
+  player       Player       @relation(fields: [playerId], references: [id], onDelete: Cascade)
 }
 
 // ─── MATCHES ────────────────────────────────────────────────────
@@ -302,62 +304,63 @@ enum PressingType {
 }
 
 model Match {
-  id          String      @id @default(uuid())
-  type        MatchType   @default(FRIENDLY)
-  status      MatchStatus @default(PENDING)
+  id     String      @id @default(uuid())
+  type   MatchType   @default(FRIENDLY)
+  status MatchStatus @default(PENDING)
 
-  homeUserId  String?
-  awayUserId  String?
-  homeTeamId  String
-  awayTeamId  String?
-  isBot       Boolean     @default(false)
+  homeUserId String?
+  awayUserId String?
+  homeTeamId String
+  awayTeamId String?
+  isBot      Boolean @default(false)
 
-  homeScore   Int?
-  awayScore   Int?
-  seed        String?
-  overtime    Boolean     @default(false)
+  homeScore Int?
+  awayScore Int?
+  seed      String?
+  overtime  Boolean @default(false)
 
   homePressingType PressingType @default(MEDIUM)
   awayPressingType PressingType @default(MEDIUM)
 
-  // Rewards
-  homeCoins   Int @default(0)
-  awayCoins   Int @default(0)
-  homeExp     Int @default(0)
-  awayExp     Int @default(0)
+  homeCoins Int @default(0)
+  awayCoins Int @default(0)
+  homeExp   Int @default(0)
+  awayExp   Int @default(0)
 
-  seasonId    String?
-  eventId     String?
+  seasonId String?
+  eventId  String?
 
-  homeUser    User?   @relation("HomeUser", fields: [homeUserId], references: [id])
-  awayUser    User?   @relation("AwayUser", fields: [awayUserId], references: [id])
-  homeTeam    Team    @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeam    Team?   @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  season      Season? @relation(fields: [seasonId], references: [id])
-  event       Event?  @relation(fields: [eventId], references: [id])
+  // ВАЖНО: При удалении юзера историю матчей зануляем (SetNull), чтобы не ломать аналитику и статистику второго игрока
+  homeUser User? @relation("HomeUser", fields: [homeUserId], references: [id], onDelete: SetNull)
+  awayUser User? @relation("AwayUser", fields: [awayUserId], references: [id], onDelete: SetNull)
 
-  events      MatchEvent[]
+  homeTeam Team    @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
+  awayTeam Team?   @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
+  season   Season? @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  event    Event?  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  events MatchEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model MatchEvent {
-  id          String   @id @default(uuid())
-  matchId     String
-  minute      Int
-  type        String   // GOAL, YELLOW_CARD, RED_CARD, INJURY, SUBSTITUTION, TACTIC_CHANGE
-  team        String   // home, away
-  playerId    String?
-  playerName  String?
-  playerOutId String?
+  id            String  @id @default(uuid())
+  matchId       String
+  minute        Int
+  type          String
+  team          String
+  playerId      String?
+  playerName    String?
+  playerOutId   String?
   playerOutName String?
-  description String
+  description   String
 
-  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  player      Player?  @relation(fields: [playerId], references: [id])
+  match  Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 // ─── SEASONS & DIVISIONS ────────────────────────────────────────
@@ -370,15 +373,15 @@ enum SeasonStatus {
 }
 
 model Season {
-  id         String       @id @default(uuid())
-  name       String
-  division   Int          @default(1)
-  status     SeasonStatus @default(UPCOMING)
-  startDate  DateTime
-  endDate    DateTime
+  id        String       @id @default(uuid())
+  name      String
+  division  Int          @default(1)
+  status    SeasonStatus @default(UPCOMING)
+  startDate DateTime
+  endDate   DateTime
 
-  matches    Match[]
-  standings  SeasonStanding[]
+  matches   Match[]
+  standings SeasonStanding[]
 
   createdAt DateTime @default(now())
 
@@ -386,20 +389,20 @@ model Season {
 }
 
 model SeasonStanding {
-  id        String @id @default(uuid())
-  seasonId  String
-  teamId    String
+  id       String @id @default(uuid())
+  seasonId String
+  teamId   String
 
-  played    Int @default(0)
-  wins      Int @default(0)
-  draws     Int @default(0)
-  losses    Int @default(0)
-  goalsFor  Int @default(0)
+  played       Int @default(0)
+  wins         Int @default(0)
+  draws        Int @default(0)
+  losses       Int @default(0)
+  goalsFor     Int @default(0)
   goalsAgainst Int @default(0)
-  points    Int @default(0)
+  points       Int @default(0)
 
-  season Season @relation(fields: [seasonId], references: [id])
-  team   Team   @relation(fields: [teamId], references: [id])
+  season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([seasonId, teamId])
   @@index([seasonId, points(sort: Desc), goalsFor(sort: Desc)])
@@ -428,25 +431,25 @@ model Event {
   status    EventStatus @default(UPCOMING)
   startDate DateTime
   endDate   DateTime
-  rules     Json?       // Unique event rules
+  rules     Json?
 
-  teams      Team[]
-  matches    Match[]
-  drafts     EventDraft[]
+  teams   Team[]
+  matches Match[]
+  drafts  EventDraft[]
 
   createdAt DateTime @default(now())
 }
 
 model EventDraft {
-  id       String      @id @default(uuid())
-  eventId  String
-  userId   String
-  status   DraftStatus @default(IN_PROGRESS)
-  step     DraftStep   @default(GK)
-  teamId   String?
+  id      String      @id @default(uuid())
+  eventId String
+  userId  String
+  status  DraftStatus @default(IN_PROGRESS)
+  step    DraftStep   @default(GK)
+  teamId  String?
 
-  event Event @relation(fields: [eventId], references: [id])
-  user  User  @relation(fields: [userId], references: [id])
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -461,32 +464,32 @@ enum ScoutStatus {
 }
 
 model Scout {
-  id       String      @id @default(uuid())
-  userId   String
-  region   String
-  ageMin   Int         @default(16)
-  ageMax   Int         @default(35)
-  targetRole PlayerRole?
-  status   ScoutStatus @default(ACTIVE)
-  endsAt   DateTime
-  tier     String      @default("COMMON") // COMMON, PRO, MASTER
-  cost     Int         @default(0)
-  costCurrency String  @default("COIN")
+  id           String      @id @default(uuid())
+  userId       String
+  region       String
+  ageMin       Int         @default(16)
+  ageMax       Int         @default(35)
+  targetRole   PlayerRole?
+  status       ScoutStatus @default(ACTIVE)
+  endsAt       DateTime
+  tier         String      @default("COMMON")
+  cost         Int         @default(0)
+  costCurrency String      @default("COIN")
 
-  user    User          @relation(fields: [userId], references: [id])
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   results ScoutResult[]
 
   createdAt DateTime @default(now())
 }
 
 model ScoutResult {
-  id        String  @id @default(uuid())
-  scoutId   String
-  playerId  String
-  isNft     Boolean @default(false)
+  id       String  @id @default(uuid())
+  scoutId  String
+  playerId String
+  isNft    Boolean @default(false)
 
   scout  Scout  @relation(fields: [scoutId], references: [id], onDelete: Cascade)
-  player Player @relation(fields: [playerId], references: [id])
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 }
@@ -510,17 +513,17 @@ enum TaskObjective {
 }
 
 model Task {
-  id          String    @id @default(uuid())
+  id          String        @id @default(uuid())
   title       String
   description String?
   type        TaskType
   objective   TaskObjective @default(MATCHES)
-  reward      Int       // coins reward for completion
-  goal        Int       // target progress value
-  icon        String?   // optional icon key
-  link        String?   // URL for external tasks or social joins
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
+  reward      Int
+  goal        Int
+  icon        String?
+  link        String?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
   userTasks   UserTask[]
 }
 
@@ -534,8 +537,8 @@ model UserTask {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
-  task Task @relation(fields: [taskId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@unique([userId, taskId])
 }
@@ -548,20 +551,21 @@ enum TrainingStatus {
 }
 
 model Training {
-  id        String         @id @default(uuid())
-  userId    String
-  playerId  String
-  stat      String         // pace, shooting, passing, etc.
-  boost     Int            @default(1)
-  cost      Int
-  status    TrainingStatus @default(IN_PROGRESS)
-  endsAt    DateTime
+  id       String         @id @default(uuid())
+  userId   String
+  playerId String
+  stat     String
+  boost    Int            @default(1)
+  cost     Int
+  status   TrainingStatus @default(IN_PROGRESS)
+  endsAt   DateTime
 
-  user   User   @relation(fields: [userId], references: [id])
-  player Player @relation(fields: [playerId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 }
+
 // ─── RENTALS ──────────────────────────────────────────────────
 enum RentStatus {
   ACTIVE
@@ -569,21 +573,21 @@ enum RentStatus {
 }
 
 model RentContract {
-  id          String     @id @default(uuid())
-  playerId    String
-  lessorId    String     // Owner
-  renterId    String     // Renter
-  price       Int
-  startDate   DateTime   @default(now())
-  endDate     DateTime
-  status      RentStatus @default(ACTIVE)
+  id        String     @id @default(uuid())
+  playerId  String
+  lessorId  String
+  renterId  String
+  price     Int
+  startDate DateTime   @default(now())
+  endDate   DateTime
+  status    RentStatus @default(ACTIVE)
 
-  player      Player     @relation(fields: [playerId], references: [id])
-  lessor      User       @relation("LessorContracts", fields: [lessorId], references: [id])
-  renter      User       @relation("RenterContracts", fields: [renterId], references: [id])
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  lessor User   @relation("LessorContracts", fields: [lessorId], references: [id], onDelete: Cascade)
+  renter User   @relation("RenterContracts", fields: [renterId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status, endDate])
 }
@@ -601,17 +605,17 @@ enum EconomySource {
 }
 
 model EconomyLog {
-  id        String        @id @default(uuid())
-  userId    String
-  amount    Int           // Positive for income, negative for expense
-  currency  String        @default("COIN")
-  source    EconomySource
-  details   Json?         // E.g., { matchId: "..." } or { playerId: "..." }
-  
-  user      User          @relation(fields: [userId], references: [id])
+  id       String        @id @default(uuid())
+  userId   String
+  amount   Int
+  currency String        @default("COIN")
+  source   EconomySource
+  details  Json?
 
-  createdAt DateTime      @default(now())
-  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
   @@index([userId, createdAt])
   @@index([source, createdAt])
 }
