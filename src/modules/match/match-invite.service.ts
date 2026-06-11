@@ -1,0 +1,295 @@
+import { FastifyInstance } from "fastify";
+import { INVITE } from "../../config/constants";
+import {
+  emitToUser,
+  emitToUsers,
+  matchRoom,
+  userRoom,
+} from "../../ws/socket.emitter";
+import { ServerEvent } from "../../ws/types";
+import { createMatchFromInvite } from "./match-live.service";
+
+function buildInviteLink(inviteId: string) {
+  const botName = process.env.TELEGRAM_BOT_USERNAME || "goalchaintest_bot";
+  return `https://t.me/${botName}/startapp?startapp=invite_${inviteId}`;
+}
+
+async function assertNoDuplicateInvite(
+  app: FastifyInstance,
+  senderId: string,
+  recipientId: string,
+) {
+  const existing = await app.prisma.matchInvite.findFirst({
+    where: {
+      senderId,
+      recipientId,
+      status: "PENDING",
+      expiresAt: { gt: new Date() },
+    },
+  });
+  if (existing) {
+    throw new Error("Active invite already exists for this player");
+  }
+}
+
+async function getUserTeam(app: FastifyInstance, userId: string) {
+  const team = await app.prisma.team.findFirst({
+    where: { userId, isEvent: false },
+  });
+  if (!team) throw new Error("No team found. Complete the draft first.");
+  return team;
+}
+
+export async function inviteFriend(
+  app: FastifyInstance,
+  senderId: string,
+  friendId: string,
+) {
+  if (senderId === friendId) throw new Error("You cannot invite yourself");
+
+  const friend = await app.prisma.user.findUnique({ where: { id: friendId } });
+  if (!friend) throw new Error("Friend not found");
+
+  await getUserTeam(app, friendId);
+  const myTeam = await getUserTeam(app, senderId);
+  await assertNoDuplicateInvite(app, senderId, friendId);
+
+  const expiresAt = new Date(Date.now() + INVITE.FRIEND_TTL_MS);
+  const invite = await app.prisma.matchInvite.create({
+    data: {
+      type: "FRIEND",
+      status: "PENDING",
+      senderId,
+      recipientId: friendId,
+      senderTeamId: myTeam.id,
+      expiresAt,
+    },
+  });
+
+  const sender = await app.prisma.user.findUnique({
+    where: { id: senderId },
+    select: { id: true, clubName: true, points: true },
+  });
+
+  const inviteLink = buildInviteLink(invite.id);
+  const payload = {
+    inviteId: invite.id,
+    type: "FRIEND" as const,
+    sender,
+    expiresAt: expiresAt.toISOString(),
+    inviteLink,
+  };
+
+  emitToUser(friendId, ServerEvent.INVITE_RECEIVED, payload);
+
+  const { bot } = await import("../../bot/bot");
+  if (bot && friend.telegramId) {
+    const text = `⚽️ *${sender?.clubName || "Твой друг"}* бросил тебе вызов в Football Manager!`;
+    await bot.api
+      .sendMessage(friend.telegramId, text, {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [[{ text: "Принять вызов ⚔️", url: inviteLink }]],
+        },
+      })
+      .catch((err) => app.log.warn({ err }, "Failed to send bot notification"));
+  }
+
+  return { inviteId: invite.id, inviteLink, expiresAt };
+}
+
+export async function createOpenChallenge(app: FastifyInstance, senderId: string) {
+  const myTeam = await getUserTeam(app, senderId);
+
+  const activeOpen = await app.prisma.matchInvite.findFirst({
+    where: {
+      senderId,
+      type: "OPEN",
+      status: "PENDING",
+      expiresAt: { gt: new Date() },
+    },
+  });
+  if (activeOpen) {
+    return {
+      inviteId: activeOpen.id,
+      inviteLink: buildInviteLink(activeOpen.id),
+      expiresAt: activeOpen.expiresAt,
+    };
+  }
+
+  const expiresAt = new Date(Date.now() + INVITE.OPEN_TTL_MS);
+  const invite = await app.prisma.matchInvite.create({
+    data: {
+      type: "OPEN",
+      status: "PENDING",
+      senderId,
+      recipientId: null,
+      senderTeamId: myTeam.id,
+      expiresAt,
+    },
+  });
+
+  return {
+    inviteId: invite.id,
+    inviteLink: buildInviteLink(invite.id),
+    expiresAt,
+  };
+}
+
+export async function acceptInvite(
+  app: FastifyInstance,
+  userId: string,
+  inviteId: string,
+) {
+  const invite = await app.prisma.matchInvite.findUnique({
+    where: { id: inviteId },
+  });
+
+  if (!invite) throw new Error("Invite not found");
+  if (invite.status !== "PENDING") throw new Error("Invite is no longer active");
+  if (invite.expiresAt <= new Date()) {
+    await app.prisma.matchInvite.update({
+      where: { id: inviteId },
+      data: { status: "EXPIRED" },
+    });
+    throw new Error("Invite has expired");
+  }
+
+  if (invite.type === "FRIEND") {
+    if (invite.recipientId !== userId) {
+      throw new Error("This invitation is intended for another player");
+    }
+  } else if (invite.senderId === userId) {
+    throw new Error("You cannot accept your own challenge");
+  }
+
+  const myTeam = await getUserTeam(app, userId);
+
+  const updated = await app.prisma.matchInvite.updateMany({
+    where: { id: inviteId, status: "PENDING" },
+    data: { status: "ACCEPTED", acceptedAt: new Date() },
+  });
+  if (updated.count === 0) throw new Error("Invite already processed");
+
+  const match = await createMatchFromInvite(app, {
+    inviteId,
+    homeUserId: invite.senderId,
+    awayUserId: userId,
+    homeTeamId: invite.senderTeamId,
+    awayTeamId: myTeam.id,
+    type: "CHALLENGE",
+  });
+
+  emitToUser(invite.senderId, ServerEvent.INVITE_ACCEPTED, {
+    inviteId,
+    matchId: match.id,
+    acceptedBy: userId,
+  });
+
+  if (app.io) {
+    app.io.in(userRoom(invite.senderId)).socketsJoin(matchRoom(match.id));
+    app.io.in(userRoom(userId)).socketsJoin(matchRoom(match.id));
+  }
+
+  return { inviteId, matchId: match.id, match };
+}
+
+export async function declineInvite(
+  app: FastifyInstance,
+  userId: string,
+  inviteId: string,
+) {
+  const invite = await app.prisma.matchInvite.findUnique({
+    where: { id: inviteId },
+  });
+  if (!invite) throw new Error("Invite not found");
+  if (invite.recipientId !== userId) throw new Error("Not your invite");
+  if (invite.status !== "PENDING") throw new Error("Invite is no longer active");
+
+  await app.prisma.matchInvite.update({
+    where: { id: inviteId },
+    data: { status: "DECLINED", declinedAt: new Date() },
+  });
+
+  emitToUser(invite.senderId, ServerEvent.INVITE_DECLINED, { inviteId, declinedBy: userId });
+  return { success: true };
+}
+
+export async function cancelInvite(
+  app: FastifyInstance,
+  userId: string,
+  inviteId: string,
+) {
+  const invite = await app.prisma.matchInvite.findUnique({
+    where: { id: inviteId },
+  });
+  if (!invite) throw new Error("Invite not found");
+  if (invite.senderId !== userId) throw new Error("Not your invite");
+  if (invite.status !== "PENDING") throw new Error("Invite is no longer active");
+
+  await app.prisma.matchInvite.update({
+    where: { id: inviteId },
+    data: { status: "CANCELLED" },
+  });
+
+  const recipients = [invite.senderId];
+  if (invite.recipientId) recipients.push(invite.recipientId);
+  emitToUsers(recipients, ServerEvent.INVITE_CANCELLED, { inviteId });
+
+  return { success: true };
+}
+
+export async function getPendingInvites(app: FastifyInstance, userId: string) {
+  return app.prisma.matchInvite.findMany({
+    where: {
+      OR: [{ recipientId: userId }, { senderId: userId }],
+      status: "PENDING",
+      expiresAt: { gt: new Date() },
+    },
+    include: {
+      sender: { select: { id: true, clubName: true, points: true } },
+      recipient: { select: { id: true, clubName: true, points: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function expireStaleInvites(app: FastifyInstance) {
+  const expired = await app.prisma.matchInvite.findMany({
+    where: { status: "PENDING", expiresAt: { lte: new Date() } },
+  });
+
+  if (expired.length === 0) return 0;
+
+  await app.prisma.matchInvite.updateMany({
+    where: { id: { in: expired.map((i) => i.id) } },
+    data: { status: "EXPIRED" },
+  });
+
+  for (const invite of expired) {
+    const userIds = [invite.senderId];
+    if (invite.recipientId) userIds.push(invite.recipientId);
+    emitToUsers(userIds, ServerEvent.INVITE_EXPIRED, { inviteId: invite.id });
+  }
+
+  return expired.length;
+}
+
+export async function acceptMatchLegacy(
+  app: FastifyInstance,
+  userId: string,
+  matchOrInviteId: string,
+) {
+  const invite = await app.prisma.matchInvite.findUnique({
+    where: { id: matchOrInviteId },
+  });
+  if (invite) return acceptInvite(app, userId, matchOrInviteId);
+
+  const legacyMatch = await app.prisma.match.findUnique({
+    where: { id: matchOrInviteId },
+  });
+  if (legacyMatch?.status === "READY" || legacyMatch?.status === "IN_PROGRESS") {
+    return { matchId: legacyMatch.id, match: legacyMatch };
+  }
+  throw new Error("Invite not found or expired");
+}

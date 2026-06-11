@@ -247,8 +247,8 @@ export async function playSeasonMatch(app: FastifyInstance, userId: string) {
 
   const { randomUUID } = await import("crypto");
   const { simulateMatch } = await import("../match/match.simulator");
-  const { getTeamForMatch, handleMatchCompletion } =
-    (await import("../match/match.service")) as any;
+  const { getTeamForMatch } = await import("../match/match-team.service");
+  const { handleMatchCompletion } = await import("../match/match-completion.service");
   const seed = randomUUID();
   const homeTeamData = await getTeamForMatch(app, team.id);
   const awayTeamData = await getTeamForMatch(app, opponentStanding.team.id);

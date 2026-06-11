@@ -43,9 +43,12 @@ model User {
   referralsUsed   Referral[]     @relation("ReferralInvitee")
   scouts          Scout[]
   trainings       Training[]
-  matchesAsHome   Match[]        @relation("HomeUser")
-  matchesAsAway   Match[]        @relation("AwayUser")
-  draftSessions   DraftSession[]
+  matchesAsHome      Match[]             @relation("HomeUser")
+  matchesAsAway      Match[]             @relation("AwayUser")
+  invitesSent        MatchInvite[]       @relation("InviteSender")
+  invitesReceived    MatchInvite[]       @relation("InviteRecipient")
+  matchmakingEntries MatchmakingQueue[]
+  draftSessions      DraftSession[]
   eventDrafts     EventDraft[]
   userTasks       UserTask[]
   lessorContracts RentContract[] @relation("LessorContracts")
@@ -291,10 +294,31 @@ enum MatchType {
 }
 
 enum MatchStatus {
-  PENDING
+  READY
   IN_PROGRESS
   COMPLETED
   CANCELLED
+  ABANDONED
+}
+
+enum MatchInviteType {
+  FRIEND
+  OPEN
+}
+
+enum MatchInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+enum MatchmakingStatus {
+  SEARCHING
+  MATCHED
+  CANCELLED
+  EXPIRED
 }
 
 enum PressingType {
@@ -306,7 +330,7 @@ enum PressingType {
 model Match {
   id     String      @id @default(uuid())
   type   MatchType   @default(FRIENDLY)
-  status MatchStatus @default(PENDING)
+  status MatchStatus @default(READY)
 
   homeUserId String?
   awayUserId String?
@@ -327,10 +351,19 @@ model Match {
   homeExp   Int @default(0)
   awayExp   Int @default(0)
 
+  currentMinute Int       @default(0)
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  homeReady Boolean @default(false)
+  awayReady Boolean @default(false)
+
+  inviteId String? @unique
+  invite   MatchInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+
   seasonId String?
   eventId  String?
 
-  // ВАЖНО: При удалении юзера историю матчей зануляем (SetNull), чтобы не ломать аналитику и статистику второго игрока
   homeUser User? @relation("HomeUser", fields: [homeUserId], references: [id], onDelete: SetNull)
   awayUser User? @relation("AwayUser", fields: [awayUserId], references: [id], onDelete: SetNull)
 
@@ -343,6 +376,52 @@ model Match {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([status, type])
+  @@index([homeUserId, status])
+  @@index([awayUserId, status])
+}
+
+model MatchInvite {
+  id          String            @id @default(uuid())
+  type        MatchInviteType
+  status      MatchInviteStatus @default(PENDING)
+  senderId    String
+  recipientId String?
+  senderTeamId String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  declinedAt  DateTime?
+
+  sender    User  @relation("InviteSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User? @relation("InviteRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+  match     Match?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([senderId, recipientId, status])
+  @@index([status, expiresAt])
+  @@index([type, status])
+}
+
+model MatchmakingQueue {
+  id             String            @id @default(uuid())
+  userId         String
+  teamId         String
+  pointsSnapshot Int
+  status         MatchmakingStatus @default(SEARCHING)
+  matchId        String?
+  expiresAt      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, pointsSnapshot])
+  @@index([userId, status])
+  @@index([status, expiresAt])
 }
 
 model MatchEvent {

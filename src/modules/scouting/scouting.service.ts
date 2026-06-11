@@ -107,8 +107,8 @@ export async function syncScoutStates(app: FastifyInstance, userId: string) {
         const levelBoost = Math.floor((scoutingLevel - 1) / 2);
 
         const [baseMin, baseMax] = tierConfig.OVR_RANGE;
-        const ovrMin = Math.min(95, baseMin + levelBoost);
-        const ovrMax = Math.min(99, baseMax + levelBoost);
+        const ovrMin = Math.min(45, baseMin + levelBoost);
+        const ovrMax = Math.min(79, baseMax + levelBoost);
 
         const generated = await generatePlayer({
           role: (scout.targetRole as PlayerRole) || undefined,

@@ -3,31 +3,31 @@ import fastifyJwt from "@fastify/jwt";
 import { FastifyReply, FastifyRequest } from "fastify";
 
 declare module "fastify" {
-    interface FastifyInstance {
-        authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
-    }
+  interface FastifyInstance {
+    authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
+  }
 }
 
 declare module "@fastify/jwt" {
-    interface FastifyJWT {
-        payload: { userId: string; telegramId: string };
-        user: { userId: string; telegramId: string };
-    }
+  interface FastifyJWT {
+    payload: { userId: string; telegramId: string };
+    user: { userId: string; telegramId: string };
+  }
 }
 
 export default fp(async (app) => {
-    app.register(fastifyJwt, {
-        secret: process.env.JWT_SECRET || "super-secret-dev-key-change-me",
-    });
+  app.register(fastifyJwt, {
+    secret: process.env.JWT_SECRET || "super-secret-dev-key-change-me",
+  });
 
-    app.decorate(
-        "authenticate",
-        async function (req: FastifyRequest, reply: FastifyReply) {
-            try {
-                await req.jwtVerify();
-            } catch (err) {
-                reply.status(401).send({ error: "Unauthorized" });
-            }
-        },
-    );
+  app.decorate(
+    "authenticate",
+    async function (req: FastifyRequest, reply: FastifyReply) {
+      try {
+        await req.jwtVerify();
+      } catch (err) {
+        reply.status(401).send({ error: "Unauthorized" });
+      }
+    },
+  );
 });

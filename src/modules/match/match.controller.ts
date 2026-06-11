@@ -1,20 +1,19 @@
 import { FastifyReply, FastifyRequest } from "fastify";
+import { playBotMatch, getMatchHistory, getMatchById } from "./match.service";
+import { startMatchmaking, cancelMatchmaking } from "./matchmaking.service";
 import {
-  playFriendlyMatch,
-  playBotMatch,
   inviteFriend,
-  acceptMatch,
-  getMatchHistory,
-  updateMatchTactics,
   createOpenChallenge,
-  getMatchById,
-  cancelMatchmaking,
-} from "./match.service";
+  acceptInvite,
+  declineInvite,
+  cancelInvite,
+  getPendingInvites,
+} from "./match-invite.service";
 
 const matchController = {
   async friendly(req: FastifyRequest, reply: FastifyReply) {
     try {
-      const result = await playFriendlyMatch(req.server, req.user.userId);
+      const result = await startMatchmaking(req.server, req.user.userId);
       reply.send(result);
     } catch (err: any) {
       reply.status(400).send({ error: err.message });
@@ -60,7 +59,7 @@ const matchController = {
     reply: FastifyReply,
   ) {
     try {
-      const result = await acceptMatch(
+      const result = await acceptInvite(
         req.server,
         req.user.userId,
         req.params.matchId,
@@ -68,6 +67,47 @@ const matchController = {
       reply.send(result);
     } catch (err: any) {
       reply.status(400).send({ error: err.message });
+    }
+  },
+
+  async decline(
+    req: FastifyRequest<{ Params: { inviteId: string } }>,
+    reply: FastifyReply,
+  ) {
+    try {
+      const result = await declineInvite(
+        req.server,
+        req.user.userId,
+        req.params.inviteId,
+      );
+      reply.send(result);
+    } catch (err: any) {
+      reply.status(400).send({ error: err.message });
+    }
+  },
+
+  async cancelInvite(
+    req: FastifyRequest<{ Params: { inviteId: string } }>,
+    reply: FastifyReply,
+  ) {
+    try {
+      const result = await cancelInvite(
+        req.server,
+        req.user.userId,
+        req.params.inviteId,
+      );
+      reply.send(result);
+    } catch (err: any) {
+      reply.status(400).send({ error: err.message });
+    }
+  },
+
+  async pendingInvites(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const invites = await getPendingInvites(req.server, req.user.userId);
+      reply.send(invites);
+    } catch (err: any) {
+      reply.status(500).send({ error: err.message });
     }
   },
 
@@ -91,7 +131,8 @@ const matchController = {
     reply: FastifyReply,
   ) {
     try {
-      const result = await updateMatchTactics(
+      const { updateLiveTactics } = await import("./match-live.service");
+      const result = await updateLiveTactics(
         req.server,
         req.params.matchId,
         req.user.userId,
@@ -102,7 +143,7 @@ const matchController = {
       reply.status(400).send({ error: err.message });
     }
   },
-  
+
   async get(
     req: FastifyRequest<{ Params: { matchId: string } }>,
     reply: FastifyReply,
@@ -117,6 +158,7 @@ const matchController = {
       reply.status(500).send({ error: err.message });
     }
   },
+
   async cancel(req: FastifyRequest, reply: FastifyReply) {
     try {
       const result = await cancelMatchmaking(req.server, req.user.userId);

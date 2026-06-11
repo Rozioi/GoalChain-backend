@@ -64,16 +64,60 @@ async function matchRoutes(app: FastifyInstance) {
       schema: {
         tags: ["Match"],
         summary: "Принять приглашение на матч",
+        description: "Принимает MatchInvite по inviteId (legacy: matchId). Создаёт Match в статусе READY.",
         params: {
           type: "object",
           required: ["matchId"],
           properties: {
-            matchId: { type: "string" },
+            matchId: { type: "string", description: "inviteId или legacy matchId" },
           },
         },
       },
     },
     matchController.accept,
+  );
+
+  app.post(
+    "/match/invite/:inviteId/decline",
+    {
+      schema: {
+        tags: ["Match"],
+        summary: "Отклонить приглашение",
+        params: {
+          type: "object",
+          required: ["inviteId"],
+          properties: { inviteId: { type: "string" } },
+        },
+      },
+    },
+    matchController.decline,
+  );
+
+  app.post(
+    "/match/invite/:inviteId/cancel",
+    {
+      schema: {
+        tags: ["Match"],
+        summary: "Отменить отправленное приглашение",
+        params: {
+          type: "object",
+          required: ["inviteId"],
+          properties: { inviteId: { type: "string" } },
+        },
+      },
+    },
+    matchController.cancelInvite,
+  );
+
+  app.get(
+    "/match/invites/pending",
+    {
+      schema: {
+        tags: ["Match"],
+        summary: "Список активных приглашений",
+      },
+    },
+    matchController.pendingInvites,
   );
 
   app.post(

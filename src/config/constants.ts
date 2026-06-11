@@ -24,10 +24,12 @@ export const DRAFT = {
 // ─── MATCH ──────────────────────────────────────────────────────
 export const MATCH = {
   MATCHMAKING_RATING_RANGE: 0.1,
+  MATCHMAKING_POINTS_RANGE: 300,
   MATCHMAKING_TIMEOUT_MS: 30_000,
   DAILY_FRIENDLY_LIMIT: 10,
   MATCH_ITERATIONS: 90,
   OVERTIME_ITERATIONS: 10,
+  LIVE_MS_PER_MINUTE: 500,
 
   REWARDS: {
     WIN_COINS: 100,
@@ -38,6 +40,12 @@ export const MATCH = {
     LOSS_EXP: 10,
     DIMINISHING_FACTOR: 0.85,
   },
+};
+
+export const INVITE = {
+  FRIEND_TTL_MS: 15 * 60 * 1000,
+  OPEN_TTL_MS: 60 * 60 * 1000,
+  EXPIRY_CHECK_INTERVAL_MS: 60_000,
 };
 
 // ─── TRAINING ───────────────────────────────────────────────────
@@ -54,7 +62,7 @@ export const TRAINING = {
 export const SCOUTING = {
   MAX_ACTIVE_SCOUTS: 3,
   // Default scouting duration: 1 hour
-  DURATION_MS: 60 * 60 * 1000,
+  DURATION_MS: 60,
   REGIONS: [
     "Europe",
     "South America",

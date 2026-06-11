@@ -26,6 +26,7 @@ import playerRoutes from "./modules/player/player.routes";
 import pressurePlugin from "./plugins/pressure.plugin";
 import cachingPlugin from "./plugins/caching.plugin";
 import syncPlugin from "./plugins/sync.plugin";
+import socketPlugin from "./plugins/socket.plugin";
 
 // function buildApp (check documentation)
 
@@ -43,6 +44,7 @@ export function buildApp() {
   app.register(pressurePlugin);
   app.register(cachingPlugin);
   app.register(syncPlugin);
+  app.register(socketPlugin);
 
   // route register
   app.register(userRoutes, { prefix: "/api/v1" });
