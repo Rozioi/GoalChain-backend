@@ -7,6 +7,8 @@ import {
   getUserReferrals,
   ClubInfo,
   getInviterInfoByCode,
+  getUserGlobalRank,
+  getLeaderboard,
 } from "./user.service";
 import { syncScoutStates } from "../scouting/scouting.service";
 
@@ -131,6 +133,22 @@ export const userController = {
       reply.send(inviter);
     } catch (err: any) {
       reply.status(404).send({ error: err.message });
+    }
+  },
+  async getGlobalRank(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const rank = await getUserGlobalRank(req.server, req.user.userId);
+      reply.send({ rank });
+    } catch (err: any) {
+      reply.status(500).send({ error: err.message });
+    }
+  },
+  async getLeaderboard(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const leaderboard = await getLeaderboard(req.server, 10);
+      reply.send(leaderboard);
+    } catch (err: any) {
+      reply.status(500).send({ error: err.message });
     }
   },
 };

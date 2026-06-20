@@ -123,6 +123,29 @@ async function userRoutes(app: FastifyInstance) {
     },
     userController.getInviterInfo as any,
   );
+
+  app.get(
+    "/user/global-rank",
+    {
+      schema: {
+        tags: ["User"],
+      },
+      preHandler: [app.authenticate],
+    },
+    userController.getGlobalRank as any,
+  );
+
+  app.get(
+    "/user/leaderboard",
+    {
+      schema: {
+        tags: ["User"],
+      },
+      preHandler: [app.authenticate],
+    },
+    userController.getLeaderboard as any,
+  );
+
 }
 
 export default userRoutes;

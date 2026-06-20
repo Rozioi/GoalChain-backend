@@ -384,3 +384,29 @@ export async function addPoints(
     data: { points: newPoints },
   });
 }
+
+export async function getUserGlobalRank(app: FastifyInstance, userId: string) {
+  const user = await app.prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return null;
+
+  const globalRank = await app.prisma.user.count({
+    where: { points: { gte: user.points } },
+  });
+
+  return globalRank;
+}
+
+export async function getLeaderboard(app: FastifyInstance, limit: number) {
+  const leaderboard = await app.prisma.user.findMany({
+    orderBy: { points: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      username: true,
+      photoUrl: true,
+      points: true,
+    },
+  });
+
+  return leaderboard;
+}
