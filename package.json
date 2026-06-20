@@ -26,6 +26,7 @@
     "@fastify/under-pressure": "^9.0.3",
     "@imgly/background-removal-node": "^1.4.5",
     "@prisma/client": "^6.1.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "crypto": "^1.0.1",
     "dotenv": "^17.3.1",
     "fastify": "^5.7.4",
@@ -35,13 +36,12 @@
     "jsonwebtoken": "^9.0.2",
     "k6": "^0.0.0",
     "seedrandom": "^3.0.5",
-    "sharp": "^0.34.5",
-    "socket.io": "^4.8.1",
-    "@socket.io/redis-adapter": "^8.3.0"
+    "sharp": "^0.35.2",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
-    "@types/node": "^25.3.2",
     "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^25.3.2",
     "@types/seedrandom": "^3.0.8",
     "autocannon": "^8.0.0",
     "prisma": "^6.1.0",

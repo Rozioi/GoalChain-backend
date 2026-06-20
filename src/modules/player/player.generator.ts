@@ -89,6 +89,7 @@ async function processPlayerImage(
 
     // Нормализуем изображение через sharp перед удалением фона
     const normalizedBuffer = await sharp(imageBuffer).png().toBuffer();
+// await sharp(imageBuffer).png().toBuffer();
 
     const tempDir = "./temp/bg-removal/";
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });

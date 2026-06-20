@@ -109,7 +109,7 @@ export const userController = {
   async getReferrals(req: FastifyRequest, reply: FastifyReply) {
     try {
       const referrals = await getUserReferrals(req.server, req.user.userId);
-      const mappedReferrals = referrals.map((r) => ({
+      const mappedReferrals = referrals.map((r: any) => ({
         id: r.id,
         reward: r.reward,
         createdAt: r.createdAt,

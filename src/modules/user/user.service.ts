@@ -206,7 +206,7 @@ export async function getUserProfile(app: FastifyInstance, userId: string) {
   });
 
   let rentIncomeCoins = 0;
-  activeContracts.forEach((contract) => {
+  activeContracts.forEach((contract: any) => {
     const hours = Math.max(
       1,
       (contract.endDate.getTime() - contract.startDate.getTime()) /
@@ -229,7 +229,7 @@ export async function getUserProfile(app: FastifyInstance, userId: string) {
     },
   });
 
-  const mappedRentedOut = rentedOutPlayers.map((p) => {
+  const mappedRentedOut = rentedOutPlayers.map((p: any) => {
     const contract = p.rentContracts[0];
     let hourlyIncome = 0;
     if (contract) {
