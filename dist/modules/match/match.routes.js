@@ -44,15 +44,44 @@ async function matchRoutes(app) {
         schema: {
             tags: ["Match"],
             summary: "Принять приглашение на матч",
+            description: "Принимает MatchInvite по inviteId (legacy: matchId). Создаёт Match в статусе READY.",
             params: {
                 type: "object",
                 required: ["matchId"],
                 properties: {
-                    matchId: { type: "string" },
+                    matchId: { type: "string", description: "inviteId или legacy matchId" },
                 },
             },
         },
     }, match_controller_1.default.accept);
+    app.post("/match/invite/:inviteId/decline", {
+        schema: {
+            tags: ["Match"],
+            summary: "Отклонить приглашение",
+            params: {
+                type: "object",
+                required: ["inviteId"],
+                properties: { inviteId: { type: "string" } },
+            },
+        },
+    }, match_controller_1.default.decline);
+    app.post("/match/invite/:inviteId/cancel", {
+        schema: {
+            tags: ["Match"],
+            summary: "Отменить отправленное приглашение",
+            params: {
+                type: "object",
+                required: ["inviteId"],
+                properties: { inviteId: { type: "string" } },
+            },
+        },
+    }, match_controller_1.default.cancelInvite);
+    app.get("/match/invites/pending", {
+        schema: {
+            tags: ["Match"],
+            summary: "Список активных приглашений",
+        },
+    }, match_controller_1.default.pendingInvites);
     app.post("/match/:matchId/tactics", {
         schema: {
             tags: ["Match"],

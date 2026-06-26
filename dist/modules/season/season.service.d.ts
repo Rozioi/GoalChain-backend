@@ -2,28 +2,28 @@ import { FastifyInstance } from "fastify";
 export declare function getCurrentSeason(app: FastifyInstance): Promise<{
     name: string;
     id: string;
+    status: import(".prisma/client").$Enums.SeasonStatus;
     startDate: Date;
     endDate: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
     division: number;
     standings: {
+        id: string;
+        points: number;
         team: {
+            name: string;
             user: {
                 username: string | null;
-                firstName: string | null;
+                clubName: string | null;
             };
-            name: string;
             id: string;
             rating: number;
             userId: string;
         };
-        id: string;
-        points: number;
-        goalsFor: number;
         played: number;
         wins: number;
         draws: number;
         losses: number;
+        goalsFor: number;
         goalsAgainst: number;
     }[];
 } | null>;
@@ -31,7 +31,7 @@ export declare function getSeasonStandings(app: FastifyInstance, seasonId: strin
     team: {
         user: {
             username: string | null;
-            firstName: string | null;
+            clubName: string | null;
         };
     } & {
         name: string;
@@ -47,13 +47,13 @@ export declare function getSeasonStandings(app: FastifyInstance, seasonId: strin
 } & {
     id: string;
     points: number;
-    teamId: string;
     seasonId: string;
-    goalsFor: number;
+    teamId: string;
     played: number;
     wins: number;
     draws: number;
     losses: number;
+    goalsFor: number;
     goalsAgainst: number;
 })[]>;
 export declare function registerForSeason(app: FastifyInstance, userId: string): Promise<{
@@ -61,53 +61,57 @@ export declare function registerForSeason(app: FastifyInstance, userId: string):
         name: string;
         id: string;
         createdAt: Date;
+        status: import(".prisma/client").$Enums.SeasonStatus;
         startDate: Date;
         endDate: Date;
-        status: import(".prisma/client").$Enums.SeasonStatus;
         division: number;
     };
     standing: {
         id: string;
         points: number;
-        teamId: string;
         seasonId: string;
-        goalsFor: number;
+        teamId: string;
         played: number;
         wins: number;
         draws: number;
         losses: number;
+        goalsFor: number;
         goalsAgainst: number;
     };
 }>;
 export declare function updateStandings(app: FastifyInstance, seasonId: string, teamId: string, goalsFor: number, goalsAgainst: number, result: "win" | "draw" | "loss"): Promise<{
     id: string;
     points: number;
-    teamId: string;
     seasonId: string;
-    goalsFor: number;
+    teamId: string;
     played: number;
     wins: number;
     draws: number;
     losses: number;
+    goalsFor: number;
     goalsAgainst: number;
 }>;
 export declare function createSeason(app: FastifyInstance, name: string, division: number): Promise<{
     name: string;
     id: string;
     createdAt: Date;
+    status: import(".prisma/client").$Enums.SeasonStatus;
     startDate: Date;
     endDate: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
     division: number;
 }>;
+/**
+ * Automatically start seasons whose startDate has passed and are still UPCOMING
+ */
+export declare function checkAndStartUpcomingSeasons(app: FastifyInstance): Promise<void>;
 export declare function checkAndEndExpiredSeasons(app: FastifyInstance): Promise<void>;
 export declare function endSeason(app: FastifyInstance, seasonId: string): Promise<{
     name: string;
     id: string;
     createdAt: Date;
+    status: import(".prisma/client").$Enums.SeasonStatus;
     startDate: Date;
     endDate: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
     division: number;
 }>;
 export declare function playSeasonMatch(app: FastifyInstance, userId: string): Promise<{
@@ -115,10 +119,9 @@ export declare function playSeasonMatch(app: FastifyInstance, userId: string): P
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.MatchStatus;
         eventId: string | null;
+        status: import(".prisma/client").$Enums.MatchStatus;
         type: import(".prisma/client").$Enums.MatchType;
-        seed: string | null;
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
@@ -126,6 +129,7 @@ export declare function playSeasonMatch(app: FastifyInstance, userId: string): P
         isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
+        seed: string | null;
         overtime: boolean;
         homePressingType: import(".prisma/client").$Enums.PressingType;
         awayPressingType: import(".prisma/client").$Enums.PressingType;
@@ -133,6 +137,12 @@ export declare function playSeasonMatch(app: FastifyInstance, userId: string): P
         awayCoins: number;
         homeExp: number;
         awayExp: number;
+        currentMinute: number;
+        startedAt: Date | null;
+        finishedAt: Date | null;
+        homeReady: boolean;
+        awayReady: boolean;
+        inviteId: string | null;
         seasonId: string | null;
     };
     result: import("../match/match.simulator").MatchResult;

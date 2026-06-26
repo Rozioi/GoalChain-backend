@@ -29,11 +29,13 @@ const player_routes_1 = __importDefault(require("./modules/player/player.routes"
 const pressure_plugin_1 = __importDefault(require("./plugins/pressure.plugin"));
 const caching_plugin_1 = __importDefault(require("./plugins/caching.plugin"));
 const sync_plugin_1 = __importDefault(require("./plugins/sync.plugin"));
+const socket_plugin_1 = __importDefault(require("./plugins/socket.plugin"));
 // function buildApp (check documentation)
 function buildApp() {
     const app = (0, fastify_1.default)({
         logger: true,
         pluginTimeout: 30000,
+        bodyLimit: 10 * 1024 * 1024
     });
     // plugin register
     app.register(cors_plugin_1.default);
@@ -43,6 +45,7 @@ function buildApp() {
     app.register(pressure_plugin_1.default);
     app.register(caching_plugin_1.default);
     app.register(sync_plugin_1.default);
+    app.register(socket_plugin_1.default);
     // route register
     app.register(user_routes_1.default, { prefix: "/api/v1" });
     app.register(draft_routes_1.default, { prefix: "/api/v1" });

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.broadcastMessage = void 0;
 exports.getGlobalStats = getGlobalStats;
 exports.listUsers = listUsers;
 exports.updateUser = updateUser;
@@ -70,6 +71,8 @@ async function listSeasons(app) {
     });
 }
 const season_service_1 = require("../season/season.service");
+const broadcast_service_1 = require("./broadcast.service");
+Object.defineProperty(exports, "broadcastMessage", { enumerable: true, get: function () { return broadcast_service_1.broadcastMessage; } });
 async function endSeason(app, seasonId) {
     return (0, season_service_1.endSeason)(app, seasonId);
 }

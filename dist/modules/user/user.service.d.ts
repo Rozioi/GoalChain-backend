@@ -1,15 +1,29 @@
 import { FastifyInstance } from "fastify";
-export declare function registerUser(app: FastifyInstance, telegramId: string, username?: string, firstName?: string, lastName?: string, photoUrl?: string): Promise<{
+interface TelegramUserData {
+    id: number;
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+    photo_url?: string;
+}
+export interface ClubInfo {
+    clubName: string;
+    clubIcon: string;
+}
+export declare function verifyTelegramInitData(initData: string, botToken: string): boolean;
+export declare function parseTelegramInitData(initData: string): TelegramUserData | null;
+export declare function loginUser(app: FastifyInstance, initData: string): Promise<{
+    isRegistered: boolean;
+    user?: undefined;
+    token?: undefined;
+} | {
     user: {
         level: number;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         telegramId: string;
-        referralCode: string;
         username: string | null;
-        firstName: string | null;
-        lastName: string | null;
+        clubName: string | null;
+        clubIcon: string | null;
         photoUrl: string | null;
         coins: number;
         reputation: number;
@@ -18,108 +32,62 @@ export declare function registerUser(app: FastifyInstance, telegramId: string, u
         isAdmin: boolean;
         scoutingLevel: number;
         scoutingExp: number;
+        referralCode: string;
         referredById: string | null;
         dailyMatchesPlayed: number;
         dailyMatchesResetAt: Date;
+        energy: number;
+        energyUpdatedAt: Date;
+        createdAt: Date;
+        updatedAt: Date;
+    };
+    token: string;
+    isRegistered: boolean;
+}>;
+export declare function registerUser(app: FastifyInstance, initData: string, clubInfo: ClubInfo): Promise<{
+    user: {
+        level: number;
+        id: string;
+        telegramId: string;
+        username: string | null;
+        clubName: string | null;
+        clubIcon: string | null;
+        photoUrl: string | null;
+        coins: number;
+        reputation: number;
+        points: number;
+        experience: number;
+        isAdmin: boolean;
+        scoutingLevel: number;
+        scoutingExp: number;
+        referralCode: string;
+        referredById: string | null;
+        dailyMatchesPlayed: number;
+        dailyMatchesResetAt: Date;
+        energy: number;
+        energyUpdatedAt: Date;
+        createdAt: Date;
+        updatedAt: Date;
     };
     token: string;
     isNew: boolean;
 }>;
 export declare function getUserProfile(app: FastifyInstance, userId: string): Promise<{
+    energy: number;
+    maxEnergy: number;
+    energyUpdatedAt: string;
+    nextRegenAt: string | null;
     rentIncomeCoins: number;
     rentIncomeGems: number;
-    rentedOutPlayers: {
-        activeContract: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            price: number;
-            startDate: Date;
-            endDate: Date;
-            status: import(".prisma/client").$Enums.RentStatus;
-            playerId: string;
-            lessorId: string;
-            renterId: string;
-        };
-        hourlyIncome: number;
-        rentContracts: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            price: number;
-            startDate: Date;
-            endDate: Date;
-            status: import(".prisma/client").$Enums.RentStatus;
-            playerId: string;
-            lessorId: string;
-            renterId: string;
-        }[];
-        age: number;
-        name: string;
-        id: string;
-        surname: string | null;
-        overallRating: number;
-        position: import(".prisma/client").$Enums.Position;
-        role: import(".prisma/client").$Enums.PlayerRole;
-        style: import(".prisma/client").$Enums.PlayerStyle;
-        pace: number;
-        paceBonus: number;
-        shooting: number;
-        shootingBonus: number;
-        passing: number;
-        passingBonus: number;
-        dribbling: number;
-        dribblingBonus: number;
-        defending: number;
-        defendingBonus: number;
-        physical: number;
-        physicalBonus: number;
-        goalkeeping: number;
-        formValue: number;
-        fatigue: number;
-        country: string;
-        potentialMin: number;
-        potentialMax: number;
-        heightCm: number;
-        weightKg: number;
-        foot: string;
-        skillMoves: number;
-        weakFoot: number;
-        injuryType: string | null;
-        injuryEndsAt: Date | null;
-        isNft: boolean;
-        mintedAt: Date | null;
-        tokenId: string | null;
-        nationality: string;
-        clubId: number | null;
-        club: string;
-        leagueId: number | null;
-        leagueDivisionId: number | null;
-        trainingLevel: number;
-        trainingLevelMax: number;
-        trainingExperience: number;
-        trainingExperienceRequired: number;
-        face: string | null;
-        hairStyle: string | null;
-        hairColor: string | null;
-        skinColor: string | null;
-        beardStyle: string | null;
-        beardColor: string | null;
-        emotion: string | null;
-        rarity: string | null;
-        imageUrl: string | null;
-        ownerId: string | null;
-        isOnRent: boolean;
-        rentPrice: number | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }[];
+    rentedOutPlayers: any[];
     teams: ({
         players: ({
             player: {
                 age: number;
                 name: string;
                 id: string;
+                createdAt: Date;
+                updatedAt: Date;
                 surname: string | null;
                 overallRating: number;
                 position: import(".prisma/client").$Enums.Position;
@@ -174,15 +142,13 @@ export declare function getUserProfile(app: FastifyInstance, userId: string): Pr
                 ownerId: string | null;
                 isOnRent: boolean;
                 rentPrice: number | null;
-                createdAt: Date;
-                updatedAt: Date;
             };
         } & {
             id: string;
             playerId: string;
+            teamId: string;
             isStarter: boolean;
             positionInFormation: string | null;
-            teamId: string;
         })[];
     } & {
         name: string;
@@ -200,13 +166,10 @@ export declare function getUserProfile(app: FastifyInstance, userId: string): Pr
     };
     level: number;
     id: string;
-    createdAt: Date;
-    updatedAt: Date;
     telegramId: string;
-    referralCode: string;
     username: string | null;
-    firstName: string | null;
-    lastName: string | null;
+    clubName: string | null;
+    clubIcon: string | null;
     photoUrl: string | null;
     coins: number;
     reputation: number;
@@ -215,9 +178,12 @@ export declare function getUserProfile(app: FastifyInstance, userId: string): Pr
     isAdmin: boolean;
     scoutingLevel: number;
     scoutingExp: number;
+    referralCode: string;
     referredById: string | null;
     dailyMatchesPlayed: number;
     dailyMatchesResetAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
 } | null>;
 export declare function applyReferralCode(app: FastifyInstance, userId: string, code: string): Promise<{
     success: boolean;
@@ -226,37 +192,34 @@ export declare function applyReferralCode(app: FastifyInstance, userId: string, 
 export declare function getUserReferrals(app: FastifyInstance, userId: string): Promise<({
     invitee: {
         id: string;
-        createdAt: Date;
         telegramId: string;
         username: string | null;
-        firstName: string | null;
-        lastName: string | null;
+        clubName: string | null;
+        clubIcon: string | null;
         photoUrl: string | null;
+        createdAt: Date;
     };
 } & {
     id: string;
     createdAt: Date;
-    reward: number;
     inviterId: string;
     inviteeId: string;
+    reward: number;
 })[]>;
 export declare function getInviterInfoByCode(app: FastifyInstance, code: string): Promise<{
     id: string;
     username: string | null;
-    firstName: string | null;
-    lastName: string | null;
+    clubName: string | null;
+    clubIcon: string | null;
     photoUrl: string | null;
 }>;
 export declare function addExperience(app: FastifyInstance, userId: string, amount: number): Promise<{
     level: number;
     id: string;
-    createdAt: Date;
-    updatedAt: Date;
     telegramId: string;
-    referralCode: string;
     username: string | null;
-    firstName: string | null;
-    lastName: string | null;
+    clubName: string | null;
+    clubIcon: string | null;
     photoUrl: string | null;
     coins: number;
     reputation: number;
@@ -265,20 +228,22 @@ export declare function addExperience(app: FastifyInstance, userId: string, amou
     isAdmin: boolean;
     scoutingLevel: number;
     scoutingExp: number;
+    referralCode: string;
     referredById: string | null;
     dailyMatchesPlayed: number;
     dailyMatchesResetAt: Date;
+    energy: number;
+    energyUpdatedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
 } | undefined>;
 export declare function addPoints(app: FastifyInstance, userId: string, amount: number): Promise<{
     level: number;
     id: string;
-    createdAt: Date;
-    updatedAt: Date;
     telegramId: string;
-    referralCode: string;
     username: string | null;
-    firstName: string | null;
-    lastName: string | null;
+    clubName: string | null;
+    clubIcon: string | null;
     photoUrl: string | null;
     coins: number;
     reputation: number;
@@ -287,7 +252,20 @@ export declare function addPoints(app: FastifyInstance, userId: string, amount: 
     isAdmin: boolean;
     scoutingLevel: number;
     scoutingExp: number;
+    referralCode: string;
     referredById: string | null;
     dailyMatchesPlayed: number;
     dailyMatchesResetAt: Date;
+    energy: number;
+    energyUpdatedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
 } | undefined>;
+export declare function getUserGlobalRank(app: FastifyInstance, userId: string): Promise<number | null>;
+export declare function getLeaderboard(app: FastifyInstance, limit: number): Promise<{
+    id: string;
+    username: string | null;
+    photoUrl: string | null;
+    points: number;
+}[]>;
+export {};

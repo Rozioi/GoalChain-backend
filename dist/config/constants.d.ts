@@ -16,12 +16,18 @@ export declare const DRAFT: {
     RESERVE_OVR_MIN: number;
     RESERVE_OVR_MAX: number;
 };
+export declare const ENERGY: {
+    MAX: number;
+    REGEN_INTERVAL_MS: number;
+};
 export declare const MATCH: {
     MATCHMAKING_RATING_RANGE: number;
+    MATCHMAKING_POINTS_RANGE: number;
     MATCHMAKING_TIMEOUT_MS: number;
     DAILY_FRIENDLY_LIMIT: number;
     MATCH_ITERATIONS: number;
     OVERTIME_ITERATIONS: number;
+    LIVE_MS_PER_MINUTE: number;
     REWARDS: {
         WIN_COINS: number;
         DRAW_COINS: number;
@@ -31,6 +37,11 @@ export declare const MATCH: {
         LOSS_EXP: number;
         DIMINISHING_FACTOR: number;
     };
+};
+export declare const INVITE: {
+    FRIEND_TTL_MS: number;
+    OPEN_TTL_MS: number;
+    EXPIRY_CHECK_INTERVAL_MS: number;
 };
 export declare const TRAINING: {
     BASE_COST: number;

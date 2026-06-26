@@ -38,8 +38,8 @@ async function generateBotTeam(app, targetRating) {
             data: {
                 telegramId: "bot-system",
                 username: "bot_system",
-                firstName: "Bot",
-                lastName: "System",
+                clubName: "Bot",
+                clubIcon: "1",
                 referralCode: "BOT-SYSTEM-CODE",
             },
         });

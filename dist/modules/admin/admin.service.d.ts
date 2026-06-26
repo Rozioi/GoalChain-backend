@@ -14,13 +14,10 @@ export declare function listUsers(app: FastifyInstance, query: {
     users: {
         level: number;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         telegramId: string;
-        referralCode: string;
         username: string | null;
-        firstName: string | null;
-        lastName: string | null;
+        clubName: string | null;
+        clubIcon: string | null;
         photoUrl: string | null;
         coins: number;
         reputation: number;
@@ -29,9 +26,14 @@ export declare function listUsers(app: FastifyInstance, query: {
         isAdmin: boolean;
         scoutingLevel: number;
         scoutingExp: number;
+        referralCode: string;
         referredById: string | null;
         dailyMatchesPlayed: number;
         dailyMatchesResetAt: Date;
+        energy: number;
+        energyUpdatedAt: Date;
+        createdAt: Date;
+        updatedAt: Date;
     }[];
     total: number;
 }>;
@@ -44,13 +46,10 @@ export declare function updateUser(app: FastifyInstance, userId: string, data: {
 }): Promise<{
     level: number;
     id: string;
-    createdAt: Date;
-    updatedAt: Date;
     telegramId: string;
-    referralCode: string;
     username: string | null;
-    firstName: string | null;
-    lastName: string | null;
+    clubName: string | null;
+    clubIcon: string | null;
     photoUrl: string | null;
     coins: number;
     reputation: number;
@@ -59,9 +58,14 @@ export declare function updateUser(app: FastifyInstance, userId: string, data: {
     isAdmin: boolean;
     scoutingLevel: number;
     scoutingExp: number;
+    referralCode: string;
     referredById: string | null;
     dailyMatchesPlayed: number;
     dailyMatchesResetAt: Date;
+    energy: number;
+    energyUpdatedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
 }>;
 export declare function createSeason(app: FastifyInstance, data: {
     name: string;
@@ -72,35 +76,37 @@ export declare function createSeason(app: FastifyInstance, data: {
     name: string;
     id: string;
     createdAt: Date;
+    status: import(".prisma/client").$Enums.SeasonStatus;
     startDate: Date;
     endDate: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
     division: number;
 }>;
 export declare function updateSeasonStatus(app: FastifyInstance, seasonId: string, status: "UPCOMING" | "ACTIVE" | "PLAYOFFS" | "COMPLETED"): Promise<{
     name: string;
     id: string;
     createdAt: Date;
+    status: import(".prisma/client").$Enums.SeasonStatus;
     startDate: Date;
     endDate: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
     division: number;
 }>;
 export declare function listSeasons(app: FastifyInstance): Promise<{
     name: string;
     id: string;
     createdAt: Date;
+    status: import(".prisma/client").$Enums.SeasonStatus;
     startDate: Date;
     endDate: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
     division: number;
 }[]>;
+import { broadcastMessage } from "./broadcast.service";
+export { broadcastMessage };
 export declare function endSeason(app: FastifyInstance, seasonId: string): Promise<{
     name: string;
     id: string;
     createdAt: Date;
+    status: import(".prisma/client").$Enums.SeasonStatus;
     startDate: Date;
     endDate: Date;
-    status: import(".prisma/client").$Enums.SeasonStatus;
     division: number;
 }>;

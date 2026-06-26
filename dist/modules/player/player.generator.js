@@ -12,29 +12,6 @@ const background_removal_node_1 = require("@imgly/background-removal-node");
 const fs_1 = __importDefault(require("fs"));
 const sharp_1 = __importDefault(require("sharp"));
 const path_1 = __importDefault(require("path"));
-const LOCAL_AI_URL = process.env.LOCAL_AI_URL; // Например, http://127.0.0.1:7860/sdapi/v1/txt2img
-async function fetchLocalImage(prompt) {
-    if (!LOCAL_AI_URL)
-        throw new Error("LOCAL_AI_URL is not set");
-    const response = await fetch(LOCAL_AI_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            prompt,
-            negative_prompt: "blurry, low quality, distorted, extra limbs, bad anatomy, text, watermark",
-            steps: 25,
-            width: 512,
-            height: 512,
-            cfg_scale: 7,
-            sampler_name: "Euler a",
-        }),
-    });
-    if (!response.ok)
-        throw new Error(`Local AI error: ${response.statusText}`);
-    const data = await response.json();
-    // Automatic1111 возвращает base64 в массиве images
-    return Buffer.from(data.images[0], "base64");
-}
 async function processPlayerImage(promptOrUrl, fileName, isUrl = true) {
     const publicDir = "./public/generated-players/";
     const relativeUrl = `/generated-players/${fileName}.png`;
@@ -77,6 +54,7 @@ async function processPlayerImage(promptOrUrl, fileName, isUrl = true) {
             fs_1.default.mkdirSync(publicDir, { recursive: true });
         // Нормализуем изображение через sharp перед удалением фона
         const normalizedBuffer = await (0, sharp_1.default)(imageBuffer).png().toBuffer();
+        // await sharp(imageBuffer).png().toBuffer();
         const tempDir = "./temp/bg-removal/";
         if (!fs_1.default.existsSync(tempDir))
             fs_1.default.mkdirSync(tempDir, { recursive: true });
@@ -358,17 +336,21 @@ async function generatePlayer(options = {}) {
         defendingBonus: 0,
         physicalBonus: 0,
     };
+    // Генерация портрета через Together AI (FLUX)
     // const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
-    // const prompt = generateImagePrompt(playerData);
-    // const useLocal = !!LOCAL_AI_URL;
-    // const finalImageUrl = await processPlayerImage(
-    //   useLocal ? prompt : generateImageUrlFromPrompt(prompt),
-    //   fileName,
-    //   !useLocal,
-    // );
+    // let finalImageUrl = "ф.png"; // дефолт, если генерация недоступна
+    // try {
+    //   const generated = await generatePlayerImage(
+    //     { name, surname, nationality, club },
+    //     fileName,
+    //   );
+    //   if (generated) finalImageUrl = generated;
+    // } catch (e) {
+    //   console.error("generatePlayerImage failed:", e);
+    // }
     return {
         ...playerData,
-        imageUrl: "ф.png",
+        imageUrl: "default.png",
     };
 }
 async function generateMultiplePlayers(count, options = {}) {

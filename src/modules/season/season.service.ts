@@ -31,7 +31,7 @@ export async function getCurrentSeason(app: FastifyInstance) {
               user: {
                 select: {
                   username: true,
-                  firstName: true,
+                  clubName: true,
                 },
               },
             },
@@ -54,7 +54,7 @@ export async function getSeasonStandings(
           user: {
             select: {
               username: true,
-              firstName: true,
+              clubName: true,
             },
           },
         },

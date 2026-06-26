@@ -110,3 +110,11 @@ export function calculateTeamRating(players: SynergyPlayer[]): number {
   const synergy = calculateTeamSynergy(players);
   return Math.round((avgOvr + synergy.totalBonus) * 10) / 10;
 }
+
+/** Средний OVR всего состава (старт + скамейка), без синергии */
+export function calculatePublicRating(players: SynergyPlayer[]): number {
+  if (players.length === 0) return 0;
+  const avgOvr =
+    players.reduce((sum, p) => sum + p.overallRating, 0) / players.length;
+  return Math.round(avgOvr * 10) / 10;
+}

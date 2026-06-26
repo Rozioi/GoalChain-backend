@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { randomBytes, createHmac } from "crypto";
 import { AppError } from "../../utils/app-error";
+import { calculatePublicRating } from "../player/synergy.engine";
 
 interface TelegramUserData {
   id: number;
@@ -13,6 +14,17 @@ interface TelegramUserData {
 export interface ClubInfo {
   clubName: string;
   clubIcon: string;
+}
+
+export function calculateTeamPublicOvr(players: any[]): number {
+  const formattedPlayers = players.map((tp: any) => ({
+    position: tp.player.position,
+    role: tp.player.role,
+    style: tp.player.style,
+    overallRating: tp.player.overallRating,
+  }));
+
+  return calculatePublicRating(formattedPlayers);
 }
 
 export function verifyTelegramInitData(
@@ -157,7 +169,7 @@ export async function registerUser(
     data: {
       telegramId,
       username: tgUser.username,
-      clubName: clubInfo.clubName,
+      clubName: clubInfo.clubName.trim(),
       clubIcon: clubInfo.clubIcon || "default",
       photoUrl: tgUser.photo_url,
       referralCode,
@@ -173,6 +185,7 @@ export async function registerUser(
 }
 
 import { rentService } from "../player/rent.service";
+import { syncUserEnergy } from "./energy.service";
 
 export async function getUserProfile(app: FastifyInstance, userId: string) {
   rentService
@@ -201,6 +214,8 @@ export async function getUserProfile(app: FastifyInstance, userId: string) {
 
   if (!user) return null;
 
+  const energyState = await syncUserEnergy(app, userId);
+
   const activeContracts = await app.prisma.rentContract.findMany({
     where: { lessorId: userId, status: "ACTIVE" },
   });
@@ -214,7 +229,7 @@ export async function getUserProfile(app: FastifyInstance, userId: string) {
     );
     rentIncomeCoins += Math.floor(contract.price / hours);
   });
-
+  const publicOvr = calculateTeamPublicOvr(user.teams[0].players);
   const rentedOutPlayers = await app.prisma.player.findMany({
     where: {
       ownerId: userId,
@@ -249,6 +264,11 @@ export async function getUserProfile(app: FastifyInstance, userId: string) {
 
   return {
     ...user,
+    energy: energyState.energy,
+    publicOvr: publicOvr,
+    maxEnergy: energyState.maxEnergy,
+    energyUpdatedAt: energyState.energyUpdatedAt.toISOString(),
+    nextRegenAt: energyState.nextRegenAt,
     rentIncomeCoins,
     rentIncomeGems: 0,
     rentedOutPlayers: mappedRentedOut,
@@ -316,8 +336,8 @@ export async function getUserReferrals(app: FastifyInstance, userId: string) {
           id: true,
           telegramId: true,
           username: true,
-          firstName: true,
-          lastName: true,
+          clubName: true,
+          clubIcon: true,
           photoUrl: true,
           createdAt: true,
         },
@@ -333,8 +353,8 @@ export async function getInviterInfoByCode(app: FastifyInstance, code: string) {
     select: {
       id: true,
       username: true,
-      firstName: true,
-      lastName: true,
+      clubName: true,
+      clubIcon: true,
       photoUrl: true,
     },
   });

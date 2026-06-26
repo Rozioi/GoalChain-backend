@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import {
+  calculatePublicRating,
   calculateTeamRating,
   calculateTeamSynergy,
 } from "../player/synergy.engine";
@@ -28,11 +29,22 @@ export async function getMyTeam(app: FastifyInstance, userId: string) {
     })),
   );
 
+  const allPlayers = team.players.map((tp: any) => ({
+    position: tp.player.position,
+    role: tp.player.role,
+    style: tp.player.style,
+    overallRating: tp.player.overallRating,
+  }));
+
+  const publicOvr = calculatePublicRating(allPlayers);
+
   return {
     ...team,
     starters,
     reserves,
     synergy,
+    ovr: team.rating,
+    publicOvr,
   };
 }
 

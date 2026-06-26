@@ -1,19 +1,17 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { adminController } from "./admin.controller";
 
-async function adminGuard(request: FastifyRequest, reply: FastifyReply) {
+export async function adminGuard(request: FastifyRequest, reply: FastifyReply) {
   try {
     await request.jwtVerify();
   } catch (err) {
     return reply.status(401).send({ error: "Unauthorized" });
   }
-
   const userId = (request.user as any).userId;
   const user = await (request.server as any).prisma.user.findUnique({
     where: { id: userId },
     select: { isAdmin: true },
   });
-
   if (!user || !user.isAdmin) {
     return reply.status(403).send({ error: "Forbidden: Admin access only" });
   }
@@ -33,6 +31,25 @@ async function adminRoutes(app: FastifyInstance) {
 
   app.put("/admin/season/:id/status", adminController.updateSeason);
   app.put("/admin/season/:id/end", adminController.endSeason);
+
+  app.post(
+    "/admin/broadcast",
+    {
+      schema: {
+        tags: ["Admin"],
+        summary: "Broadcast message to all Telegram users",
+        body: {
+          type: "object",
+          required: ["text"],
+          properties: {
+            text: { type: "string" },
+            photoBase64: { type: "string" },
+          },
+        },
+      },
+    },
+    adminController.broadcast,
+  );
 }
 
 export default adminRoutes;

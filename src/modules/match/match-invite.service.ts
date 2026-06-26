@@ -7,11 +7,12 @@ import {
   userRoom,
 } from "../../ws/socket.emitter";
 import { ServerEvent } from "../../ws/types";
+import { isUserOnline } from "../../ws/socket.connection.handler";
 import { createMatchFromInvite } from "./match-live.service";
 
 function buildInviteLink(inviteId: string) {
   const botName = process.env.TELEGRAM_BOT_USERNAME || "goalchaintest_bot";
-  return `https://t.me/${botName}/startapp?startapp=invite_${inviteId}`;
+  return `https://t.me/${botName}/startapp?startapp=match_${inviteId}`;
 }
 
 async function assertNoDuplicateInvite(
@@ -80,22 +81,33 @@ export async function inviteFriend(
     inviteLink,
   };
 
-  emitToUser(friendId, ServerEvent.INVITE_RECEIVED, payload);
+  const friendOnline = isUserOnline(friendId);
 
-  const { bot } = await import("../../bot/bot");
-  if (bot && friend.telegramId) {
-    const text = `⚽️ *${sender?.clubName || "Твой друг"}* бросил тебе вызов в Football Manager!`;
-    await bot.api
-      .sendMessage(friend.telegramId, text, {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [[{ text: "Принять вызов ⚔️", url: inviteLink }]],
-        },
-      })
-      .catch((err) => app.log.warn({ err }, "Failed to send bot notification"));
+  if (friendOnline) {
+    emitToUser(friendId, ServerEvent.INVITE_RECEIVED, payload);
+  } else {
+    const { bot } = await import("../../bot/bot");
+    if (bot && friend.telegramId) {
+      const text = `⚽️ *${sender?.clubName || "Твой друг"}* бросил тебе вызов в Football Manager!\n\nНажми кнопку ниже, чтобы принять вызов.`;
+      await bot.api
+        .sendMessage(friend.telegramId, text, {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [[{ text: "Принять вызов ⚔️", url: inviteLink }]],
+          },
+        })
+        .catch((err) => app.log.warn({ err }, "Failed to send bot notification"));
+    }
   }
 
-  return { inviteId: invite.id, inviteLink, expiresAt };
+  emitToUser(senderId, ServerEvent.INVITE_SENT, {
+    inviteId: invite.id,
+    inviteLink,
+    expiresAt: expiresAt.toISOString(),
+    delivery: friendOnline ? "websocket" : "telegram",
+  });
+
+  return { inviteId: invite.id, inviteLink, expiresAt, delivery: friendOnline ? "websocket" : "telegram" };
 }
 
 export async function createOpenChallenge(app: FastifyInstance, senderId: string) {

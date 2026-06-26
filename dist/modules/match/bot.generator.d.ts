@@ -15,6 +15,8 @@ export declare function generateBotTeam(app: FastifyInstance, targetRating: numb
         age: number;
         name: string;
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         surname: string | null;
         overallRating: number;
         position: import(".prisma/client").$Enums.Position;
@@ -69,7 +71,5 @@ export declare function generateBotTeam(app: FastifyInstance, targetRating: numb
         ownerId: string | null;
         isOnRent: boolean;
         rentPrice: number | null;
-        createdAt: Date;
-        updatedAt: Date;
     }[];
 }>;

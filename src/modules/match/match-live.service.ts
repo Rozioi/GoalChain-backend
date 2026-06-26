@@ -9,6 +9,7 @@ import {
 } from "../../ws/socket.emitter";
 import { ServerEvent } from "../../ws/types";
 import { MATCH } from "../../config/constants";
+import { consumeEnergyForUsers } from "../user/energy.service";
 import { handleMatchCompletion, formatMatchEvents } from "./match-completion.service";
 import { loadTeamsForMatch, simulateMatch } from "./match-team.service";
 
@@ -133,18 +134,24 @@ export async function startLiveMatch(app: FastifyInstance, matchId: string) {
 
   const userIds = [match.homeUserId, match.awayUserId].filter(Boolean) as string[];
   if (userIds.length > 0 && !match.isBot) {
-    await app.prisma.user.updateMany({
-      where: { id: { in: userIds } },
-      data: { dailyMatchesPlayed: { increment: 1 } },
-    });
+    await consumeEnergyForUsers(app, userIds);
   }
 
-  emitToMatch(matchId, ServerEvent.MATCH_STARTED, {
+  const startedPayload = {
     matchId,
     seed,
     homeUserId: match.homeUserId,
     awayUserId: match.awayUserId,
-  });
+  };
+
+  emitToMatch(matchId, ServerEvent.MATCH_STARTED, startedPayload);
+
+  if (match.homeUserId) {
+    emitToUser(match.homeUserId, ServerEvent.MATCH_STARTED, startedPayload);
+  }
+  if (match.awayUserId) {
+    emitToUser(match.awayUserId, ServerEvent.MATCH_STARTED, startedPayload);
+  }
 
   streamMatchEvents(app, matchId, result, seed, match);
 }
@@ -242,7 +249,13 @@ async function finishLiveMatch(
     const r = role(userId);
     const coins = r === "home" ? rewards.homeCoins : rewards.awayCoins;
     const exp = r === "home" ? rewards.homeExp : rewards.awayExp;
-    return { coins, exp };
+    const points =
+      result.winner === r
+        ? 25
+        : result.winner === "draw"
+          ? 10
+          : -15;
+    return { coins, exp, points };
   };
 
   emitToMatch(matchId, ServerEvent.MATCH_FINISHED, {
@@ -250,8 +263,17 @@ async function finishLiveMatch(
     homeScore: result.homeScore,
     awayScore: result.awayScore,
     winner: result.winner,
-    rewards: match.homeUserId ? buildRewards(match.homeUserId) : { coins: 0, exp: 0 },
   });
+
+  if (match.homeUserId) {
+    emitToUser(match.homeUserId, ServerEvent.MATCH_FINISHED, {
+      matchId,
+      homeScore: result.homeScore,
+      awayScore: result.awayScore,
+      winner: result.winner,
+      rewards: buildRewards(match.homeUserId),
+    });
+  }
 
   if (match.awayUserId && match.awayUserId !== match.homeUserId) {
     emitToUser(match.awayUserId, ServerEvent.MATCH_FINISHED, {
@@ -270,38 +292,31 @@ export async function startInstantBotMatch(
   homeTeamId: string,
   awayTeamId: string,
 ) {
-  const seed = randomUUID();
-  const { homeTeamData, awayTeamData } = await loadTeamsForMatch(
-    app,
-    homeTeamId,
-    awayTeamId,
-  );
-  const result = simulateMatch(homeTeamData, awayTeamData, seed);
-
   const match = await app.prisma.match.create({
     data: {
       type: "FRIENDLY",
-      status: "COMPLETED",
+      status: "READY",
       homeUserId: userId,
       homeTeamId,
       awayTeamId,
       isBot: true,
-      seed,
-      homeScore: result.homeScore,
-      awayScore: result.awayScore,
-      currentMinute: 90,
-      finishedAt: new Date(),
+      homeReady: true,
+      awayReady: true,
     },
   });
 
-  await handleMatchCompletion(
-    app,
-    { id: match.id, homeUserId: userId, homeTeamId, awayTeamId, isBot: true },
-    result,
-    seed,
-  );
+  if (app.io) {
+    app.io.in(userRoom(userId)).socketsJoin(matchRoom(match.id));
+  }
 
-  return { match, result, events: formatMatchEvents(result.events.map((e) => ({ ...e, playerId: e.playerId ?? null, playerName: e.playerName ?? null }))) };
+  // Delay so the client can enter PREMATCH and join the WebSocket room
+  setTimeout(() => {
+    startLiveMatch(app, match.id).catch((err) => {
+      app.log.error({ err, matchId: match.id }, "Failed to start bot live match");
+    });
+  }, 3000);
+
+  return { match };
 }
 
 export async function updateLiveTactics(

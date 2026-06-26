@@ -1,4 +1,5 @@
 import seedrandom from "seedrandom";
+import { generatePlayerImage } from "./playerImage.together";
 import { Position, PlayerRole, PlayerStyle } from "@prisma/client";
 import {
   PLAYER_FIRST_NAMES,
@@ -12,32 +13,6 @@ import fs from "fs";
 import sharp from "sharp";
 
 import path from "path";
-
-const LOCAL_AI_URL = process.env.LOCAL_AI_URL; // Например, http://127.0.0.1:7860/sdapi/v1/txt2img
-
-async function fetchLocalImage(prompt: string): Promise<Buffer> {
-  if (!LOCAL_AI_URL) throw new Error("LOCAL_AI_URL is not set");
-
-  const response = await fetch(LOCAL_AI_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt,
-      negative_prompt:
-        "blurry, low quality, distorted, extra limbs, bad anatomy, text, watermark",
-      steps: 25,
-      width: 512,
-      height: 512,
-      cfg_scale: 7,
-      sampler_name: "Euler a",
-    }),
-  });
-
-  if (!response.ok) throw new Error(`Local AI error: ${response.statusText}`);
-  const data: any = await response.json();
-  // Automatic1111 возвращает base64 в массиве images
-  return Buffer.from(data.images[0], "base64");
-}
 
 async function processPlayerImage(
   promptOrUrl: string,
@@ -492,19 +467,22 @@ export async function generatePlayer(
     physicalBonus: 0,
   };
 
+  // Генерация портрета через Together AI (FLUX)
   // const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
-  // const prompt = generateImagePrompt(playerData);
-  // const useLocal = !!LOCAL_AI_URL;
-
-  // const finalImageUrl = await processPlayerImage(
-  //   useLocal ? prompt : generateImageUrlFromPrompt(prompt),
-  //   fileName,
-  //   !useLocal,
-  // );
+  // let finalImageUrl = "ф.png"; // дефолт, если генерация недоступна
+  // try {
+  //   const generated = await generatePlayerImage(
+  //     { name, surname, nationality, club },
+  //     fileName,
+  //   );
+  //   if (generated) finalImageUrl = generated;
+  // } catch (e) {
+  //   console.error("generatePlayerImage failed:", e);
+  // }
 
   return {
     ...playerData,
-    imageUrl: "ф.png",
+    imageUrl: "default.png",
   };
 }
 

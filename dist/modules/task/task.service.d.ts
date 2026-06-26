@@ -34,9 +34,9 @@ export declare function createTask(app: FastifyInstance, data: {
     description: string | null;
     id: string;
     createdAt: Date;
+    reward: number;
     type: import(".prisma/client").$Enums.TaskType;
     objective: import(".prisma/client").$Enums.TaskObjective;
-    reward: number;
     goal: number;
     icon: string | null;
     isActive: boolean;
@@ -57,9 +57,9 @@ export declare function updateTask(app: FastifyInstance, taskId: string, data: P
     description: string | null;
     id: string;
     createdAt: Date;
+    reward: number;
     type: import(".prisma/client").$Enums.TaskType;
     objective: import(".prisma/client").$Enums.TaskObjective;
-    reward: number;
     goal: number;
     icon: string | null;
     isActive: boolean;
@@ -70,9 +70,9 @@ export declare function deleteTask(app: FastifyInstance, taskId: string): Promis
     description: string | null;
     id: string;
     createdAt: Date;
+    reward: number;
     type: import(".prisma/client").$Enums.TaskType;
     objective: import(".prisma/client").$Enums.TaskObjective;
-    reward: number;
     goal: number;
     icon: string | null;
     isActive: boolean;
@@ -83,9 +83,9 @@ export declare function getAllTasks(app: FastifyInstance): Promise<{
     description: string | null;
     id: string;
     createdAt: Date;
+    reward: number;
     type: import(".prisma/client").$Enums.TaskType;
     objective: import(".prisma/client").$Enums.TaskObjective;
-    reward: number;
     goal: number;
     icon: string | null;
     isActive: boolean;

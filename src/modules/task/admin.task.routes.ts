@@ -1,16 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { adminTaskController } from "./task.controller";
+import { adminGuard } from "../admin/admin.routes";
 
-async function adminGuard(request: FastifyRequest, reply: FastifyReply) {
-  const adminToken = process.env.ADMIN_TOKEN;
-  if (!adminToken) {
-    return reply.status(403).send({ error: "Admin access not configured" });
-  }
-  const provided = request.headers["x-admin-token"];
-  if (provided !== adminToken) {
-    return reply.status(403).send({ error: "Forbidden" });
-  }
-}
 
 async function adminTaskRoutes(app: FastifyInstance) {
   app.addHook("preHandler", adminGuard);

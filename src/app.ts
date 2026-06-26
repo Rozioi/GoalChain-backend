@@ -34,6 +34,7 @@ export function buildApp() {
   const app = Fastify({
     logger: true,
     pluginTimeout: 30000,
+    bodyLimit: 10 * 1024 * 1024
   });
 
   // plugin register

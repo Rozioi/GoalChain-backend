@@ -4,19 +4,19 @@ export declare function getActiveEvents(app: FastifyInstance): Promise<{
     name: string;
     id: string;
     createdAt: Date;
-    startDate: Date;
-    endDate: Date;
     status: import(".prisma/client").$Enums.EventStatus;
     type: import(".prisma/client").$Enums.EventType;
+    startDate: Date;
+    endDate: Date;
     rules: import("@prisma/client/runtime/library").JsonValue | null;
 }[]>;
 export declare function startEventDraft(app: FastifyInstance, userId: string, eventId: string): Promise<{
     id: string;
     createdAt: Date;
     updatedAt: Date;
-    status: import(".prisma/client").$Enums.DraftStatus;
     userId: string;
     eventId: string;
+    status: import(".prisma/client").$Enums.DraftStatus;
     teamId: string | null;
     step: import(".prisma/client").$Enums.DraftStep;
 }>;
@@ -24,10 +24,10 @@ export declare function createEvent(app: FastifyInstance, name: string, type: Ev
     name: string;
     id: string;
     createdAt: Date;
-    startDate: Date;
-    endDate: Date;
     status: import(".prisma/client").$Enums.EventStatus;
     type: import(".prisma/client").$Enums.EventType;
+    startDate: Date;
+    endDate: Date;
     rules: import("@prisma/client/runtime/library").JsonValue | null;
 }>;
 export declare function getEventStandings(app: FastifyInstance, eventId: string): Promise<{
@@ -46,10 +46,9 @@ export declare function getEventStandings(app: FastifyInstance, eventId: string)
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.MatchStatus;
         eventId: string | null;
+        status: import(".prisma/client").$Enums.MatchStatus;
         type: import(".prisma/client").$Enums.MatchType;
-        seed: string | null;
         homeUserId: string | null;
         awayUserId: string | null;
         homeTeamId: string;
@@ -57,6 +56,7 @@ export declare function getEventStandings(app: FastifyInstance, eventId: string)
         isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
+        seed: string | null;
         overtime: boolean;
         homePressingType: import(".prisma/client").$Enums.PressingType;
         awayPressingType: import(".prisma/client").$Enums.PressingType;
@@ -64,6 +64,12 @@ export declare function getEventStandings(app: FastifyInstance, eventId: string)
         awayCoins: number;
         homeExp: number;
         awayExp: number;
+        currentMinute: number;
+        startedAt: Date | null;
+        finishedAt: Date | null;
+        homeReady: boolean;
+        awayReady: boolean;
+        inviteId: string | null;
         seasonId: string | null;
     }[];
 }>;

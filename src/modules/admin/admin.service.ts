@@ -98,6 +98,9 @@ export async function listSeasons(app: FastifyInstance) {
 }
 
 import { endSeason as finishSeason } from "../season/season.service";
+import { broadcastMessage } from "./broadcast.service";
+
+export { broadcastMessage };
 
 export async function endSeason(app: FastifyInstance, seasonId: string) {
   return finishSeason(app, seasonId);

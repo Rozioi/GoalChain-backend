@@ -110,6 +110,8 @@ async function restoreUserRooms(
   });
 
   for (const invite of pendingInvites) {
+      const inviteLink = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME || "goalchaintest_bot"}/startapp?startapp=match_${invite.id}`;
+
     if (invite.recipientId === userId) {
       const sender = await app.prisma.user.findUnique({
         where: { id: invite.senderId },
@@ -120,6 +122,16 @@ async function restoreUserRooms(
         type: invite.type,
         sender,
         expiresAt: invite.expiresAt.toISOString(),
+        inviteLink,
+      });
+    }
+
+    if (invite.senderId === userId && invite.type === "FRIEND") {
+      socket.emit(ServerEvent.INVITE_SENT, {
+        inviteId: invite.id,
+        inviteLink,
+        expiresAt: invite.expiresAt.toISOString(),
+        delivery: "restored",
       });
     }
   }

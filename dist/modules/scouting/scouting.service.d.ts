@@ -3,12 +3,12 @@ import { PlayerRole } from "@prisma/client";
 export declare function hireScount(app: FastifyInstance, userId: string, region: string, tier?: "COMMON" | "PRO" | "MASTER", targetRole?: PlayerRole, ageMin?: number, ageMax?: number): Promise<{
     id: string;
     createdAt: Date;
-    status: import(".prisma/client").$Enums.ScoutStatus;
     userId: string;
     region: string;
     ageMin: number;
     ageMax: number;
     targetRole: import(".prisma/client").$Enums.PlayerRole | null;
+    status: import(".prisma/client").$Enums.ScoutStatus;
     endsAt: Date;
     tier: string;
     cost: number;
@@ -21,6 +21,8 @@ export declare function getScoutResults(app: FastifyInstance, userId: string): P
             age: number;
             name: string;
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             surname: string | null;
             overallRating: number;
             position: import(".prisma/client").$Enums.Position;
@@ -75,25 +77,23 @@ export declare function getScoutResults(app: FastifyInstance, userId: string): P
             ownerId: string | null;
             isOnRent: boolean;
             rentPrice: number | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     } & {
         id: string;
-        isNft: boolean;
         createdAt: Date;
         playerId: string;
+        isNft: boolean;
         scoutId: string;
     })[];
 } & {
     id: string;
     createdAt: Date;
-    status: import(".prisma/client").$Enums.ScoutStatus;
     userId: string;
     region: string;
     ageMin: number;
     ageMax: number;
     targetRole: import(".prisma/client").$Enums.PlayerRole | null;
+    status: import(".prisma/client").$Enums.ScoutStatus;
     endsAt: Date;
     tier: string;
     cost: number;

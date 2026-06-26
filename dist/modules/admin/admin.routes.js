@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.adminGuard = adminGuard;
 const admin_controller_1 = require("./admin.controller");
 async function adminGuard(request, reply) {
     try {
@@ -26,5 +27,19 @@ async function adminRoutes(app) {
     app.post("/admin/season", admin_controller_1.adminController.createSeason);
     app.put("/admin/season/:id/status", admin_controller_1.adminController.updateSeason);
     app.put("/admin/season/:id/end", admin_controller_1.adminController.endSeason);
+    app.post("/admin/broadcast", {
+        schema: {
+            tags: ["Admin"],
+            summary: "Broadcast message to all Telegram users",
+            body: {
+                type: "object",
+                required: ["text"],
+                properties: {
+                    text: { type: "string" },
+                    photoBase64: { type: "string" },
+                },
+            },
+        },
+    }, admin_controller_1.adminController.broadcast);
 }
 exports.default = adminRoutes;

@@ -11,9 +11,32 @@ export declare const playerController: {
             id: string;
         };
     }>, reply: FastifyReply): Promise<void>;
+    getPlayerById(req: FastifyRequest<{
+        Params: {
+            id: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
     populate(req: FastifyRequest<{
         Body: {
             count?: number;
+        };
+    }>, reply: FastifyReply): Promise<void>;
+    getNftMetadata(req: FastifyRequest<{
+        Params: {
+            id: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
+    prepareMint(req: FastifyRequest<{
+        Body: {
+            playerId: string;
+            walletAddress: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
+    confirmMint(req: FastifyRequest<{
+        Body: {
+            playerId: string;
+            walletAddress: string;
+            txHash?: string;
         };
     }>, reply: FastifyReply): Promise<void>;
 };

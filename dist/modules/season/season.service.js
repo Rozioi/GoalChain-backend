@@ -38,6 +38,7 @@ exports.getSeasonStandings = getSeasonStandings;
 exports.registerForSeason = registerForSeason;
 exports.updateStandings = updateStandings;
 exports.createSeason = createSeason;
+exports.checkAndStartUpcomingSeasons = checkAndStartUpcomingSeasons;
 exports.checkAndEndExpiredSeasons = checkAndEndExpiredSeasons;
 exports.endSeason = endSeason;
 exports.playSeasonMatch = playSeasonMatch;
@@ -72,7 +73,7 @@ async function getCurrentSeason(app) {
                             user: {
                                 select: {
                                     username: true,
-                                    firstName: true,
+                                    clubName: true,
                                 },
                             },
                         },
@@ -91,7 +92,7 @@ async function getSeasonStandings(app, seasonId) {
                     user: {
                         select: {
                             username: true,
-                            firstName: true,
+                            clubName: true,
                         },
                     },
                 },
@@ -159,6 +160,25 @@ async function createSeason(app, name, division) {
             endDate,
         },
     });
+}
+/**
+ * Automatically start seasons whose startDate has passed and are still UPCOMING
+ */
+async function checkAndStartUpcomingSeasons(app) {
+    const now = new Date();
+    const startingSeasons = await app.prisma.season.findMany({
+        where: {
+            startDate: { lte: now },
+            status: "UPCOMING",
+        },
+    });
+    for (const season of startingSeasons) {
+        await app.prisma.season.update({
+            where: { id: season.id },
+            data: { status: "ACTIVE" },
+        });
+        app.log.info(`Season ${season.id} has been automatically started.`);
+    }
 }
 async function checkAndEndExpiredSeasons(app) {
     const now = new Date();
@@ -234,7 +254,8 @@ async function playSeasonMatch(app, userId) {
         throw new Error("No opponents found in this season");
     const { randomUUID } = await Promise.resolve().then(() => __importStar(require("crypto")));
     const { simulateMatch } = await Promise.resolve().then(() => __importStar(require("../match/match.simulator")));
-    const { getTeamForMatch, handleMatchCompletion } = (await Promise.resolve().then(() => __importStar(require("../match/match.service"))));
+    const { getTeamForMatch } = await Promise.resolve().then(() => __importStar(require("../match/match-team.service")));
+    const { handleMatchCompletion } = await Promise.resolve().then(() => __importStar(require("../match/match-completion.service")));
     const seed = randomUUID();
     const homeTeamData = await getTeamForMatch(app, team.id);
     const awayTeamData = await getTeamForMatch(app, opponentStanding.team.id);

@@ -11,5 +11,9 @@ export declare const draftController: {
             optionIds: string[];
         };
     }>, reply: FastifyReply): Promise<void>;
-    complete(req: FastifyRequest, reply: FastifyReply): Promise<void>;
+    complete(req: FastifyRequest<{
+        Body: {
+            clubName?: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
 };

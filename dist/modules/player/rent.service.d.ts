@@ -4,6 +4,8 @@ export declare const rentService: {
         age: number;
         name: string;
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         surname: string | null;
         overallRating: number;
         position: import(".prisma/client").$Enums.Position;
@@ -58,25 +60,25 @@ export declare const rentService: {
         ownerId: string | null;
         isOnRent: boolean;
         rentPrice: number | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     rentPlayer(app: FastifyInstance, renterId: string, playerId: string, durationDays: number): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        price: number;
-        startDate: Date;
-        endDate: Date;
         status: import(".prisma/client").$Enums.RentStatus;
         playerId: string;
         lessorId: string;
         renterId: string;
+        price: number;
+        startDate: Date;
+        endDate: Date;
     }>;
     returnPlayer(app: FastifyInstance, userId: string, playerId: string): Promise<{
         age: number;
         name: string;
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         surname: string | null;
         overallRating: number;
         position: import(".prisma/client").$Enums.Position;
@@ -131,13 +133,13 @@ export declare const rentService: {
         ownerId: string | null;
         isOnRent: boolean;
         rentPrice: number | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     recallPlayer(app: FastifyInstance, userId: string, playerId: string): Promise<{
         age: number;
         name: string;
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         surname: string | null;
         overallRating: number;
         position: import(".prisma/client").$Enums.Position;
@@ -192,8 +194,6 @@ export declare const rentService: {
         ownerId: string | null;
         isOnRent: boolean;
         rentPrice: number | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     syncExpiredRentals(app: FastifyInstance): Promise<void>;
 };

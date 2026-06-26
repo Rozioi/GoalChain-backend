@@ -1,10 +1,9 @@
 import { FastifyInstance } from "fastify";
-import { randomUUID } from "crypto";
-import { MATCH } from "../../config/constants";
+import { consumeEnergy } from "../user/energy.service";
 import { generateBotTeam } from "./bot.generator";
-import { formatMatchEvents } from "./match-completion.service";
+import { formatMatchEvents, handleMatchCompletion } from "./match-completion.service";
+import { buildMatchPreview } from "./match-preview.service";
 import { getTeamForMatch, simulateMatch } from "./match-team.service";
-import { handleMatchCompletion } from "./match-completion.service";
 import { startMatchmaking, cancelMatchmaking } from "./matchmaking.service";
 import { startInstantBotMatch } from "./match-live.service";
 
@@ -12,19 +11,10 @@ export { startMatchmaking as playFriendlyMatch };
 export { cancelMatchmaking };
 
 export async function playBotMatch(app: FastifyInstance, userId: string) {
+  await consumeEnergy(app, userId);
+
   const user = await app.prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("User not found");
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (user.dailyMatchesResetAt < today) {
-    await app.prisma.user.update({
-      where: { id: userId },
-      data: { dailyMatchesPlayed: 0, dailyMatchesResetAt: new Date() },
-    });
-  } else if (user.dailyMatchesPlayed >= MATCH.DAILY_FRIENDLY_LIMIT) {
-    throw new Error(`Daily match limit reached (${MATCH.DAILY_FRIENDLY_LIMIT})`);
-  }
 
   const myTeam = await app.prisma.team.findFirst({
     where: { userId, isEvent: false },
@@ -32,47 +22,22 @@ export async function playBotMatch(app: FastifyInstance, userId: string) {
   if (!myTeam) throw new Error("No team found");
 
   const botResult = await generateBotTeam(app, myTeam.rating);
-  const { match, result } = await startInstantBotMatch(
+  const { match } = await startInstantBotMatch(
     app,
     userId,
     myTeam.id,
     botResult.team.id,
   );
 
-  await app.prisma.user.update({
-    where: { id: userId },
-    data: { dailyMatchesPlayed: { increment: 1 } },
-  });
-
   return {
     match,
-    result: {
-      homeScore: result.homeScore,
-      awayScore: result.awayScore,
-      winner: result.winner,
-      events: formatMatchEvents(
-        result.events.map((e) => ({
-          ...e,
-          playerId: e.playerId ?? null,
-          playerName: e.playerName ?? null,
-        })),
-      ),
-    },
-    rewards: {
-      coins:
-        result.winner === "home"
-          ? MATCH.REWARDS.WIN_COINS
-          : MATCH.REWARDS.LOSS_COINS,
-      exp:
-        result.winner === "home"
-          ? MATCH.REWARDS.WIN_EXP
-          : MATCH.REWARDS.LOSS_EXP,
-    },
+    matchId: match.id,
+    status: "IN_PROGRESS" as const,
+    isBot: true,
     preloaderData: {
       homePlayer: { id: user.id, name: user.clubName, points: user.points },
-      awayPlayer: { id: "bot", name: "Bot", points: user.points + 10 },
+      awayPlayer: { id: "bot", name: botResult.team.name ?? "Bot", points: user.points + 10 },
     },
-    isBot: true,
   };
 }
 
@@ -90,6 +55,8 @@ export async function getMatchById(app: FastifyInstance, matchId: string) {
 
   if (!match) return null;
 
+  const preview = await buildMatchPreview(app, match);
+
   let result = null;
   if (match.status === "COMPLETED" || match.status === "IN_PROGRESS") {
     result = {
@@ -106,7 +73,7 @@ export async function getMatchById(app: FastifyInstance, matchId: string) {
     };
   }
 
-  return { match, result };
+  return { match, result, preview };
 }
 
 export async function getMatchHistory(

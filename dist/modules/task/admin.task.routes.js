@@ -1,18 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const task_controller_1 = require("./task.controller");
-async function adminGuard(request, reply) {
-    const adminToken = process.env.ADMIN_TOKEN;
-    if (!adminToken) {
-        return reply.status(403).send({ error: "Admin access not configured" });
-    }
-    const provided = request.headers["x-admin-token"];
-    if (provided !== adminToken) {
-        return reply.status(403).send({ error: "Forbidden" });
-    }
-}
+const admin_routes_1 = require("../admin/admin.routes");
 async function adminTaskRoutes(app) {
-    app.addHook("preHandler", adminGuard);
+    app.addHook("preHandler", admin_routes_1.adminGuard);
     app.get("/admin/task", {
         schema: {
             tags: ["Admin - Task"],

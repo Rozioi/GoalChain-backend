@@ -11,6 +11,7 @@ export enum ClientEvent {
 export enum ServerEvent {
   // Invites
   INVITE_RECEIVED = "invite:received",
+  INVITE_SENT = "invite:sent",
   INVITE_ACCEPTED = "invite:accepted",
   INVITE_DECLINED = "invite:declined",
   INVITE_EXPIRED = "invite:expired",

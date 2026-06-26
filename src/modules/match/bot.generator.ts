@@ -45,7 +45,7 @@ export async function generateBotTeam(
       data: {
         telegramId: "bot-system",
         username: "bot_system",
-        clubName: "Bot",
+        clubName: "Max's team",
         clubIcon: "1",
         referralCode: "BOT-SYSTEM-CODE",
       },

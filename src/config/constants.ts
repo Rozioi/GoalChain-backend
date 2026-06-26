@@ -21,6 +21,12 @@ export const DRAFT = {
   RESERVE_OVR_MAX: 50,
 };
 
+// ─── ENERGY ─────────────────────────────────────────────────────
+export const ENERGY = {
+  MAX: 10,
+  REGEN_INTERVAL_MS: 2 * 60 * 60 * 1000, // 1 unit every 2 hours
+};
+
 // ─── MATCH ──────────────────────────────────────────────────────
 export const MATCH = {
   MATCHMAKING_RATING_RANGE: 0.1,
@@ -62,7 +68,7 @@ export const TRAINING = {
 export const SCOUTING = {
   MAX_ACTIVE_SCOUTS: 3,
   // Default scouting duration: 1 hour
-  DURATION_MS: 60,
+  DURATION_MS: 1,
   REGIONS: [
     "Europe",
     "South America",

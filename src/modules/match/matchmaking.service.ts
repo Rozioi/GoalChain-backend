@@ -1,37 +1,17 @@
 import { FastifyInstance } from "fastify";
 import { MATCH } from "../../config/constants";
+import { assertHasEnergy, consumeEnergyForUsers } from "../user/energy.service";
 import { emitToUser, matchRoom, userRoom } from "../../ws/socket.emitter";
 import { ServerEvent } from "../../ws/types";
 import { createPvPMatch, startInstantBotMatch } from "./match-live.service";
 import { generateBotTeam } from "./bot.generator";
 
 async function assertDailyLimit(app: FastifyInstance, userId: string) {
-  const user = await app.prisma.user.findUnique({ where: { id: userId } });
-  if (!user) throw new Error("User not found");
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (user.dailyMatchesResetAt < today) {
-    await app.prisma.user.update({
-      where: { id: userId },
-      data: { dailyMatchesPlayed: 0, dailyMatchesResetAt: new Date() },
-    });
-    return;
-  }
-
-  if (user.dailyMatchesPlayed >= MATCH.DAILY_FRIENDLY_LIMIT) {
-    throw new Error(
-      `Daily match limit reached (${MATCH.DAILY_FRIENDLY_LIMIT})`,
-    );
-  }
+  await assertHasEnergy(app, userId);
 }
 
 async function incrementDailyMatch(app: FastifyInstance, userIds: string[]) {
-  await app.prisma.user.updateMany({
-    where: { id: { in: userIds } },
-    data: { dailyMatchesPlayed: { increment: 1 } },
-  });
+  await consumeEnergyForUsers(app, userIds);
 }
 
 export async function startMatchmaking(app: FastifyInstance, userId: string) {

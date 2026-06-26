@@ -9,6 +9,11 @@ const startBot = async () => {
         return;
     }
     exports.bot = new grammy_1.Bot(env_1.env.BOT_TOKEN);
+    if (!exports.bot) {
+        console.warn("BOT_TOKEN is not provided. Telegram bot will not start.");
+        return;
+    }
+    console.log("bors");
     exports.bot.command("start", async (ctx) => {
         await ctx.reply("Welcome to Football Manager! Manage your team, rent players, and climb the leaderboards.", {
             reply_markup: {

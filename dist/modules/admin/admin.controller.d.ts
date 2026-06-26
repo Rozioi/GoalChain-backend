@@ -42,4 +42,10 @@ export declare const adminController: {
             id: string;
         };
     }>, reply: FastifyReply) => Promise<never>;
+    broadcast: (request: FastifyRequest<{
+        Body: {
+            text: string;
+            photoBase64?: string;
+        };
+    }>, reply: FastifyReply) => Promise<never>;
 };

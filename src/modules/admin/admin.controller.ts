@@ -90,4 +90,22 @@ export const adminController = {
     );
     return reply.send(result);
   },
+
+  broadcast: async (
+    request: FastifyRequest<{
+      Body: { text: string; photoBase64?: string };
+    }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await adminService.broadcastMessage(
+        request.server,
+        request.body.text,
+        request.body.photoBase64,
+      );
+      return reply.send(result);
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
+    }
+  },
 };

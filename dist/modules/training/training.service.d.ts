@@ -3,11 +3,11 @@ export declare function startTraining(app: FastifyInstance, userId: string, play
     training: {
         id: string;
         createdAt: Date;
-        status: import(".prisma/client").$Enums.TrainingStatus;
-        playerId: string;
         userId: string;
+        status: import(".prisma/client").$Enums.TrainingStatus;
         endsAt: Date;
         cost: number;
+        playerId: string;
         stat: string;
         boost: number;
     };

@@ -82,8 +82,8 @@ async function syncScoutStates(app, userId) {
             const isNft = Math.random() < tierConfig.NFT_CHANCE;
             const levelBoost = Math.floor((scoutingLevel - 1) / 2);
             const [baseMin, baseMax] = tierConfig.OVR_RANGE;
-            const ovrMin = Math.min(95, baseMin + levelBoost);
-            const ovrMax = Math.min(99, baseMax + levelBoost);
+            const ovrMin = Math.min(45, baseMin + levelBoost);
+            const ovrMax = Math.min(79, baseMax + levelBoost);
             const generated = await (0, player_generator_1.generatePlayer)({
                 role: scout.targetRole || undefined,
                 ovrMin,

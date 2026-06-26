@@ -2,22 +2,52 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const user_controller_1 = require("./user.controller");
 async function userRoutes(app) {
+    // --- AUTH RUNS ---
+    app.post("/auth/login", {
+        schema: {
+            tags: ["Auth"],
+            body: {
+                type: "object",
+                required: ["initData"],
+                properties: {
+                    initData: { type: "string" },
+                },
+            },
+        },
+    }, user_controller_1.userController.login);
     app.post("/auth/register", {
         schema: {
             tags: ["Auth"],
             body: {
                 type: "object",
-                required: ["telegramId"],
+                required: ["initData", "clubInfo"],
                 properties: {
-                    telegramId: { type: "string" },
-                    username: { type: "string" },
-                    firstName: { type: "string" },
-                    lastName: { type: "string" },
-                    photoUrl: { type: "string" },
+                    initData: { type: "string" },
+                    clubInfo: {
+                        type: "object",
+                        required: ["clubName"],
+                        properties: {
+                            clubName: { type: "string" },
+                            clubIcon: { type: "string" },
+                        },
+                    },
                 },
             },
         },
     }, user_controller_1.userController.register);
+    app.delete("/users/:id", {
+        schema: {
+            tags: ["Admin"],
+            params: {
+                type: "object",
+                required: ["id"],
+                properties: {
+                    id: { type: "string" },
+                },
+            },
+        },
+    }, user_controller_1.userController.deleteUser);
+    // --- USER PROFILE RUNS ---
     app.get("/user/me", {
         schema: {
             tags: ["User"],
@@ -55,5 +85,17 @@ async function userRoutes(app) {
         },
         preHandler: [app.authenticate],
     }, user_controller_1.userController.getInviterInfo);
+    app.get("/user/global-rank", {
+        schema: {
+            tags: ["User"],
+        },
+        preHandler: [app.authenticate],
+    }, user_controller_1.userController.getGlobalRank);
+    app.get("/user/leaderboard", {
+        schema: {
+            tags: ["User"],
+        },
+        preHandler: [app.authenticate],
+    }, user_controller_1.userController.getLeaderboard);
 }
 exports.default = userRoutes;

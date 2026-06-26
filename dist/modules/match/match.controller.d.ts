@@ -13,6 +13,17 @@ declare const matchController: {
             matchId: string;
         };
     }>, reply: FastifyReply): Promise<void>;
+    decline(req: FastifyRequest<{
+        Params: {
+            inviteId: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
+    cancelInvite(req: FastifyRequest<{
+        Params: {
+            inviteId: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
+    pendingInvites(req: FastifyRequest, reply: FastifyReply): Promise<void>;
     history(req: FastifyRequest, reply: FastifyReply): Promise<void>;
     updateTactics(req: FastifyRequest<{
         Params: {

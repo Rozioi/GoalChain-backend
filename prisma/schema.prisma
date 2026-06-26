@@ -35,6 +35,9 @@ model User {
   dailyMatchesPlayed  Int      @default(0)
   dailyMatchesResetAt DateTime @default(now())
 
+  energy          Int      @default(10)
+  energyUpdatedAt DateTime @default(now())
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PLAYER_CLUBS = exports.PLAYER_NATIONALITIES = exports.PLAYER_LAST_NAMES = exports.PLAYER_FIRST_NAMES = exports.RENT = exports.REFERRAL = exports.SEASON = exports.SCOUTING = exports.TRAINING = exports.MATCH = exports.DRAFT = void 0;
+exports.PLAYER_CLUBS = exports.PLAYER_NATIONALITIES = exports.PLAYER_LAST_NAMES = exports.PLAYER_FIRST_NAMES = exports.RENT = exports.REFERRAL = exports.SEASON = exports.SCOUTING = exports.TRAINING = exports.INVITE = exports.MATCH = exports.ENERGY = exports.DRAFT = void 0;
 // ─── DRAFT ──────────────────────────────────────────────────────
 exports.DRAFT = {
     STARTER_GK_OPTIONS: 4,
@@ -20,13 +20,20 @@ exports.DRAFT = {
     RESERVE_OVR_MIN: 40,
     RESERVE_OVR_MAX: 50,
 };
+// ─── ENERGY ─────────────────────────────────────────────────────
+exports.ENERGY = {
+    MAX: 10,
+    REGEN_INTERVAL_MS: 2 * 60 * 60 * 1000, // 1 unit every 2 hours
+};
 // ─── MATCH ──────────────────────────────────────────────────────
 exports.MATCH = {
     MATCHMAKING_RATING_RANGE: 0.1,
+    MATCHMAKING_POINTS_RANGE: 300,
     MATCHMAKING_TIMEOUT_MS: 30000,
     DAILY_FRIENDLY_LIMIT: 10,
     MATCH_ITERATIONS: 90,
     OVERTIME_ITERATIONS: 10,
+    LIVE_MS_PER_MINUTE: 500,
     REWARDS: {
         WIN_COINS: 100,
         DRAW_COINS: 50,
@@ -36,6 +43,11 @@ exports.MATCH = {
         LOSS_EXP: 10,
         DIMINISHING_FACTOR: 0.85,
     },
+};
+exports.INVITE = {
+    FRIEND_TTL_MS: 15 * 60 * 1000,
+    OPEN_TTL_MS: 60 * 60 * 1000,
+    EXPIRY_CHECK_INTERVAL_MS: 60000,
 };
 // ─── TRAINING ───────────────────────────────────────────────────
 exports.TRAINING = {
@@ -49,7 +61,8 @@ exports.TRAINING = {
 };
 exports.SCOUTING = {
     MAX_ACTIVE_SCOUTS: 3,
-    DURATION_MS: 0,
+    // Default scouting duration: 1 hour
+    DURATION_MS: 60,
     REGIONS: [
         "Europe",
         "South America",
