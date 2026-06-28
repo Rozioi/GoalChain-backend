@@ -47,7 +47,7 @@ export async function hireScount(
     // For this prototype, let's allow it but log it.
   }
 
-  const endsAt = new Date(Date.now() + SCOUTING.DURATION_MS);
+  const endsAt = new Date();
 
   const [scout] = await app.prisma.$transaction([
     app.prisma.scout.create({
@@ -81,9 +81,15 @@ export async function hireScount(
       : []),
   ]);
 
-  syncScoutStates(app, userId);
+ await syncScoutStates(app, userId);
 
-  return scout;
+ const updated = await app.prisma.scout.findUnique({
+     where: { id: scout.id },
+     include: { results: { include: { player: true } } },
+   });
+
+   return updated ?? scout;
+
 }
 
 export async function syncScoutStates(app: FastifyInstance, userId: string) {
@@ -147,12 +153,12 @@ export async function syncScoutStates(app: FastifyInstance, userId: string) {
 
 export async function getScoutResults(app: FastifyInstance, userId: string) {
   await syncScoutStates(app, userId);
-
-  return app.prisma.scout.findMany({
+  const results = await app.prisma.scout.findMany({
     where: { userId },
     include: { results: { include: { player: true } } },
     orderBy: { createdAt: "desc" },
   });
+  return results;
 }
 
 export async function collectScoutResult(

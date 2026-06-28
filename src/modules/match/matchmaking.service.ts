@@ -1,22 +1,11 @@
 import { FastifyInstance } from "fastify";
 import { MATCH } from "../../config/constants";
-import { assertHasEnergy, consumeEnergyForUsers } from "../user/energy.service";
 import { emitToUser, matchRoom, userRoom } from "../../ws/socket.emitter";
 import { ServerEvent } from "../../ws/types";
 import { createPvPMatch, startInstantBotMatch } from "./match-live.service";
 import { generateBotTeam } from "./bot.generator";
 
-async function assertDailyLimit(app: FastifyInstance, userId: string) {
-  await assertHasEnergy(app, userId);
-}
-
-async function incrementDailyMatch(app: FastifyInstance, userIds: string[]) {
-  await consumeEnergyForUsers(app, userIds);
-}
-
 export async function startMatchmaking(app: FastifyInstance, userId: string) {
-  await assertDailyLimit(app, userId);
-
   const myTeam = await app.prisma.team.findFirst({
     where: { userId, isEvent: false },
   });
@@ -185,15 +174,12 @@ async function playBotMatchFallback(app: FastifyInstance, userId: string) {
   if (!myTeam) throw new Error("No team found");
 
   const botResult = await generateBotTeam(app, myTeam.rating);
-  const result = await startInstantBotMatch(
+  return startInstantBotMatch(
     app,
     userId,
     myTeam.id,
     botResult.team.id,
   );
-
-  await incrementDailyMatch(app, [userId]);
-  return result;
 }
 
 export async function cancelMatchmaking(app: FastifyInstance, userId: string) {
@@ -233,13 +219,4 @@ export async function expireStaleMatchmaking(app: FastifyInstance) {
   }
 
   return stale.length;
-}
-
-export async function onMatchmakingMatched(
-  app: FastifyInstance,
-  homeUserId: string,
-  awayUserId: string,
-  matchId: string,
-) {
-  await incrementDailyMatch(app, [homeUserId, awayUserId]);
 }

@@ -1,7 +1,12 @@
 import { FastifyInstance } from "fastify";
-import { MATCH } from "../../config/constants";
 import { updateTaskProgress } from "../task/task.service";
 import { calculateTeamRating } from "../player/synergy.engine";
+import { syncUserEnergy, consumeEnergy } from "../user/energy.service";
+import {
+  calculateMatchRewards,
+  outcomeForRole,
+  randomWinPoints,
+} from "./match-rewards.service";
 
 interface MatchResult {
   homeScore: number;
@@ -19,6 +24,23 @@ interface MatchResult {
   }>;
 }
 
+export interface PlayerMatchRewards {
+  coins: number;
+  exp: number;
+  points: number;
+}
+
+export interface MatchCompletionRewards {
+  homeCoins: number;
+  awayCoins: number;
+  homeExp: number;
+  awayExp: number;
+  homePoints: number;
+  awayPoints: number;
+  home: PlayerMatchRewards;
+  away: PlayerMatchRewards;
+}
+
 export async function handleMatchCompletion(
   app: FastifyInstance,
   match: {
@@ -31,34 +53,57 @@ export async function handleMatchCompletion(
   },
   result: MatchResult,
   seed: string,
-) {
-  const homeCoins =
-    result.winner === "home"
-      ? MATCH.REWARDS.WIN_COINS
-      : result.winner === "draw"
-        ? MATCH.REWARDS.DRAW_COINS
-        : MATCH.REWARDS.LOSS_COINS;
+): Promise<MatchCompletionRewards> {
+  const homeWinPoints = randomWinPoints();
+  const awayWinPoints = randomWinPoints();
 
-  const awayCoins =
-    result.winner === "away"
-      ? MATCH.REWARDS.WIN_COINS
-      : result.winner === "draw"
-        ? MATCH.REWARDS.DRAW_COINS
-        : MATCH.REWARDS.LOSS_COINS;
+  const playerRewards = new Map<string, PlayerMatchRewards>();
 
-  const homeExp =
-    result.winner === "home"
-      ? MATCH.REWARDS.WIN_EXP
-      : result.winner === "draw"
-        ? MATCH.REWARDS.DRAW_EXP
-        : MATCH.REWARDS.LOSS_EXP;
+  const computeForPlayer = async (
+    uid: string,
+    role: "home" | "away",
+  ): Promise<PlayerMatchRewards> => {
+    const user = await app.prisma.user.findUnique({ where: { id: uid } });
+    if (!user) return { coins: 0, exp: 0, points: 0 };
 
-  const awayExp =
-    result.winner === "away"
-      ? MATCH.REWARDS.WIN_EXP
-      : result.winner === "draw"
-        ? MATCH.REWARDS.DRAW_EXP
-        : MATCH.REWARDS.LOSS_EXP;
+    const energyState = await syncUserEnergy(app, uid);
+    const hasEnergy = energyState.energy >= 1;
+    if (hasEnergy) {
+      await consumeEnergy(app, uid);
+    }
+
+    const outcome = outcomeForRole(role, result.winner);
+    const winPoints = role === "home" ? homeWinPoints : awayWinPoints;
+    const rewards = calculateMatchRewards(
+      outcome,
+      user.points,
+      hasEnergy,
+      winPoints,
+    );
+
+    playerRewards.set(uid, rewards);
+    return rewards;
+  };
+
+  let homeRewards: PlayerMatchRewards = { coins: 0, exp: 0, points: 0 };
+  let awayRewards: PlayerMatchRewards = { coins: 0, exp: 0, points: 0 };
+
+  const homeId = match.homeUserId;
+  const awayId = match.awayUserId;
+
+  if (homeId) {
+    homeRewards = await computeForPlayer(homeId, "home");
+  } else {
+    const outcome = outcomeForRole("home", result.winner);
+    homeRewards = calculateMatchRewards(outcome, 0, false, homeWinPoints);
+  }
+
+  if (awayId && !match.isBot) {
+    awayRewards = await computeForPlayer(awayId, "away");
+  } else if (awayId) {
+    const outcome = outcomeForRole("away", result.winner);
+    awayRewards = calculateMatchRewards(outcome, 0, false, awayWinPoints);
+  }
 
   await app.prisma.match.update({
     where: { id: match.id },
@@ -67,10 +112,10 @@ export async function handleMatchCompletion(
       homeScore: result.homeScore,
       awayScore: result.awayScore,
       seed,
-      homeCoins,
-      awayCoins,
-      homeExp,
-      awayExp,
+      homeCoins: homeRewards.coins,
+      awayCoins: awayRewards.coins,
+      homeExp: homeRewards.exp,
+      awayExp: awayRewards.exp,
       finishedAt: new Date(),
       currentMinute: 90,
       events: {
@@ -88,29 +133,14 @@ export async function handleMatchCompletion(
     },
   });
 
-  const homeId = match.homeUserId;
-  const awayId = match.awayUserId;
-
   const updatePlayer = async (uid: string, role: "home" | "away") => {
-    const coins =
-      result.winner === role
-        ? MATCH.REWARDS.WIN_COINS
-        : result.winner === "draw"
-          ? MATCH.REWARDS.DRAW_COINS
-          : MATCH.REWARDS.LOSS_COINS;
-
-    const exp =
-      result.winner === role
-        ? MATCH.REWARDS.WIN_EXP
-        : result.winner === "draw"
-          ? MATCH.REWARDS.DRAW_EXP
-          : MATCH.REWARDS.LOSS_EXP;
-
-    const points =
-      result.winner === role ? 25 : result.winner === "draw" ? 10 : -15;
+    const rewards = playerRewards.get(uid);
+    if (!rewards) return;
 
     const user = await app.prisma.user.findUnique({ where: { id: uid } });
     if (!user) return;
+
+    const { coins, exp, points } = rewards;
 
     let newExp = user.experience + exp;
     let newLevel = user.level;
@@ -184,7 +214,16 @@ export async function handleMatchCompletion(
   await recalcTeam(match.homeTeamId);
   await recalcTeam(match.awayTeamId);
 
-  return { homeCoins, awayCoins, homeExp, awayExp };
+  return {
+    homeCoins: homeRewards.coins,
+    awayCoins: awayRewards.coins,
+    homeExp: homeRewards.exp,
+    awayExp: awayRewards.exp,
+    homePoints: homeRewards.points,
+    awayPoints: awayRewards.points,
+    home: homeRewards,
+    away: awayRewards,
+  };
 }
 
 export function formatMatchEvents(events: Array<{ type: string; minute: number; team: string; playerId: string | null; playerName: string | null; playerOutId?: string | null; playerOutName?: string | null; description: string }>) {

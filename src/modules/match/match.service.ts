@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { consumeEnergy } from "../user/energy.service";
+import { syncUserEnergy } from "../user/energy.service";
 import { generateBotTeam } from "./bot.generator";
 import { formatMatchEvents, handleMatchCompletion } from "./match-completion.service";
 import { buildMatchPreview } from "./match-preview.service";
@@ -11,7 +11,7 @@ export { startMatchmaking as playFriendlyMatch };
 export { cancelMatchmaking };
 
 export async function playBotMatch(app: FastifyInstance, userId: string) {
-  await consumeEnergy(app, userId);
+  await syncUserEnergy(app, userId);
 
   const user = await app.prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("User not found");
@@ -89,11 +89,28 @@ export async function getMatchHistory(
     orderBy: { createdAt: "desc" },
     take: limit,
     include: {
-      homeTeam: true,
-      awayTeam: true,
+      homeTeam: {
+        include: {
+          user: {
+            select: {
+              clubIcon: true, // Вытягиваем только иконку, чтобы не перегружать сеть
+            },
+          },
+        },
+      },
+      awayTeam: {
+        include: {
+          user: {
+            select: {
+              clubIcon: true,
+            },
+          },
+        },
+      },
       events: { orderBy: { minute: "asc" } },
     },
   });
+
 }
 
 export { getTeamForMatch, handleMatchCompletion, simulateMatch };

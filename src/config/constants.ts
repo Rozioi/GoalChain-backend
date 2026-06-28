@@ -27,7 +27,15 @@ export const ENERGY = {
   REGEN_INTERVAL_MS: 2 * 60 * 60 * 1000, // 1 unit every 2 hours
 };
 
-// ─── MATCH ──────────────────────────────────────────────────────
+// ─── RANK DIVISIONS ─────────────────────────────────────────────
+export const DIVISION_TIERS = [
+  { name: "Bronze", min: 0, max: 1499, lossPenalty: 5 },
+  { name: "Silver", min: 1500, max: 2999, lossPenalty: 15 },
+  { name: "Gold", min: 3000, max: 4499, lossPenalty: 22 },
+  { name: "Diamond", min: 4500, max: 5999, lossPenalty: 28 },
+  { name: "Master", min: 6000, max: Infinity, lossPenalty: 30 },
+] as const;
+
 export const MATCH = {
   MATCHMAKING_RATING_RANGE: 0.1,
   MATCHMAKING_POINTS_RANGE: 300,
@@ -38,9 +46,9 @@ export const MATCH = {
   LIVE_MS_PER_MINUTE: 500,
 
   REWARDS: {
-    WIN_COINS: 100,
-    DRAW_COINS: 50,
-    LOSS_COINS: 20,
+    WIN_COINS: 500,
+    DRAW_COINS: 100,
+    LOSS_COINS: 50,
     WIN_EXP: 30,
     DRAW_EXP: 15,
     LOSS_EXP: 10,

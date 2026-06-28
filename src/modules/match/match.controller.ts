@@ -22,6 +22,7 @@ const matchController = {
 
   async bot(req: FastifyRequest, reply: FastifyReply) {
     try {
+
       const result = await playBotMatch(req.server, req.user.userId);
       reply.send(result);
     } catch (err: any) {

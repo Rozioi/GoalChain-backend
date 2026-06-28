@@ -9,7 +9,6 @@ import {
 } from "../../ws/socket.emitter";
 import { ServerEvent } from "../../ws/types";
 import { MATCH } from "../../config/constants";
-import { consumeEnergyForUsers } from "../user/energy.service";
 import { handleMatchCompletion, formatMatchEvents } from "./match-completion.service";
 import { loadTeamsForMatch, simulateMatch } from "./match-team.service";
 
@@ -132,11 +131,6 @@ export async function startLiveMatch(app: FastifyInstance, matchId: string) {
     },
   });
 
-  const userIds = [match.homeUserId, match.awayUserId].filter(Boolean) as string[];
-  if (userIds.length > 0 && !match.isBot) {
-    await consumeEnergyForUsers(app, userIds);
-  }
-
   const startedPayload = {
     matchId,
     seed,
@@ -249,12 +243,7 @@ async function finishLiveMatch(
     const r = role(userId);
     const coins = r === "home" ? rewards.homeCoins : rewards.awayCoins;
     const exp = r === "home" ? rewards.homeExp : rewards.awayExp;
-    const points =
-      result.winner === r
-        ? 25
-        : result.winner === "draw"
-          ? 10
-          : -15;
+    const points = r === "home" ? rewards.homePoints : rewards.awayPoints;
     return { coins, exp, points };
   };
 
