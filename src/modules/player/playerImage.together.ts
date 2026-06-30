@@ -2,112 +2,140 @@ import Together from "together-ai";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
-// Инициализация (ключ берётся из process.env.TOGETHER_API_KEY)
-const together = new Together();
+
+const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || "";
+
+const together = TOGETHER_API_KEY ? new Together() : null;
+
+const PUBLIC_DIR = "./public/generated-players/";
+const BG_DIR = "./public/backgrounds/";
+
+// Фоны по редкости
+const RARITY_BG: Record<string, string> = {
+    bronze: "bg_bronze.png",
+    silver: "bg_silver.png",
+    gold: "bg_gold.png",
+};
 
 /**
  * Строит промпт для пиксель-арт портрета игрока.
  */
 export function buildPlayerImagePrompt(player: {
-  name: string;
-  surname: string;
-  nationality: string;
-  club: string;
+    name: string;
+    surname: string;
+    nationality: string;
+    club: string;
 }): string {
-  const nationality = player.nationality;
-  const club_name = player.club;
-
-  return `Pixel art 16-bit SNES style frontal portrait, head and torso view of a male football player.
-
-The player's physical appearance, including skin tone, hair color, texture, and facial structure, must accurately reflect their specific nationality: ${nationality}.
-
-The player is wearing a detailed pixel art ${club_name} club football kit, featuring its signature dark blue color scheme with red and white accents, with all club logos and sponsor branding stylized in pixel art.
-
-The name "${player.name} ${player.surname}" is subtly rendered in small, clean pixel art text below the main portrait area. The overall style is that of a premium, detailed in-game character sprite.
-
-The background is a clean, solid white. The pose is a direct frontal gaze at the camera.`
-    .replace(/\n\s*\n/g, "\n")
-    .trim();
+    return `Pixel art 16-bit SNES style frontal portrait, head and torso view of a male football player.
+The player's physical appearance accurately reflect nationality: ${player.nationality}.
+The player is wearing a ${player.club} club football kit.
+The name "${player.name} ${player.surname}" in small pixel text below.
+Background is solid white. Direct frontal gaze at camera.`
+        .replace(/\n\s+/g, "\n")
+        .trim();
 }
 
 /**
- * Генерирует картинку игрока через Together AI (FLUX),
- * обрабатывает (удаление фона + пикселизация) и сохраняет в public.
- * Возвращает относительный URL для сохранения в БД (player.imageUrl).
+ * Накладывает фон поверх картинки и возвращает буфер.
+ */
+async function overlayBackground(
+    playerBuffer: Buffer,
+    bgFilename: string,
+): Promise<Buffer> {
+    const bgFullPath = path.resolve(`${BG_DIR}${bgFilename}`);
+    if (!fs.existsSync(bgFullPath)) {
+        // Если фона нет — просто возвращаем
+        return await sharp(playerBuffer).resize(512, 512).png().toBuffer();
+    }
+    try {
+        const bg = await sharp(bgFullPath).resize(512, 512).png().toBuffer();
+        return await sharp(bg)
+            .composite([{ input: playerBuffer, top: 0, left: 0 }])
+            .png()
+            .toBuffer();
+    } catch {
+        return await sharp(playerBuffer).resize(512, 512).png().toBuffer();
+    }
+}
+
+/**
+ * Генерирует картинку игрока через Together AI (если есть ключ),
+ * иначе возвращает "" — клиент покажет default.png.
  */
 export async function generatePlayerImage(
-  player: { name: string; surname: string; nationality: string; club: string },
-  fileNameRaw?: string,
+    player: {
+        name: string;
+        surname: string;
+        nationality: string;
+        club: string;
+    },
+    rarity: string = "bronze",
+    fileNameRaw?: string,
 ): Promise<string> {
-  const publicDir = "./public/generated-players/";
-  const tempDir = "./temp/bg-removal/";
-  if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-  const fileName = (
-    fileNameRaw || `${player.name}_${player.surname}_${Date.now()}`
-  )
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, "_");
-
-  const relativeUrl = `/generated-players/${fileName}.png`;
-  const prompt = buildPlayerImagePrompt(player);
-
-  // 1. Генерация через Together AI
-  let imageBuffer: Buffer;
-  try {
-    const response = await together.images.create({
-      model: "black-forest-labs/FLUX.1-schnell-Free", // можно FLUX.1-schnell / FLUX.1.1-pro
-      prompt,
-      width: 512,
-      height: 512,
-      steps: 4,
-      n: 1,
-      response_format: "base64",
-    });
-
-    const b64 = (response as any).data?.[0]?.b64_json;
-    if (b64) {
-      imageBuffer = Buffer.from(b64, "base64");
-    } else {
-      // fallback: если вернулся url
-      const url = (response as any).data?.[0]?.url;
-      if (!url) throw new Error("Together: пустой ответ (нет b64_json и url)");
-      const res = await fetch(url);
-      imageBuffer = Buffer.from(await res.arrayBuffer());
+    // Если нет ключа — не генерируем
+    if (!together || !TOGETHER_API_KEY) {
+        console.log("[Together] API key not set, skipping image generation");
+        return "";
     }
-  } catch (err) {
-    console.error("[Together] Ошибка генерации:", err);
-    return ""; // вызывающий код сам решит, что делать с пустым imageUrl
-  }
 
-  // 2. Обработка: нормализация -> удаление фона -> пикселизация
-  try {
-    const normalizedBuffer = await sharp(imageBuffer).png().toBuffer();
+    // Создаём папки если нет
+    if (!fs.existsSync(PUBLIC_DIR))
+        fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+    if (!fs.existsSync(BG_DIR)) fs.mkdirSync(BG_DIR, { recursive: true });
 
-    const tempPath = path.resolve(`${tempDir}${fileName}_temp.png`);
-    fs.writeFileSync(tempPath, normalizedBuffer);
+    const fileName = (
+        fileNameRaw || `${player.name}_${player.surname}_${Date.now()}`
+    )
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_");
 
-    let resultBuffer = normalizedBuffer;
+    const relativeUrl = `/generated-players/${fileName}.png`;
+    const prompt = buildPlayerImagePrompt(player);
+
+    // 1. Генерация через Together AI
+    let imageBuffer: Buffer;
     try {
-      const blob = await removeBackground(tempPath);
-      resultBuffer = Buffer.from(await blob.arrayBuffer());
-    } catch (bgError) {
-      console.warn("[BG Removal] пропускаю удаление фона:", bgError);
-    } finally {
-      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+        const response = await (together as any).images.create({
+            model: "black-forest-labs/FLUX.1-schnell-Free",
+            prompt,
+            width: 512,
+            height: 512,
+            steps: 4,
+            n: 1,
+            response_format: "base64",
+        });
+
+        const b64 = (response as any).data?.[0]?.b64_json;
+        if (b64) {
+            imageBuffer = Buffer.from(b64, "base64");
+        } else {
+            const url = (response as any).data?.[0]?.url;
+            if (!url) throw new Error("Together: пустой ответ");
+            const res = await fetch(url);
+            imageBuffer = Buffer.from(await res.arrayBuffer());
+        }
+    } catch (err) {
+        console.error("[Together] Ошибка генерации:", err);
+        return "";
     }
 
-    const pixelated = await sharp(resultBuffer)
-      .resize(128, 128, { kernel: sharp.kernel.nearest })
-      .resize(512, 512, { kernel: sharp.kernel.nearest })
-      .png()
-      .toBuffer();
+    // 2. Пикселизация
+    try {
+        const pixelated = await sharp(imageBuffer)
+            .resize(128, 128, { kernel: sharp.kernel.nearest })
+            .resize(512, 512, { kernel: sharp.kernel.nearest })
+            .png()
+            .toBuffer();
 
-    fs.writeFileSync(path.resolve(`${publicDir}${fileName}.png`), pixelated);
-    return relativeUrl;
-  } catch (error) {
-    console.error("[generatePlayerImage] ошибка обработки:", error);
-    return "";
-  }
+        // 3. Накладываем фон по редкости
+        const bgName = RARITY_BG[rarity] || RARITY_BG.bronze;
+        const withBg = await overlayBackground(pixelated, bgName);
+
+        // 4. Сохраняем
+        fs.writeFileSync(path.resolve(`${PUBLIC_DIR}${fileName}.png`), withBg);
+        return relativeUrl;
+    } catch (error) {
+        console.error("[generatePlayerImage] ошибка обработки:", error);
+        return "";
+    }
 }

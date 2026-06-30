@@ -57,6 +57,19 @@ model User {
   lessorContracts RentContract[] @relation("LessorContracts")
   renterContracts RentContract[] @relation("RenterContracts")
   economyLogs     EconomyLog[]
+  matchStreak     MatchStreak?
+}
+
+model MatchStreak {
+  id        String @id @default(uuid())
+  userId    String @unique
+  streak    Int    @default(0)
+  bestStreak Int   @default(0)
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }
 
 model Referral {
@@ -143,9 +156,13 @@ model Player {
   injuryType   String?
   injuryEndsAt DateTime?
 
-  isNft    Boolean   @default(false)
-  mintedAt DateTime?
-  tokenId  String?
+  isNft         Boolean   @default(false)
+  mintedAt      DateTime?
+  tokenId       String?
+  nftAddress    String?
+  matchesPlayed Int       @default(0)
+  mintingStatus String    @default("none") // "none" | "minting_process" | "converted_to_nft"
+  lockedAt      DateTime?
 
   age         Int    @default(22)
   nationality String @default("Unknown")
@@ -215,6 +232,7 @@ model Team {
   formation String  @default("4-4-2")
   userId    String
   isEvent   Boolean @default(false)
+  isBot     Boolean @default(false)
   eventId   String?
 
   // Удалили юзера -> удалилась его команда
@@ -540,6 +558,7 @@ model EventDraft {
 // ─── SCOUTING ───────────────────────────────────────────────────
 
 enum ScoutStatus {
+  PENDING
   ACTIVE
   COMPLETED
   COLLECTED
@@ -565,10 +584,9 @@ model Scout {
 }
 
 model ScoutResult {
-  id       String  @id @default(uuid())
+  id       String @id @default(uuid())
   scoutId  String
   playerId String
-  isNft    Boolean @default(false)
 
   scout  Scout  @relation(fields: [scoutId], references: [id], onDelete: Cascade)
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)

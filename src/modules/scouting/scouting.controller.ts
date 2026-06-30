@@ -3,6 +3,8 @@ import {
     hireScount,
     getScoutResults,
     collectScoutResult,
+    prepareMasterScoutPayment,
+    confirmMasterScoutPayment,
 } from "./scouting.service";
 
 export const scoutingController = {
@@ -10,7 +12,7 @@ export const scoutingController = {
         req: FastifyRequest<{
             Body: {
                 region: string;
-                tier: "COMMON" | "PRO" | "MASTER";
+                tier: "BASE" | "COMMON" | "PRO" | "MASTER";
                 targetRole?: string;
                 ageMin?: number;
                 ageMax?: number;
@@ -19,16 +21,84 @@ export const scoutingController = {
         reply: FastifyReply,
     ) {
         try {
+            // Map frontend tier names to backend tier names
+            const tierMap: Record<string, "COMMON" | "PRO" | "MASTER"> = {
+                BASE: "COMMON",
+                COMMON: "COMMON",
+                PRO: "PRO",
+                MASTER: "MASTER",
+            };
+            const mappedTier = tierMap[req.body.tier] || "COMMON";
+
+            // For MASTER tier, use prepare/confirm flow (TON payment)
+            if (mappedTier === "MASTER") {
+                return reply.status(400).send({
+                    error: "MASTER tier requires TON payment. Use POST /scout/master/prepare",
+                });
+            }
+
             const scout = await hireScount(
                 req.server,
                 req.user.userId,
                 req.body.region,
-                req.body.tier,
+                mappedTier,
                 req.body.targetRole as any,
                 req.body.ageMin,
                 req.body.ageMax,
             );
             reply.send(scout);
+        } catch (err: any) {
+            reply.status(400).send({ error: err.message });
+        }
+    },
+
+    async masterPrepare(
+        req: FastifyRequest<{
+            Body: {
+                region: string;
+                targetRole?: string;
+                ageMin?: number;
+                ageMax?: number;
+            };
+        }>,
+        reply: FastifyReply,
+    ) {
+        try {
+            const result = await prepareMasterScoutPayment(
+                req.server,
+                req.user.userId,
+                req.body.region,
+                req.body.targetRole as any,
+                req.body.ageMin,
+                req.body.ageMax,
+            );
+            reply.send(result);
+        } catch (err: any) {
+            reply.status(400).send({ error: err.message });
+        }
+    },
+
+    async masterConfirm(
+        req: FastifyRequest<{
+            Body: {
+                region: string;
+                targetRole?: string;
+                ageMin?: number;
+                ageMax?: number;
+            };
+        }>,
+        reply: FastifyReply,
+    ) {
+        try {
+            const result = await confirmMasterScoutPayment(
+                req.server,
+                req.user.userId,
+                req.body.region,
+                req.body.targetRole as any,
+                req.body.ageMin,
+                req.body.ageMax,
+            );
+            reply.send(result);
         } catch (err: any) {
             reply.status(400).send({ error: err.message });
         }
