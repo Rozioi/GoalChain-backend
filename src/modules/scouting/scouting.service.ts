@@ -229,18 +229,25 @@ export async function syncScoutStates(app: FastifyInstance, userId: string) {
                     );
                 const roll = Math.random() * 100;
 
-                let adjustedOvrMin = ovrMin;
-                let adjustedOvrMax = ovrMax;
-                if (roll < effectiveChance) {
-                    const midPoint =
-                        ovrMin + Math.floor((ovrMax - ovrMin) * 0.4);
-                    adjustedOvrMin = midPoint;
+                // Если roll НЕ прошёл — результата нет, скаут завершается без игрока
+                if (roll >= effectiveChance) {
+                    app.log.info(
+                        `[Scout] Scout ${scout.id} failed (tier: ${scout.tier}, roll: ${roll.toFixed(1)}%, needed: ${effectiveChance}%)`,
+                    );
+                    await app.prisma.scout.update({
+                        where: { id: scout.id },
+                        data: { status: "COMPLETED" },
+                    });
+                    return;
                 }
+
+                // Шанс прошёл — определяем OVR в верхней части диапазона
+                const midPoint = ovrMin + Math.floor((ovrMax - ovrMin) * 0.4);
 
                 const generated = await generatePlayer({
                     role: (scout.targetRole as PlayerRole) || undefined,
-                    ovrMin: adjustedOvrMin,
-                    ovrMax: adjustedOvrMax,
+                    ovrMin: midPoint,
+                    ovrMax: ovrMax,
                     seed: `scout-${scout.id}`,
                 });
 

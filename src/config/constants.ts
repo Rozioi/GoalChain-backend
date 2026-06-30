@@ -97,19 +97,19 @@ export const SCOUTING = {
             COST: 1000,
             CURRENCY: "COIN",
             OVR_RANGE: [45, 70],
-            CHANCE: { min: 30, max: 45 }, // 30-45% chance for high OVR
+            CHANCE: { min: 35, max: 50 }, // 35-50% chance to find a player
         },
         PRO: {
             COST: 5000,
             CURRENCY: "COIN",
             OVR_RANGE: [65, 82],
-            CHANCE: { min: 55, max: 75 }, // 55-75% chance for high OVR
+            CHANCE: { min: 55, max: 70 }, // 55-70% chance to find a player
         },
         MASTER: {
             COST: 1, // 1 TON
             CURRENCY: "TON",
             OVR_RANGE: [75, 95],
-            CHANCE: { min: 85, max: 98 }, // 85-98% chance for high OVR
+            CHANCE: { min: 85, max: 95 }, // 85-95% chance to find a player
         },
     },
 };
