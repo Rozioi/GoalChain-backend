@@ -614,8 +614,12 @@ enum TaskObjective {
 
 model Task {
   id          String        @id @default(uuid())
-  title       String
+  title       String        @default("")
   description String?
+  titleRu     String        @default("")
+  descriptionRu String?
+  titleEn     String        @default("")
+  descriptionEn String?
   type        TaskType
   objective   TaskObjective @default(MATCHES)
   reward      Int
