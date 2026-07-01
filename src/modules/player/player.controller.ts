@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { FootballApiService } from "./football-api.service";
 import { getPlayerImage, getPlayerById } from "./player.service";
-// import { nftMintService } from "./nft-mint.service";
+import { nftMintService } from "./nft-mint.service";
 
 export const playerController = {
     async importFromApi(
