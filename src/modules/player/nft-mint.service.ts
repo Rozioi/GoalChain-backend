@@ -51,9 +51,16 @@ async function mintViaGetgemsApi(
         ownerAddress,
         name: metadata.name,
         description: metadata.description,
-        image: metadata.image || "https://goalchain.app/default-player.png",
-        attributes: metadata.attributes,
+        image: String(
+            metadata.image || "https://goalchain.app/default-player.png",
+        ),
+        attributes: (metadata.attributes || []).map((attr: any) => ({
+            trait_type: String(attr.trait_type),
+            value: String(attr.value),
+        })),
     };
+
+    console.log("[Getgems] Mint request body:", JSON.stringify(body, null, 2));
 
     const response = await fetch(
         `${getMintingApiBaseUrl()}/public-api/minting/${collectionAddress}`,
@@ -69,6 +76,8 @@ async function mintViaGetgemsApi(
     );
 
     const data = await response.json();
+
+    console.log("[Getgems] Mint response:", JSON.stringify(data, null, 2));
 
     if (!response.ok) {
         const errMsg =
