@@ -2,8 +2,17 @@ import { FastifyInstance } from "fastify";
 import { beginCell, toNano, Address } from "@ton/core";
 import { nftMetadataService } from "./nft-metadata.service";
 import { NFT } from "../../config/constants";
+import { env } from "../../config/env";
 
 const MINT_FEE_NANO = toNano("0.05");
+
+/**
+ * Если NFT_MINT_UNLOCKED=true — пропускаем все проверки условий.
+ * Позволяет тестировать минт без OVR 75+ и 100 матчей.
+ */
+function isMintUnlocked(): boolean {
+    return env.NFT_MINT_UNLOCKED === "true";
+}
 
 function getCollectionAddress(): string {
     return process.env.TON_COLLECTION_ADDRESS || "";
@@ -41,16 +50,18 @@ export const nftMintService = {
             throw new Error("Player is already in minting process");
         }
 
-        // Check conversion conditions
-        if (player.overallRating < NFT.MIN_OVR_FOR_MINT) {
-            throw new Error(
-                `Player OVR must be at least ${NFT.MIN_OVR_FOR_MINT} to mint`,
-            );
-        }
-        if (player.matchesPlayed < NFT.MIN_MATCHES_FOR_MINT) {
-            throw new Error(
-                `Player must play at least ${NFT.MIN_MATCHES_FOR_MINT} matches to mint (current: ${player.matchesPlayed})`,
-            );
+        // Check conversion conditions (skip if NFT_MINT_UNLOCKED=true)
+        if (!isMintUnlocked()) {
+            if (player.overallRating < NFT.MIN_OVR_FOR_MINT) {
+                throw new Error(
+                    `Player OVR must be at least ${NFT.MIN_OVR_FOR_MINT} to mint`,
+                );
+            }
+            if (player.matchesPlayed < NFT.MIN_MATCHES_FOR_MINT) {
+                throw new Error(
+                    `Player must play at least ${NFT.MIN_MATCHES_FOR_MINT} matches to mint (current: ${player.matchesPlayed})`,
+                );
+            }
         }
 
         const updated = await app.prisma.player.update({
@@ -242,19 +253,21 @@ export const nftMintService = {
             return false; // Cheater: direct mint without lock
         }
 
-        // Validate conditions
-        if (player.overallRating < NFT.MIN_OVR_FOR_MINT) {
-            app.log.warn(
-                `Player ${playerId} OVR ${player.overallRating} < ${NFT.MIN_OVR_FOR_MINT}`,
-            );
-            return false;
-        }
+        // Validate conditions (skip if NFT_MINT_UNLOCKED=true)
+        if (!isMintUnlocked()) {
+            if (player.overallRating < NFT.MIN_OVR_FOR_MINT) {
+                app.log.warn(
+                    `Player ${playerId} OVR ${player.overallRating} < ${NFT.MIN_OVR_FOR_MINT}`,
+                );
+                return false;
+            }
 
-        if (player.matchesPlayed < NFT.MIN_MATCHES_FOR_MINT) {
-            app.log.warn(
-                `Player ${playerId} matches ${player.matchesPlayed} < ${NFT.MIN_MATCHES_FOR_MINT}`,
-            );
-            return false;
+            if (player.matchesPlayed < NFT.MIN_MATCHES_FOR_MINT) {
+                app.log.warn(
+                    `Player ${playerId} matches ${player.matchesPlayed} < ${NFT.MIN_MATCHES_FOR_MINT}`,
+                );
+                return false;
+            }
         }
 
         // All conditions passed, convert to NFT

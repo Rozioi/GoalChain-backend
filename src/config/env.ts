@@ -16,4 +16,5 @@ export const env = {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
     WEBAPP_URL: process.env.WEBAPP_URL || "",
     NETWORK: process.env.NETWORK || "mainnet",
+    NFT_MINT_UNLOCKED: process.env.NFT_MINT_UNLOCKED || "",
 };
