@@ -4,7 +4,7 @@ import { nftMetadataService } from "./nft-metadata.service";
 import { NFT } from "../../config/constants";
 import { env } from "../../config/env";
 
-const MINT_FEE_NANO = toNano("0.05");
+const MINT_FEE_NANO = toNano("0.10");
 
 /**
  * Если NFT_MINT_UNLOCKED=true — пропускаем все проверки условий.
