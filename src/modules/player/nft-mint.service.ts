@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { beginCell, toNano } from "@ton/core";
 import { nftMetadataService } from "./nft-metadata.service";
 import { NFT } from "../../config/constants";
 import { env } from "../../config/env";
@@ -192,8 +193,10 @@ export const nftMintService = {
     },
 
     /**
-     * prepareMint — возвращает данные для клиента.
-     * Если GETGEMS_MINTING_API_KEY не задан — включает dev-mode.
+     * prepareMint — возвращает данные для TON-транзакции пользователю.
+     * Пользователь платит газ сам через TonConnect.
+     * После подтверждения транзакции клиент вызывает confirmMint,
+     * который уже реально создаёт NFT через Getgems API.
      */
     async prepareMint(
         app: FastifyInstance,
@@ -238,34 +241,47 @@ export const nftMintService = {
         }
 
         if (isDevMode) {
-            // Dev mode: не шлём реальный запрос к Getgems API
             const metadata = nftMetadataService.generatePlayerMetadata(player);
             return {
                 devMode: true,
+                validUntil: Math.floor(Date.now() / 1000) + 240,
+                messages: [
+                    {
+                        address:
+                            "EQD4v8lSHnqc39XxwPq2RzR7oRf6sFc8Ic8CJj9aJFbK8e6k",
+                        amount: "1",
+                        payload: Buffer.from(`dev-mint:${playerId}`).toString(
+                            "base64",
+                        ),
+                    },
+                ],
                 metadata,
                 playerId,
             };
         }
 
-        // Реальный минт через Getgems API
-        try {
-            const result = await mintViaGetgemsApi(
-                collectionAddress,
-                walletAddress,
-                playerId,
-                player,
-            );
+        // Возвращаем данные для TON-транзакции (пользователь платит газ)
+        const metadata = nftMetadataService.generatePlayerMetadata(player);
+        const mintAmount = toNano("0.05");
 
-            return {
-                devMode: false,
-                nftAddress: result.nftAddress,
-                url: result.url,
-                playerId,
-            };
-        } catch (err: any) {
-            app.log.error("[NFT Mint] Getgems API error:", err);
-            throw new Error(err.message || "Minting failed");
-        }
+        // Формируем комментарий с playerId, чтобы потом подтвердить
+        const commentCell = beginCell()
+            .storeStringTail(`mint:${playerId}`)
+            .endCell();
+
+        return {
+            devMode: false,
+            validUntil: Math.floor(Date.now() / 1000) + 240,
+            messages: [
+                {
+                    address: collectionAddress,
+                    amount: mintAmount.toString(),
+                    payload: commentCell.toBoc().toString("base64"),
+                },
+            ],
+            metadata,
+            playerId,
+        };
     },
 
     async confirmMint(
@@ -285,7 +301,35 @@ export const nftMintService = {
             throw new Error("Player is not in minting process");
         }
 
-        const tokenId = `gc-${playerId.slice(0, 8)}-${Date.now()}`;
+        // Если есть txHash — пользователь оплатил, создаём NFT через Getgems API
+        if (txHash) {
+            const collectionAddress = getCollectionAddress();
+            const apiKey = getMintingApiKey();
+
+            if (collectionAddress && apiKey) {
+                try {
+                    const result = await mintViaGetgemsApi(
+                        collectionAddress,
+                        walletAddress,
+                        playerId,
+                        player,
+                    );
+                    app.log.info(
+                        `[NFT Mint] Created via Getgems: ${result.nftAddress}`,
+                    );
+                } catch (err: any) {
+                    app.log.error(
+                        "[NFT Mint] Getgems API error (non-fatal):",
+                        err,
+                    );
+                    // Продолжаем даже если Getgems API упал
+                }
+            }
+        }
+
+        const tokenId = txHash
+            ? `gc-${txHash.slice(0, 16)}`
+            : `gc-${playerId.slice(0, 8)}-${Date.now()}`;
 
         const updated = await app.prisma.player.update({
             where: { id: playerId },
