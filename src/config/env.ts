@@ -13,6 +13,7 @@ export const env = {
         process.env.TON_RPC_ENDPOINT || "https://toncenter.com/api/v2/jsonRPC",
     TON_API_KEY: process.env.TON_API_KEY || "",
     TON_PAYMENT_ADDRESS: process.env.TON_PAYMENT_ADDRESS || "",
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
     WEBAPP_URL: process.env.WEBAPP_URL || "",
     NETWORK: process.env.NETWORK || "mainnet",
 };

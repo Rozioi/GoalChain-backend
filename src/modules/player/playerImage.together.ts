@@ -1,25 +1,18 @@
-import Together from "together-ai";
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 
-const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || "";
-
-const together = TOGETHER_API_KEY ? new Together() : null;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
 const PUBLIC_DIR = "./public/generated-players/";
 const BG_DIR = "./public/backgrounds/";
 
-// Фоны по редкости
 const RARITY_BG: Record<string, string> = {
     bronze: "bg_bronze.png",
     silver: "bg_silver.png",
     gold: "bg_gold.png",
 };
 
-/**
- * Строит промпт для пиксель-арт портрета игрока.
- */
 export function buildPlayerImagePrompt(player: {
     name: string;
     surname: string;
@@ -27,24 +20,21 @@ export function buildPlayerImagePrompt(player: {
     club: string;
 }): string {
     return `Pixel art 16-bit SNES style frontal portrait, head and torso view of a male football player.
-The player's physical appearance accurately reflect nationality: ${player.nationality}.
-The player is wearing a ${player.club} club football kit.
+The player has appearance of ${player.nationality} nationality.
+Wearing ${player.club} football kit.
 The name "${player.name} ${player.surname}" in small pixel text below.
-Background is solid white. Direct frontal gaze at camera.`
+Solid white background. Looking directly at camera.
+No logos, no watermarks, clean pixel art.`
         .replace(/\n\s+/g, "\n")
         .trim();
 }
 
-/**
- * Накладывает фон поверх картинки и возвращает буфер.
- */
 async function overlayBackground(
     playerBuffer: Buffer,
     bgFilename: string,
 ): Promise<Buffer> {
     const bgFullPath = path.resolve(`${BG_DIR}${bgFilename}`);
     if (!fs.existsSync(bgFullPath)) {
-        // Если фона нет — просто возвращаем
         return await sharp(playerBuffer).resize(512, 512).png().toBuffer();
     }
     try {
@@ -59,8 +49,9 @@ async function overlayBackground(
 }
 
 /**
- * Генерирует картинку игрока через Together AI (если есть ключ),
- * иначе возвращает "" — клиент покажет default.png.
+ * Генерирует картинку игрока через OpenAI (DALL-E 3),
+ * накладывает фон по редкости, пикселизирует и сохраняет.
+ * Если ключа нет — возвращает "".
  */
 export async function generatePlayerImage(
     player: {
@@ -72,13 +63,11 @@ export async function generatePlayerImage(
     rarity: string = "bronze",
     fileNameRaw?: string,
 ): Promise<string> {
-    // Если нет ключа — не генерируем
-    if (!together || !TOGETHER_API_KEY) {
-        console.log("[Together] API key not set, skipping image generation");
+    if (!OPENAI_API_KEY) {
+        console.log("[OpenAI] API key not set, skipping image generation");
         return "";
     }
 
-    // Создаём папки если нет
     if (!fs.existsSync(PUBLIC_DIR))
         fs.mkdirSync(PUBLIC_DIR, { recursive: true });
     if (!fs.existsSync(BG_DIR)) fs.mkdirSync(BG_DIR, { recursive: true });
@@ -92,38 +81,50 @@ export async function generatePlayerImage(
     const relativeUrl = `/generated-players/${fileName}.png`;
     const prompt = buildPlayerImagePrompt(player);
 
-    // 1. Генерация через Together AI
+    // 1. Генерация через OpenAI DALL-E 3
     let imageBuffer: Buffer;
     try {
-        const response = await (together as any).images.create({
-            model: "black-forest-labs/FLUX.1-schnell-Free",
-            prompt,
-            width: 512,
-            height: 512,
-            steps: 4,
-            n: 1,
-            response_format: "base64",
-        });
+        const response = await fetch(
+            "https://api.openai.com/v1/images/generations",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${OPENAI_API_KEY}`,
+                },
+                body: JSON.stringify({
+                    model: "dall-e-3",
+                    prompt,
+                    n: 1,
+                    size: "1024x1024",
+                    response_format: "b64_json",
+                }),
+            },
+        );
 
-        const b64 = (response as any).data?.[0]?.b64_json;
-        if (b64) {
-            imageBuffer = Buffer.from(b64, "base64");
-        } else {
-            const url = (response as any).data?.[0]?.url;
-            if (!url) throw new Error("Together: пустой ответ");
-            const res = await fetch(url);
-            imageBuffer = Buffer.from(await res.arrayBuffer());
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error("[OpenAI] Ошибка API:", data);
+            return "";
         }
+
+        const b64 = data.data?.[0]?.b64_json;
+        if (!b64) {
+            console.error("[OpenAI] Нет b64_json в ответе");
+            return "";
+        }
+
+        imageBuffer = Buffer.from(b64, "base64");
     } catch (err) {
-        console.error("[Together] Ошибка генерации:", err);
+        console.error("[OpenAI] Ошибка генерации:", err);
         return "";
     }
 
-    // 2. Пикселизация
+    // 2. Ресайз с 1024 → 512 и пикселизация
     try {
         const pixelated = await sharp(imageBuffer)
-            .resize(128, 128, { kernel: sharp.kernel.nearest })
-            .resize(512, 512, { kernel: sharp.kernel.nearest })
+            .resize(512, 512)
             .png()
             .toBuffer();
 

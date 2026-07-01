@@ -122,15 +122,40 @@ export const nftMintService = {
         }
 
         const collectionAddress = getCollectionAddress();
-        if (!collectionAddress) {
+        const metadata = nftMetadataService.generatePlayerMetadata(player);
+
+        // Если адрес коллекции не настроен — имитируем (dev/test mode)
+        const isDevMode =
+            !collectionAddress && process.env.NODE_ENV !== "production";
+
+        if (!collectionAddress && !isDevMode) {
             throw new Error("TON_COLLECTION_ADDRESS is not configured");
         }
 
+        if (isDevMode) {
+            // Dev mode: не шлём реальную TON транзакцию
+            return {
+                devMode: true,
+                validUntil: Math.floor(Date.now() / 1000) + 240,
+                messages: [
+                    {
+                        address:
+                            "EQD4v8lSHnqc39XxwPq2RzR7oRf6sFc8Ic8CJj9aJFbK8e6k",
+                        amount: "1",
+                        payload: Buffer.from(`dev-mint:${playerId}`).toString(
+                            "base64",
+                        ),
+                    },
+                ],
+                metadata,
+                playerId,
+            };
+        }
+
         const payload = buildMintPayload(playerId, walletAddress);
-        const metadata = nftMetadataService.generatePlayerMetadata(player);
 
         return {
-            validUntil: Math.floor(Date.now() / 1000) + 240, // 4 minutes (TON Connect limit ~5 min)
+            validUntil: Math.floor(Date.now() / 1000) + 240,
             messages: [
                 {
                     address: collectionAddress,
