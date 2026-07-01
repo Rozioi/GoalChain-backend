@@ -15,7 +15,10 @@ function isMintUnlocked(): boolean {
 }
 
 function getCollectionAddress(): string {
-    return process.env.TON_COLLECTION_ADDRESS || "";
+    const addr = process.env.TON_COLLECTION_ADDRESS || "";
+    // Считаем заглушку как "не настроено"
+    if (addr.startsWith("EQC000")) return "";
+    return addr;
 }
 
 function buildMintPayload(playerId: string, ownerAddress: string): string {

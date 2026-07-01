@@ -121,14 +121,15 @@ export async function generatePlayerImage(
         return "";
     }
 
-    // 2. Ресайз с 1024 → 512 и пикселизация
+    // 2. Пикселизация: ресайз с 1024 → 128 (nearest neighbor), затем обратно до 512
     try {
         const pixelated = await sharp(imageBuffer)
-            .resize(512, 512)
+            .resize(128, 128, { kernel: "nearest" })
+            .resize(512, 512, { kernel: "nearest" })
             .png()
             .toBuffer();
 
-        // 3. Накладываем фон по редкости
+        // 3. Накладываем фон по редкости (поверх пикселизированного игрока)
         const bgName = RARITY_BG[rarity] || RARITY_BG.bronze;
         const withBg = await overlayBackground(pixelated, bgName);
 
