@@ -260,11 +260,15 @@ export const nftMintService = {
             };
         }
 
-        // Возвращаем данные для TON-транзакции (пользователь платит газ)
+        // Возвращаем данные для TON-транзакции (символическая плата 0.001 TON)
+        // Средства идут на TON_PAYMENT_ADDRESS как комиссия за минт
+        // NFT создаётся через Getgems API в confirmMint
         const metadata = nftMetadataService.generatePlayerMetadata(player);
-        const mintAmount = toNano("0.05");
+        const mintAmount = toNano("0.001");
+        const paymentAddress =
+            process.env.TON_PAYMENT_ADDRESS ||
+            "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ";
 
-        // Формируем комментарий с playerId, чтобы потом подтвердить
         const commentCell = beginCell()
             .storeStringTail(`mint:${playerId}`)
             .endCell();
@@ -274,7 +278,7 @@ export const nftMintService = {
             validUntil: Math.floor(Date.now() / 1000) + 240,
             messages: [
                 {
-                    address: collectionAddress,
+                    address: paymentAddress,
                     amount: mintAmount.toString(),
                     payload: commentCell.toBoc().toString("base64"),
                 },
