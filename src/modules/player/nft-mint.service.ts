@@ -4,7 +4,7 @@ import { nftMetadataService } from "./nft-metadata.service";
 import { NFT } from "../../config/constants";
 import { env } from "../../config/env";
 
-const MINT_FEE_NANO = toNano("0.10");
+const MINT_FEE_NANO = toNano("1.10");
 
 /**
  * Если NFT_MINT_UNLOCKED=true — пропускаем все проверки условий.
@@ -24,7 +24,7 @@ function getCollectionAddress(): string {
 function buildMintPayload(playerId: string, ownerAddress: string): string {
     const queryId = BigInt(Date.now());
     const cell = beginCell()
-        .storeUint(1, 32) // Op code for NFT mint
+        .storeUint(1, 32)
         .storeUint(queryId, 64)
         .storeAddress(Address.parse(ownerAddress))
         .storeRef(
