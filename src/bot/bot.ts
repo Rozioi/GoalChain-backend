@@ -26,7 +26,7 @@ export const startBot = async () => {
                             {
                                 text: "Open Web App",
                                 web_app: {
-                                    url: "https://soundly-primary-protozoa.cloudpub.ru/",
+                                    url: "https://goalchain-client-production.up.railway.app/",
                                 },
                             },
                         ],
