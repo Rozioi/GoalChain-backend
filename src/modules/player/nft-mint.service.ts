@@ -139,11 +139,13 @@ export const nftMintService = {
         const metadata = nftMetadataService.generatePlayerMetadata(player);
 
         // Если адрес коллекции не настроен — имитируем (dev/test mode)
-        const isDevMode =
-            !collectionAddress && process.env.NODE_ENV !== "production";
+        const isDevMode = !collectionAddress;
 
-        if (!collectionAddress && !isDevMode) {
-            throw new Error("TON_COLLECTION_ADDRESS is not configured");
+        if (!collectionAddress) {
+            if (process.env.NODE_ENV === "production") {
+                throw new Error("TON_COLLECTION_ADDRESS is not configured");
+            }
+            // В dev-режиме работаем без реальной коллекции
         }
 
         if (isDevMode) {
