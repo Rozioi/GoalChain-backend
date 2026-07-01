@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { FootballApiService } from "./football-api.service";
 import { getPlayerImage, getPlayerById } from "./player.service";
-import { nftMintService } from "./nft-mint.service";
+// import { nftMintService } from "./nft-mint.service";
 
 export const playerController = {
     async importFromApi(
@@ -168,26 +168,26 @@ export const playerController = {
         }
     },
 
-    async webhookValidateMint(
-        req: FastifyRequest<{
-            Body: {
-                transactionComment: string;
-                senderAddress: string;
-                txHash: string;
-            };
-        }>,
-        reply: FastifyReply,
-    ) {
-        try {
-            const result = await nftMintService.validateMintTransaction(
-                req.server,
-                req.body.transactionComment,
-                req.body.senderAddress,
-                req.body.txHash,
-            );
-            reply.send({ success: result });
-        } catch (err: any) {
-            reply.status(400).send({ error: err.message });
-        }
-    },
+    // async webhookValidateMint(
+    //     req: FastifyRequest<{
+    //         Body: {
+    //             transactionComment: string;
+    //             senderAddress: string;
+    //             txHash: string;
+    //         };
+    //     }>,
+    //     reply: FastifyReply,
+    // ) {
+    //     try {
+    //         const result = await nftMintService.validateMintTransaction(
+    //             req.server,
+    //             req.body.transactionComment,
+    //             req.body.senderAddress,
+    //             req.body.txHash,
+    //         );
+    //         reply.send({ success: result });
+    //     } catch (err: any) {
+    //         reply.status(400).send({ error: err.message });
+    //     }
+    // },
 };

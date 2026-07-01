@@ -21,5 +21,5 @@ export default async function playerRoutes(app: FastifyInstance) {
     app.post("/nft/mint/confirm", playerController.confirmMint);
 
     // Webhook endpoint for mint validation (no auth - called by TON webhook)
-    app.post("/nft/mint/validate", playerController.webhookValidateMint);
+    // app.post("/nft/mint/validate", playerController.webhookValidateMint);
 }
