@@ -4,7 +4,7 @@ import { nftMetadataService } from "./nft-metadata.service";
 import { NFT } from "../../config/constants";
 import { env } from "../../config/env";
 
-const MINT_FEE_NANO = toNano("1.10");
+const MINT_FEE_NANO = toNano("1.1");
 
 /**
  * Если NFT_MINT_UNLOCKED=true — пропускаем все проверки условий.
@@ -21,18 +21,39 @@ function getCollectionAddress(): string {
     return addr;
 }
 
+/**
+ * Стандартный NFT Mint payload (op: 0x5fcc3d14).
+ * Используется Getgems и большинством NFT коллекций в TON.
+ *
+ * Структура:
+ * - op: uint32 (0x5fcc3d14) — State Mint
+ * - queryId: uint64
+ * - itemIndex: uint64 — индекс нового NFT
+ * - amount: coins — сумма для минта
+ * - itemOwnerAddress: MsgAddress — кому минт
+ * - itemContent: Cell — контент (стринг ссылка на metadata)
+ *
+ * Примечание: при Saddle-минте коллекция сама создаёт NFT,
+ * поэтому передаём только ownerAddress и content.
+ */
 function buildMintPayload(playerId: string, ownerAddress: string): string {
     const queryId = BigInt(Date.now());
+    const OP_MINT = 0x5fcc3d14;
+
+    // itemIndex: используем hash от playerId чтобы был детерминированным
+    const itemIndex = BigInt("0x" + playerId.replace(/-/g, "").slice(0, 16));
+
+    // Content cell — ссылка на metadata (off-chain или on-chain)
+    const metadataUrl = `${process.env.WEBAPP_URL || "https://goalchain.app"}/api/v1/player/nft-metadata/${playerId}`;
+    const contentCell = beginCell().storeStringTail(metadataUrl).endCell();
+
     const cell = beginCell()
-        .storeUint(1, 32)
+        .storeUint(OP_MINT, 32)
         .storeUint(queryId, 64)
+        .storeUint(itemIndex, 64)
+        .storeCoins(MINT_FEE_NANO)
         .storeAddress(Address.parse(ownerAddress))
-        .storeRef(
-            beginCell()
-                // Embed Player_ID into the transaction comment
-                .storeStringTail(`mint:${playerId}`)
-                .endCell(),
-        )
+        .storeRef(contentCell)
         .endCell();
 
     return cell.toBoc().toString("base64");
