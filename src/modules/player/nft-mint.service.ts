@@ -1,10 +1,7 @@
 import { FastifyInstance } from "fastify";
-import { beginCell, toNano, Address } from "@ton/core";
 import { nftMetadataService } from "./nft-metadata.service";
 import { NFT } from "../../config/constants";
 import { env } from "../../config/env";
-
-const MINT_FEE_NANO = toNano("1.1");
 
 /**
  * Если NFT_MINT_UNLOCKED=true — пропускаем все проверки условий.
@@ -16,47 +13,109 @@ function isMintUnlocked(): boolean {
 
 function getCollectionAddress(): string {
     const addr = process.env.TON_COLLECTION_ADDRESS || "";
-    // Считаем заглушку как "не настроено"
     if (addr.startsWith("EQC000")) return "";
     return addr;
 }
 
+function getMintingApiKey(): string {
+    return process.env.GETGEMS_MINTING_API_KEY || "";
+}
+
 /**
- * Стандартный NFT Mint payload (op: 0x5fcc3d14).
- * Используется Getgems и большинством NFT коллекций в TON.
- *
- * Структура:
- * - op: uint32 (0x5fcc3d14) — State Mint
- * - queryId: uint64
- * - itemIndex: uint64 — индекс нового NFT
- * - amount: coins — сумма для минта
- * - itemOwnerAddress: MsgAddress — кому минт
- * - itemContent: Cell — контент (стринг ссылка на metadata)
- *
- * Примечание: при Saddle-минте коллекция сама создаёт NFT,
- * поэтому передаём только ownerAddress и content.
+ * Базовая URL для Getgems Minting API (testnet по умолчанию).
  */
-function buildMintPayload(playerId: string, ownerAddress: string): string {
-    const queryId = BigInt(Date.now());
-    const OP_MINT = 0x5fcc3d14;
+function getMintingApiBaseUrl(): string {
+    return process.env.GETGEMS_API_URL || "https://api.testnet.getgems.io";
+}
 
-    // itemIndex: используем hash от playerId чтобы был детерминированным
-    const itemIndex = BigInt("0x" + playerId.replace(/-/g, "").slice(0, 16));
+/**
+ * Создаёт NFT через Getgems Minting API.
+ * Возвращает адрес созданной NFT и ссылку на getgems.
+ */
+async function mintViaGetgemsApi(
+    collectionAddress: string,
+    ownerAddress: string,
+    playerId: string,
+    player: any,
+): Promise<{ nftAddress: string; url: string }> {
+    const apiKey = getMintingApiKey();
+    if (!apiKey) {
+        throw new Error("GETGEMS_MINTING_API_KEY is not configured");
+    }
 
-    // Content cell — ссылка на metadata (off-chain или on-chain)
-    const metadataUrl = `${process.env.WEBAPP_URL || "https://goalchain.app"}/api/v1/player/nft-metadata/${playerId}`;
-    const contentCell = beginCell().storeStringTail(metadataUrl).endCell();
+    const requestId = `${playerId}-${Date.now()}`;
+    const metadata = nftMetadataService.generatePlayerMetadata(player);
 
-    const cell = beginCell()
-        .storeUint(OP_MINT, 32)
-        .storeUint(queryId, 64)
-        .storeUint(itemIndex, 64)
-        .storeCoins(MINT_FEE_NANO)
-        .storeAddress(Address.parse(ownerAddress))
-        .storeRef(contentCell)
-        .endCell();
+    const body = {
+        requestId,
+        ownerAddress,
+        name: metadata.name,
+        description: metadata.description,
+        image: metadata.image,
+        attributes: metadata.attributes,
+    };
 
-    return cell.toBoc().toString("base64");
+    const response = await fetch(
+        `${getMintingApiBaseUrl()}/public-api/minting/${collectionAddress}`,
+        {
+            method: "POST",
+            headers: {
+                accept: "application/json",
+                Authorization: apiKey,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        const errMsg =
+            data?.errors?.[0]?.message ||
+            data?.error ||
+            `HTTP ${response.status}`;
+        throw new Error(`Getgems minting failed: ${errMsg}`);
+    }
+
+    if (!data?.success || !data?.response?.address) {
+        throw new Error("Getgems minting returned unexpected response");
+    }
+
+    return {
+        nftAddress: data.response.address,
+        url: data.response.url || "",
+    };
+}
+
+/**
+ * Проверяет статус минта через Getgems API.
+ */
+async function checkMintStatus(
+    collectionAddress: string,
+    requestId: string,
+): Promise<{ status: string; address?: string; ownerAddress?: string }> {
+    const apiKey = getMintingApiKey();
+    const response = await fetch(
+        `${getMintingApiBaseUrl()}/public-api/minting/${collectionAddress}/${requestId}`,
+        {
+            headers: {
+                accept: "application/json",
+                Authorization: apiKey,
+            },
+        },
+    );
+
+    const data = await response.json();
+    if (!data?.success) {
+        throw new Error("Failed to check mint status");
+    }
+
+    return {
+        status: data.response.status,
+        address: data.response.address,
+        ownerAddress: data.response.ownerAddress,
+    };
 }
 
 export const nftMintService = {
@@ -123,6 +182,10 @@ export const nftMintService = {
         return updated;
     },
 
+    /**
+     * prepareMint — возвращает данные для клиента.
+     * Если GETGEMS_MINTING_API_KEY не задан — включает dev-mode.
+     */
     async prepareMint(
         app: FastifyInstance,
         userId: string,
@@ -145,7 +208,6 @@ export const nftMintService = {
         if (player.lockedAt) {
             const elapsed = Date.now() - player.lockedAt.getTime();
             if (elapsed > NFT.MINT_LOCK_DURATION_MS) {
-                // Auto-unlock expired lock
                 await app.prisma.player.update({
                     where: { id: playerId },
                     data: { mintingStatus: "none", lockedAt: null },
@@ -157,52 +219,44 @@ export const nftMintService = {
         }
 
         const collectionAddress = getCollectionAddress();
-        const metadata = nftMetadataService.generatePlayerMetadata(player);
-
-        // Если адрес коллекции не настроен — имитируем (dev/test mode)
-        const isDevMode = !collectionAddress;
+        const apiKey = getMintingApiKey();
+        const isDevMode = !collectionAddress || !apiKey;
 
         if (!collectionAddress) {
             if (process.env.NODE_ENV === "production") {
                 throw new Error("TON_COLLECTION_ADDRESS is not configured");
             }
-            // В dev-режиме работаем без реальной коллекции
         }
 
         if (isDevMode) {
-            // Dev mode: не шлём реальную TON транзакцию
+            // Dev mode: не шлём реальный запрос к Getgems API
+            const metadata = nftMetadataService.generatePlayerMetadata(player);
             return {
                 devMode: true,
-                validUntil: Math.floor(Date.now() / 1000) + 240,
-                messages: [
-                    {
-                        address:
-                            "EQD4v8lSHnqc39XxwPq2RzR7oRf6sFc8Ic8CJj9aJFbK8e6k",
-                        amount: "1",
-                        payload: Buffer.from(`dev-mint:${playerId}`).toString(
-                            "base64",
-                        ),
-                    },
-                ],
                 metadata,
                 playerId,
             };
         }
 
-        const payload = buildMintPayload(playerId, walletAddress);
+        // Реальный минт через Getgems API
+        try {
+            const result = await mintViaGetgemsApi(
+                collectionAddress,
+                walletAddress,
+                playerId,
+                player,
+            );
 
-        return {
-            validUntil: Math.floor(Date.now() / 1000) + 240,
-            messages: [
-                {
-                    address: collectionAddress,
-                    amount: MINT_FEE_NANO.toString(),
-                    payload,
-                },
-            ],
-            metadata,
-            playerId,
-        };
+            return {
+                devMode: false,
+                nftAddress: result.nftAddress,
+                url: result.url,
+                playerId,
+            };
+        } catch (err: any) {
+            app.log.error("[NFT Mint] Getgems API error:", err);
+            throw new Error(err.message || "Minting failed");
+        }
     },
 
     async confirmMint(
@@ -222,10 +276,7 @@ export const nftMintService = {
             throw new Error("Player is not in minting process");
         }
 
-        // Generate token ID from tx hash or fallback
-        const tokenId = txHash
-            ? `gc-${txHash.slice(0, 16)}`
-            : `gc-${playerId.slice(0, 8)}-${Date.now()}`;
+        const tokenId = `gc-${playerId.slice(0, 8)}-${Date.now()}`;
 
         const updated = await app.prisma.player.update({
             where: { id: playerId },
@@ -243,80 +294,8 @@ export const nftMintService = {
     },
 
     /**
-     * Validate a mint transaction (called from webhook or polling)
-     * Extracts Player_ID from transaction comment and validates conditions
+     * Получение метаданных NFT
      */
-    async validateMintTransaction(
-        app: FastifyInstance,
-        transactionComment: string,
-        senderAddress: string,
-        txHash: string,
-    ) {
-        // Parse Player_ID from comment format "mint:playerId"
-        const match = transactionComment.match(/^mint:(.+)$/);
-        if (!match) {
-            app.log.warn(
-                `Invalid transaction comment format: ${transactionComment}`,
-            );
-            return false;
-        }
-
-        const playerId = match[1];
-        const player = await app.prisma.player.findUnique({
-            where: { id: playerId },
-        });
-
-        if (!player) {
-            app.log.warn(`Player not found for mint tx: ${playerId}`);
-            return false;
-        }
-
-        // Validate minting process status
-        if (player.mintingStatus !== "minting_process") {
-            app.log.warn(
-                `Player ${playerId} is not in minting_process (status: ${player.mintingStatus})`,
-            );
-            return false; // Cheater: direct mint without lock
-        }
-
-        // Validate conditions (skip if NFT_MINT_UNLOCKED=true)
-        if (!isMintUnlocked()) {
-            if (player.overallRating < NFT.MIN_OVR_FOR_MINT) {
-                app.log.warn(
-                    `Player ${playerId} OVR ${player.overallRating} < ${NFT.MIN_OVR_FOR_MINT}`,
-                );
-                return false;
-            }
-
-            if (player.matchesPlayed < NFT.MIN_MATCHES_FOR_MINT) {
-                app.log.warn(
-                    `Player ${playerId} matches ${player.matchesPlayed} < ${NFT.MIN_MATCHES_FOR_MINT}`,
-                );
-                return false;
-            }
-        }
-
-        // All conditions passed, convert to NFT
-        const tokenId = `gc-${txHash.slice(0, 16)}`;
-
-        await app.prisma.player.update({
-            where: { id: playerId },
-            data: {
-                tokenId,
-                nftAddress: senderAddress,
-                mintedAt: new Date(),
-                isNft: true,
-                mintingStatus: "converted_to_nft",
-                lockedAt: null,
-            },
-        });
-
-        app.log.info(
-            `Player ${playerId} successfully converted to NFT via webhook validation`,
-        );
-        return true;
-    },
-
     async getMetadata(app: FastifyInstance, playerId: string) {
         const player = await app.prisma.player.findUnique({
             where: { id: playerId },
