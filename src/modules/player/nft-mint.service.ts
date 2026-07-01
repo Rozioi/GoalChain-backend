@@ -51,7 +51,7 @@ async function mintViaGetgemsApi(
         ownerAddress,
         name: metadata.name,
         description: metadata.description,
-        image: metadata.image,
+        image: metadata.image || "https://goalchain.app/default-player.png",
         attributes: metadata.attributes,
     };
 
