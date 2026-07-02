@@ -415,17 +415,30 @@ export async function generatePlayer(
         physicalBonus: 0,
     };
 
-    // Генерация портрета через Together AI
+    // Генерация карточки игрока через OpenAI DALL-E 3
     const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
     const generatedImage = await generatePlayerImage(
-        { name, surname, nationality, club },
+        {
+            name,
+            surname,
+            nationality,
+            club,
+            overallRating,
+            position,
+            pace: playerData.pace,
+            shooting: playerData.shooting,
+            passing: playerData.passing,
+            dribbling: playerData.dribbling,
+            defending: playerData.defending,
+            physical: playerData.physical,
+        },
         rarity,
         fileName,
     );
 
     return {
         ...playerData,
-        imageUrl: generatedImage || "",
+        imageUrl: generatedImage || "https://i.ibb.co/gLBvTrQj/result-card.png",
     };
 }
 
