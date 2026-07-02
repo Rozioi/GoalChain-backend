@@ -4,9 +4,16 @@ import sharp from "sharp";
 import OpenAI from "openai";
 import { Resvg } from "@resvg/resvg-js";
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || undefined,
-});
+/** Ленивый OpenAI-клиент — создаётся только при наличии ключа */
+function getOpenAI(): OpenAI | null {
+    const key = process.env.OPENAI_API_KEY;
+    if (!key) return null;
+    try {
+        return new OpenAI({ apiKey: key });
+    } catch {
+        return null;
+    }
+}
 
 const PUBLIC_DIR = "./public/generated-players/";
 
@@ -100,7 +107,8 @@ export async function generatePlayerImage(
     rarity: string = "bronze",
     fileNameRaw?: string,
 ): Promise<string> {
-    if (!process.env.OPENAI_API_KEY) {
+    const openai = getOpenAI();
+    if (!openai) {
         console.log("[OpenAI] API key not set, skipping image generation");
         return "";
     }
