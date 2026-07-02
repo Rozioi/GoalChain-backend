@@ -128,7 +128,7 @@ export async function generatePlayerImage(
             response_format: "b64_json",
         });
 
-        const b64 = response.data[0]?.b64_json;
+        const b64 = response.data?.[0]?.b64_json;
         if (!b64) {
             console.error("[OpenAI] Нет b64_json в ответе");
             return "";

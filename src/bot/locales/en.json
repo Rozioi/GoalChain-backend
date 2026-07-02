@@ -1,0 +1,13 @@
+{
+    "start": {
+        "welcome": "Welcome to Football Manager! 🏆\n\nManage your team, rent players, and climb the leaderboards.",
+        "open_web_app": "🚀 Open Web App"
+    },
+    "broadcast": {
+        "play_button": "🎮 Play GoalChain"
+    },
+    "common": {
+        "error": "❌ Something went wrong. Please try again later.",
+        "loading": "⏳ Loading..."
+    }
+}

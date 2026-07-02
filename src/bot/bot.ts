@@ -1,7 +1,16 @@
 import { Bot } from "grammy";
 import { env } from "../config/env";
+import { i18nFromCtx } from "./i18n";
 
 export let bot: Bot;
+
+function getWebAppUrl(): string {
+    return (
+        process.env.WEBAPP_URL ||
+        process.env.CORS_ORIGIN ||
+        "https://goalchain-client-production.up.railway.app/"
+    );
+}
 
 export const startBot = async () => {
     if (!env.BOT_TOKEN) {
@@ -10,30 +19,24 @@ export const startBot = async () => {
     }
 
     bot = new Bot(env.BOT_TOKEN);
-    if (!bot) {
-        console.warn("BOT_TOKEN is not provided. Telegram bot will not start.");
-        return;
-    }
-    console.log("bors");
 
     bot.command("start", async (ctx) => {
-        await ctx.reply(
-            "Welcome to Football Manager! Manage your team, rent players, and climb the leaderboards.",
-            {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            {
-                                text: "Open Web App",
-                                web_app: {
-                                    url: "https://goalchain-client-production.up.railway.app/",
-                                },
+        const i18n = i18nFromCtx(ctx);
+
+        await ctx.reply(i18n.t("start.welcome"), {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: i18n.t("start.open_web_app"),
+                            web_app: {
+                                url: getWebAppUrl(),
                             },
-                        ],
+                        },
                     ],
-                },
+                ],
             },
-        );
+        });
     });
 
     bot.catch((err) => {
