@@ -51,9 +51,6 @@ const BG_DIR = "./assets/";
 const FLAG_DIR = path.resolve("./assets/flags");
 const CLUB_DIR = path.resolve("./assets/clubs");
 
-// Дефолтная заглушка для теста, если не передан конкретный файл
-const DEFAULT_TEST_AVATAR = path.resolve("./assets/test-avatar.png");
-
 const RARITY_BG: Record<string, string> = {
     bronze: "bronze_bg.png",
     silver: "silver_bg.png",
@@ -149,17 +146,6 @@ function buildTextOverlay(player: PlayerCardData): string {
     </svg>`.trim();
 }
 
-// ─── SVG-рамка редкости ──────────────────────────────────────────
-function buildFrameOverlay(rarity: string): string {
-    const color = RARITY_COLORS[rarity];
-    if (!color) return "";
-    return `
-    <svg width="${CARD_WIDTH}" height="${CARD_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="${CARD_WIDTH}" height="${CARD_HEIGHT}"
-            fill="none" stroke="${color}" stroke-width="8" rx="8" />
-    </svg>`.trim();
-}
-
 // ─── Промпт для DALL-E ───────────────────────────────────────────
 export function buildPlayerImagePrompt(player: {
     name: string;
@@ -176,14 +162,15 @@ No logos, no watermarks, clean pixel art.`
         .trim();
 }
 
-// ─── Общая сборка слоев карточки (Вынесено отдельно для реюза) ────
+// ─── Общая сборка слоев карточки (Чистый фон, без рамок) ──────────
+// ─── Общая сборка слоев карточки (Сборка СРАЗУ на фоне редкости) ───
 async function assembleCardFromPlayerBuffer(
     playerImageBuffer: Buffer,
     player: PlayerCardData,
     rarity: string,
     fileName: string
 ): Promise<string> {
-    // Пикселизация: → 150 → 600 (nearest neighbor, contain)
+    // 1. Пикселизация игрока (сохраняем альфа-канал прозрачности)
     const pixelatedPlayer = await sharp(playerImageBuffer)
         .ensureAlpha()
         .resize(150, 150, { kernel: "nearest", fit: "inside" })
@@ -195,11 +182,11 @@ async function assembleCardFromPlayerBuffer(
         .png()
         .toBuffer();
 
-    // Текстовый слой (SVG → PNG)
+    // 2. Текстовый слой (SVG → PNG)
     const textSvg = buildTextOverlay(player);
     const textPng = renderSvg(textSvg);
 
-    // Слои
+    // 3. Массив базовых слоев (Игрок + Текст)
     const overlays: { input: Buffer; top: number; left: number }[] = [
         { input: pixelatedPlayer, top: 142, left: 132 },
         { input: textPng, top: 0, left: 0 },
@@ -225,58 +212,53 @@ async function assembleCardFromPlayerBuffer(
         overlays.push({ input: club, top: 565, left: 138 });
     }
 
-    // Рамка редкости
-    const frameSvg = buildFrameOverlay(rarity);
-    if (frameSvg) {
-        const framePng = renderSvg(frameSvg);
-        overlays.push({ input: framePng, top: 0, left: 0 });
+    // 4. ОПРЕДЕЛЯЕМ ЦЕЛЕВОЙ ФОН
+    const bgName = RARITY_BG[rarity] || RARITY_BG.bronze; // например, gold_bg.png
+    const rarityBgPath = path.resolve(`${BG_DIR}${bgName}`); // путь к фону редкости
+
+    let selectedTemplatePath: string | null = null;
+
+    if (fs.existsSync(rarityBgPath)) {
+        // Если есть файл под конкретную редкость (gold_bg.png), берем его
+        selectedTemplatePath = rarityBgPath;
+    } else if (fs.existsSync(CARD_TEMPLATE)) {
+        // Если фона редкости нет, берем общий background.jpg как fallback
+        selectedTemplatePath = CARD_TEMPLATE;
     }
 
-    // Шаблон карточки
     let finalBuffer: Buffer;
-    const templatePath = fs.existsSync(CARD_TEMPLATE) ? CARD_TEMPLATE : null;
 
-    if (templatePath) {
-        let composed = await sharp(templatePath)
+    if (selectedTemplatePath) {
+        // Загружаем выбранный фон (уже без бутерброда из двух картинок)
+        finalBuffer = await sharp(selectedTemplatePath)
             .resize(CARD_WIDTH, CARD_HEIGHT, { fit: "cover" })
-            .png()
-            .toBuffer();
-
-        const bgName = RARITY_BG[rarity] || RARITY_BG.bronze;
-        composed = await overlayBackground(composed, bgName);
-
-        finalBuffer = await sharp(composed)
             .composite(overlays)
             .png()
             .toBuffer();
     } else {
-        const bgColor = RARITY_COLORS[rarity] || "#CD7F32";
+        // Крайний случай: если вообще никаких картинок фонов нет в ассетах
         const bgSvg = `
             <svg width="${CARD_WIDTH}" height="${CARD_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-                <rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" fill="${bgColor}" rx="12" />
-                <rect x="20" y="20" width="${CARD_WIDTH - 40}" height="${CARD_HEIGHT - 40}" fill="#1a1a1a" rx="8" />
+                <rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" fill="#1a1a1a" rx="12" />
             </svg>`.trim();
         const bgPng = renderSvg(bgSvg);
         finalBuffer = await sharp(bgPng).composite(overlays).png().toBuffer();
     }
 
+    // 5. Сохранение
     fs.writeFileSync(path.resolve(`${CARD_DIR}${fileName}.png`), finalBuffer);
-    return `/generated-players/${fileName}.png`;
+    return `https://goalchain-backend-production.up.railway.app/generated-players/${fileName}.png`;
 }
 
-// ─── ТЕСТОВАЯ ФУНКЦИЯ (Без генерации через OpenAI) ────────────────
+// ─── ТЕСТОВАЯ ФУНКЦИЯ (Локальный файл assets/player.png) ──────────
 /**
- * Генерирует карточку используя ЛОКАЛЬНЫЙ файл аватара вместо ИИ DALL-E.
- * Идеально подходит для ручных/автоматических тестов верстки, флагов и шрифтов.
- * * @param customLocalAvatarPath - Путь к кастомной PNG-картинке (если не указан, ищет assets/test-avatar.png)
- * @param removeBg - Нужна ли попытка вырезать фон у тестовой картинки
+ * Мгновенно собирает карточку на основе локального файла assets/player.png.
+ * Рекомендуется использовать PNG с прозрачным фоном.
  */
 export async function generatePlayerImageMock(
     player: PlayerCardData,
     rarity: string = "bronze",
-    fileNameRaw?: string,
-    customLocalAvatarPath?: string,
-    removeBg: boolean = false
+    fileNameRaw?: string
 ): Promise<string> {
     if (!fs.existsSync(CARD_DIR))
         fs.mkdirSync(CARD_DIR, { recursive: true });
@@ -288,42 +270,42 @@ export async function generatePlayerImageMock(
         .replace(/[^a-z0-9_]+/g, "_");
 
     try {
-      const targetSourcePath = path.resolve("./assets/player.jpg");
+        // Путь изменен на player.png (лучше подготовить прозрачный PNG)
+        const targetSourcePath = path.resolve("./assets/player.png");
 
-              if (!fs.existsSync(targetSourcePath)) {
-                  console.error(`[Mock] КРИТИЧЕСКАЯ ОШИБКА: Тестовый файл не найден по пути: ${targetSourcePath}`);
-              }
+        if (!fs.existsSync(targetSourcePath)) {
+            console.error(`[Mock] ОШИБКА: Файл не найден по пути: ${targetSourcePath}. Создана прозрачная заглушка.`);
+        }
 
-              // Читаем этот файл (или делаем прозрачную заглушку, если файла физически нет)
-              const rawBuffer = fs.existsSync(targetSourcePath)
-                  ? fs.readFileSync(targetSourcePath)
-                  : await sharp({
-                      create: {
-                          width: 512,
-                          height: 512,
-                          channels: 4,
-                          background: { r: 0, g: 0, b: 0, alpha: 0 }
-                      }
-                    }).png().toBuffer();
+        const rawBuffer = fs.existsSync(targetSourcePath)
+            ? fs.readFileSync(targetSourcePath)
+            : await sharp({
+                  create: {
+                      width: 512,
+                      height: 512,
+                      channels: 4,
+                      background: { r: 0, g: 0, b: 0, alpha: 0 }
+                  }
+              }).png().toBuffer();
 
-              // Передаем буфер в общую сборку слоев (шаблоны, флаги, статы, рамки)
-              return await assembleCardFromPlayerBuffer(rawBuffer, player, rarity, fileName);
+        return await assembleCardFromPlayerBuffer(rawBuffer, player, rarity, fileName);
     } catch (error) {
         console.error("[generatePlayerImageMock] Ошибка генерации мок-карточки:", error);
         return "";
     }
 }
 
-// ─── Главная функция (С генерацией через ИИ) ──────────────────────
+// ─── Главная функция (Генерация OpenAI + Авто-Мок фолбек) ──────────
 export async function generatePlayerImage(
     player: PlayerCardData,
     rarity: string = "bronze",
     fileNameRaw?: string,
 ): Promise<string> {
     const openai = getOpenAI();
+
+    // Если ключа нет или он невалидный — железно уходим в мок
     if (!openai) {
-        console.log("[OpenAI] API key not set, skipping image generation. Falling back to Mock version!");
-        // Опционально: если ключа нет, можно сразу возвращать тест, чтобы не возвращалась пустота
+        console.log("[OpenAI] API key missing/invalid. Falling back to Mock version!");
         return generatePlayerImageMock(player, rarity, fileNameRaw);
     }
 
@@ -350,24 +332,18 @@ export async function generatePlayerImage(
 
         const b64 = response.data?.[0]?.b64_json;
         if (!b64) {
-            console.error("[OpenAI] Нет b64_json в ответе");
-            return "";
+            throw new Error("Нет b64_json в ответе от OpenAI");
         }
         dalleBuffer = Buffer.from(b64, "base64");
-    } catch (err) {
-        console.error("[OpenAI] Ошибка генерации:", err);
-        return "";
-    }
 
-    try {
         const pngBuffer = await sharp(dalleBuffer).png().toBuffer();
         const noBg = removeBgIsolated(pngBuffer);
         const playerImage = noBg ?? pngBuffer;
 
-        // Передаем буфер игрока в общую функцию сборки
         return await assembleCardFromPlayerBuffer(playerImage, player, rarity, fileName);
-    } catch (error) {
-        console.error("[generatePlayerImage] ошибка обработки:", error);
-        return "";
+    } catch (err) {
+        // Подстраховка: если запрос к OpenAI упал (401, кончились деньги), тоже отдаем мок, чтобы не падал сервер
+        console.error("[OpenAI] Ошибка генерации. Переключаемся на Mock!", err);
+        return generatePlayerImageMock(player, rarity, fileNameRaw);
     }
 }
