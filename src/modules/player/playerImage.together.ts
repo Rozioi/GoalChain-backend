@@ -8,8 +8,13 @@ import { Resvg } from "@resvg/resvg-js";
 
 // ─── Ленивый OpenAI-клиент (не падает при сборке без ключа) ──────
 function getOpenAI(): OpenAI | null {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) return null;
+    let key = process.env.OPENAI_API_KEY;
+
+    // Если ключа нет, или это пустая строка, или это строки "null"/"undefined"
+    if (!key || key.trim() === "" || key === "null" || key === "undefined") {
+        return null;
+    }
+
     try {
         return new OpenAI({ apiKey: key });
     } catch {
