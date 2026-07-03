@@ -271,7 +271,7 @@ export async function generatePlayerImageMock(
 
     try {
         // Путь изменен на player.png (лучше подготовить прозрачный PNG)
-        const targetSourcePath = path.resolve("./assets/player.jpg");
+        const targetSourcePath = path.resolve("./assets/player.png");
 
         if (!fs.existsSync(targetSourcePath)) {
             console.error(`[Mock] ОШИБКА: Файл не найден по пути: ${targetSourcePath}. Создана прозрачная заглушка.`);
