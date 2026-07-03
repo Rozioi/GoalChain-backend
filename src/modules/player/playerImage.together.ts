@@ -42,8 +42,15 @@ const CARD_HEIGHT = 1280;
 const FONT_PATH = path.resolve("./assets/hud.otf");
 const FONT_FAMILY = "Hud";
 const CARD_TEMPLATE = path.resolve("./assets/background.jpg");
+const BG_DIR = "./public/backgrounds/";
 const FLAG_DIR = path.resolve("./assets/flags");
 const CLUB_DIR = path.resolve("./assets/clubs");
+
+const RARITY_BG: Record<string, string> = {
+    bronze: "bg_bronze.png",
+    silver: "bg_silver.png",
+    gold: "bg_gold.png",
+};
 
 const RARITY_COLORS: Record<string, string> = {
     bronze: "#CD7F32",
@@ -87,6 +94,27 @@ function renderSvg(svg: string): Buffer {
         },
     });
     return resvg.render().asPng();
+}
+
+// ─── Наложение фона редкости поверх шаблона ─────────────────────
+async function overlayBackground(
+    baseBuffer: Buffer,
+    bgFilename: string,
+): Promise<Buffer> {
+    const bgFullPath = path.resolve(`${BG_DIR}${bgFilename}`);
+    if (!fs.existsSync(bgFullPath)) return baseBuffer;
+    try {
+        const bg = await sharp(bgFullPath)
+            .resize(CARD_WIDTH, CARD_HEIGHT, { fit: "cover" })
+            .png()
+            .toBuffer();
+        return await sharp(baseBuffer)
+            .composite([{ input: bg, top: 0, left: 0, blend: "over" }])
+            .png()
+            .toBuffer();
+    } catch {
+        return baseBuffer;
+    }
 }
 
 // ─── SVG-текст: рейтинг, позиция, имя, статы ────────────────────
@@ -260,8 +288,18 @@ export async function generatePlayerImage(
             : null;
 
         if (templatePath) {
-            finalBuffer = await sharp(templatePath)
+            // Шаблон карточки
+            let composed = await sharp(templatePath)
                 .resize(CARD_WIDTH, CARD_HEIGHT, { fit: "cover" })
+                .png()
+                .toBuffer();
+
+            // Накладываем фон редкости поверх шаблона
+            const bgName = RARITY_BG[rarity] || RARITY_BG.bronze;
+            composed = await overlayBackground(composed, bgName);
+
+            // Накладываем игрока, текст, рамку
+            finalBuffer = await sharp(composed)
                 .composite(overlays)
                 .png()
                 .toBuffer();

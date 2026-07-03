@@ -440,7 +440,7 @@ export async function generatePlayer(
 
     return {
         ...playerData,
-        imageUrl: generatedImage || "",
+        imageUrl: generatedImage || "https://i.ibb.co/XxP14GR9/result-card.png",
     };
 }
 
