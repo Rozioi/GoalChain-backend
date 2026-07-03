@@ -417,8 +417,23 @@ export async function generatePlayer(
 
     // Генерация портрета через Together AI
     const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
+    const { generatePlayerImage } = await import("./playerImage.together");
     const generatedImage = await generatePlayerImage(
-        { name, surname, nationality, club },
+        {
+            name,
+            surname,
+            nationality,
+            club,
+            clubId,
+            overallRating,
+            position,
+            pace: playerData.pace,
+            shooting: playerData.shooting,
+            passing: playerData.passing,
+            dribbling: playerData.dribbling,
+            defending: playerData.defending,
+            physical: playerData.physical,
+        },
         rarity,
         fileName,
     );
