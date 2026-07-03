@@ -42,14 +42,17 @@ const CARD_HEIGHT = 1280;
 const FONT_PATH = path.resolve("./assets/hud.otf");
 const FONT_FAMILY = "Hud";
 const CARD_TEMPLATE = path.resolve("./assets/background.jpg");
-const BG_DIR = "./public/backgrounds/";
+const BG_DIR = "./assets/";
 const FLAG_DIR = path.resolve("./assets/flags");
 const CLUB_DIR = path.resolve("./assets/clubs");
 
+// Дефолтная заглушка для теста, если не передан конкретный файл
+const DEFAULT_TEST_AVATAR = path.resolve("./assets/test-avatar.png");
+
 const RARITY_BG: Record<string, string> = {
-    bronze: "bg_bronze.png",
-    silver: "bg_silver.png",
-    gold: "bg_gold.png",
+    bronze: "bronze_bg.png",
+    silver: "silver_bg.png",
+    gold: "gold_bg.png",
 };
 
 const RARITY_COLORS: Record<string, string> = {
@@ -168,19 +171,145 @@ No logos, no watermarks, clean pixel art.`
         .trim();
 }
 
-// ─── Главная функция ──────────────────────────────────────────────
+// ─── Общая сборка слоев карточки (Вынесено отдельно для реюза) ────
+async function assembleCardFromPlayerBuffer(
+    playerImageBuffer: Buffer,
+    player: PlayerCardData,
+    rarity: string,
+    fileName: string
+): Promise<string> {
+    // Пикселизация: → 150 → 600 (nearest neighbor, contain)
+    const pixelatedPlayer = await sharp(playerImageBuffer)
+        .ensureAlpha()
+        .resize(150, 150, { kernel: "nearest", fit: "inside" })
+        .resize(600, 600, {
+            kernel: "nearest",
+            fit: "contain",
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .png()
+        .toBuffer();
+
+    // Текстовый слой (SVG → PNG)
+    const textSvg = buildTextOverlay(player);
+    const textPng = renderSvg(textSvg);
+
+    // Слои
+    const overlays: { input: Buffer; top: number; left: number }[] = [
+        { input: pixelatedPlayer, top: 142, left: 132 },
+        { input: textPng, top: 0, left: 0 },
+    ];
+
+    // Флаг страны
+    const flagPath = path.join(FLAG_DIR, `${player.clubId || 0}.png`);
+    if (fs.existsSync(flagPath)) {
+        const flag = await sharp(flagPath)
+            .resize(141, 85, { fit: "inside" })
+            .png()
+            .toBuffer();
+        overlays.push({ input: flag, top: 445, left: 140 });
+    }
+
+    // Эмблема клуба
+    const clubPath = path.join(CLUB_DIR, `${player.clubId || 0}.png`);
+    if (fs.existsSync(clubPath)) {
+        const club = await sharp(clubPath)
+            .resize(140, 140, { fit: "inside" })
+            .png()
+            .toBuffer();
+        overlays.push({ input: club, top: 565, left: 138 });
+    }
+
+    // Рамка редкости
+    const frameSvg = buildFrameOverlay(rarity);
+    if (frameSvg) {
+        const framePng = renderSvg(frameSvg);
+        overlays.push({ input: framePng, top: 0, left: 0 });
+    }
+
+    // Шаблон карточки
+    let finalBuffer: Buffer;
+    const templatePath = fs.existsSync(CARD_TEMPLATE) ? CARD_TEMPLATE : null;
+
+    if (templatePath) {
+        let composed = await sharp(templatePath)
+            .resize(CARD_WIDTH, CARD_HEIGHT, { fit: "cover" })
+            .png()
+            .toBuffer();
+
+        const bgName = RARITY_BG[rarity] || RARITY_BG.bronze;
+        composed = await overlayBackground(composed, bgName);
+
+        finalBuffer = await sharp(composed)
+            .composite(overlays)
+            .png()
+            .toBuffer();
+    } else {
+        const bgColor = RARITY_COLORS[rarity] || "#CD7F32";
+        const bgSvg = `
+            <svg width="${CARD_WIDTH}" height="${CARD_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+                <rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" fill="${bgColor}" rx="12" />
+                <rect x="20" y="20" width="${CARD_WIDTH - 40}" height="${CARD_HEIGHT - 40}" fill="#1a1a1a" rx="8" />
+            </svg>`.trim();
+        const bgPng = renderSvg(bgSvg);
+        finalBuffer = await sharp(bgPng).composite(overlays).png().toBuffer();
+    }
+
+    fs.writeFileSync(path.resolve(`${CARD_DIR}${fileName}.png`), finalBuffer);
+    return `/generated-players/${fileName}.png`;
+}
+
+// ─── ТЕСТОВАЯ ФУНКЦИЯ (Без генерации через OpenAI) ────────────────
 /**
- * Генерирует полноценную карточку игрока (853×1280):
- *  - DALL-E 3 → портрет
- *  - удаление фона (isolated process)
- *  - пикселизация (150 → 600, nearest neighbor)
- *  - текст: рейтинг, позиция, имя, статы (Resvg + Hud-шрифт)
- *  - флаг, эмблема клуба (по наличию файлов)
- *  - шаблон карточки (background.jpg)
- *  - цветная рамка по редкости
- *
- *  При отсутствии ключа или ошибках возвращает "".
+ * Генерирует карточку используя ЛОКАЛЬНЫЙ файл аватара вместо ИИ DALL-E.
+ * Идеально подходит для ручных/автоматических тестов верстки, флагов и шрифтов.
+ * * @param customLocalAvatarPath - Путь к кастомной PNG-картинке (если не указан, ищет assets/test-avatar.png)
+ * @param removeBg - Нужна ли попытка вырезать фон у тестовой картинки
  */
+export async function generatePlayerImageMock(
+    player: PlayerCardData,
+    rarity: string = "bronze",
+    fileNameRaw?: string,
+    customLocalAvatarPath?: string,
+    removeBg: boolean = false
+): Promise<string> {
+    if (!fs.existsSync(CARD_DIR))
+        fs.mkdirSync(CARD_DIR, { recursive: true });
+
+    const fileName = (
+        fileNameRaw || `test_${player.name}_${player.surname}_${Date.now()}`
+    )
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_");
+
+    try {
+      const targetSourcePath = path.resolve("./assets/player.jpg");
+
+              if (!fs.existsSync(targetSourcePath)) {
+                  console.error(`[Mock] КРИТИЧЕСКАЯ ОШИБКА: Тестовый файл не найден по пути: ${targetSourcePath}`);
+              }
+
+              // Читаем этот файл (или делаем прозрачную заглушку, если файла физически нет)
+              const rawBuffer = fs.existsSync(targetSourcePath)
+                  ? fs.readFileSync(targetSourcePath)
+                  : await sharp({
+                      create: {
+                          width: 512,
+                          height: 512,
+                          channels: 4,
+                          background: { r: 0, g: 0, b: 0, alpha: 0 }
+                      }
+                    }).png().toBuffer();
+
+              // Передаем буфер в общую сборку слоев (шаблоны, флаги, статы, рамки)
+              return await assembleCardFromPlayerBuffer(rawBuffer, player, rarity, fileName);
+    } catch (error) {
+        console.error("[generatePlayerImageMock] Ошибка генерации мок-карточки:", error);
+        return "";
+    }
+}
+
+// ─── Главная функция (С генерацией через ИИ) ──────────────────────
 export async function generatePlayerImage(
     player: PlayerCardData,
     rarity: string = "bronze",
@@ -188,8 +317,9 @@ export async function generatePlayerImage(
 ): Promise<string> {
     const openai = getOpenAI();
     if (!openai) {
-        console.log("[OpenAI] API key not set, skipping image generation");
-        return "";
+        console.log("[OpenAI] API key not set, skipping image generation. Falling back to Mock version!");
+        // Опционально: если ключа нет, можно сразу возвращать тест, чтобы не возвращалась пустота
+        return generatePlayerImageMock(player, rarity, fileNameRaw);
     }
 
     if (!fs.existsSync(CARD_DIR))
@@ -201,10 +331,8 @@ export async function generatePlayerImage(
         .toLowerCase()
         .replace(/[^a-z0-9_]+/g, "_");
 
-    const relativeUrl = `/generated-players/${fileName}.png`;
     const prompt = buildPlayerImagePrompt(player);
 
-    // 1. Генерация портрета через OpenAI DALL-E 3
     let dalleBuffer: Buffer;
     try {
         const response = await openai.images.generate({
@@ -227,96 +355,12 @@ export async function generatePlayerImage(
     }
 
     try {
-        // 2. Удаление фона (изолированный процесс)
         const pngBuffer = await sharp(dalleBuffer).png().toBuffer();
         const noBg = removeBgIsolated(pngBuffer);
         const playerImage = noBg ?? pngBuffer;
 
-        // 3. Пикселизация: → 150 → 600 (nearest neighbor, contain)
-        const pixelatedPlayer = await sharp(playerImage)
-            .ensureAlpha()
-            .resize(150, 150, { kernel: "nearest", fit: "inside" })
-            .resize(600, 600, {
-                kernel: "nearest",
-                fit: "contain",
-                background: { r: 0, g: 0, b: 0, alpha: 0 },
-            })
-            .png()
-            .toBuffer();
-
-        // 4. Текстовый слой (SVG → PNG)
-        const textSvg = buildTextOverlay(player);
-        const textPng = renderSvg(textSvg);
-
-        // 5. Слои
-        const overlays: { input: Buffer; top: number; left: number }[] = [
-            { input: pixelatedPlayer, top: 142, left: 132 },
-            { input: textPng, top: 0, left: 0 },
-        ];
-
-        // 6. Флаг страны (по clubId или nationality)
-        const flagPath = path.join(FLAG_DIR, `${player.clubId || 0}.png`);
-        if (fs.existsSync(flagPath)) {
-            const flag = await sharp(flagPath)
-                .resize(141, 85, { fit: "inside" })
-                .png()
-                .toBuffer();
-            overlays.push({ input: flag, top: 445, left: 140 });
-        }
-
-        // 7. Эмблема клуба
-        const clubPath = path.join(CLUB_DIR, `${player.clubId || 0}.png`);
-        if (fs.existsSync(clubPath)) {
-            const club = await sharp(clubPath)
-                .resize(140, 140, { fit: "inside" })
-                .png()
-                .toBuffer();
-            overlays.push({ input: club, top: 565, left: 138 });
-        }
-
-        // 8. Рамка редкости
-        const frameSvg = buildFrameOverlay(rarity);
-        if (frameSvg) {
-            const framePng = renderSvg(frameSvg);
-            overlays.push({ input: framePng, top: 0, left: 0 });
-        }
-
-        // 9. Шаблон карточки (или fallback)
-        let finalBuffer: Buffer;
-        const templatePath = fs.existsSync(CARD_TEMPLATE)
-            ? CARD_TEMPLATE
-            : null;
-
-        if (templatePath) {
-            // Шаблон карточки
-            let composed = await sharp(templatePath)
-                .resize(CARD_WIDTH, CARD_HEIGHT, { fit: "cover" })
-                .png()
-                .toBuffer();
-
-            // Накладываем фон редкости поверх шаблона
-            const bgName = RARITY_BG[rarity] || RARITY_BG.bronze;
-            composed = await overlayBackground(composed, bgName);
-
-            // Накладываем игрока, текст, рамку
-            finalBuffer = await sharp(composed)
-                .composite(overlays)
-                .png()
-                .toBuffer();
-        } else {
-            const bgColor = RARITY_COLORS[rarity] || "#CD7F32";
-            const bgSvg = `
-                <svg width="${CARD_WIDTH}" height="${CARD_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" fill="${bgColor}" rx="12" />
-                    <rect x="20" y="20" width="${CARD_WIDTH - 40}" height="${CARD_HEIGHT - 40}" fill="#1a1a1a" rx="8" />
-                </svg>`.trim();
-            const bgPng = renderSvg(bgSvg);
-            finalBuffer = await sharp(bgPng).composite(overlays).png().toBuffer();
-        }
-
-        // 10. Сохраняем
-        fs.writeFileSync(path.resolve(`${CARD_DIR}${fileName}.png`), finalBuffer);
-        return relativeUrl;
+        // Передаем буфер игрока в общую функцию сборки
+        return await assembleCardFromPlayerBuffer(playerImage, player, rarity, fileName);
     } catch (error) {
         console.error("[generatePlayerImage] ошибка обработки:", error);
         return "";
