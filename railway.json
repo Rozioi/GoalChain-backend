@@ -1,13 +1,11 @@
 {
+    "$schema": "https://railway.com/railway.schema.json",
     "build": {
-        "builder": "nixpacks",
-        "nixpacksVersion": "1"
-    },
-    "variables": {
-        "NIXPACKS_NODE_VERSION": "20"
+        "builder": "RAILPACK",
+        "buildCommand": "npm run build"
     },
     "deploy": {
-        "startCommand": "npm run build && npm start",
+        "startCommand": "npm start",
         "healthcheckPath": "/api/v1/health"
     },
     "volumes": {
