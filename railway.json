@@ -1,19 +1,18 @@
 {
-    "build": {
-        "builder": "nixpacks",
-        "nixpacksVersion": "1"
-    },
-    "variables": {
-        "NIXPACKS_NODE_VERSION": "20"
-    },
-    "deploy": {
-        "startCommand": "npm run build && npm start",
-        "healthcheckPath": "/api/v1/health"
-    },
-    "volumes": {
-        "player-images": {
-            "mountPath": "/app/public/generated-players",
-            "name": "player-images"
-        }
+  "build": {
+    "builder": "nixpacks"
+  },
+  "variables": {
+    "NIXPACKS_NODE_VERSION": "20"
+  },
+  "deploy": {
+    "startCommand": "npm run build && npm start",
+    "healthcheckPath": "/api/v1/health"
+  },
+  "volumes": {
+    "player-images": {
+      "mountPath": "/app/public/generated-players",
+      "name": "player-images"
     }
+  }
 }
