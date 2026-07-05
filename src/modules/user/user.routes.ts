@@ -77,7 +77,7 @@ async function userRoutes(app: FastifyInstance) {
       },
       preHandler: [app.authenticate],
     },
-    userController.syncTelegram,
+    userController.syncTelegram as any,
   );
 
   app.get(
