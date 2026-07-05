@@ -5,6 +5,7 @@ import os from "os";
 import { spawnSync } from "child_process";
 import OpenAI from "openai";
 import { Resvg } from "@resvg/resvg-js";
+import type { FastifyInstance } from "fastify";
 
 // ─── Ленивый OpenAI-клиент (не падает при сборке без ключа) ──────
 function getOpenAI(): OpenAI | null {
@@ -293,6 +294,46 @@ export async function generatePlayerImageMock(
         console.error("[generatePlayerImageMock] Ошибка генерации мок-карточки:", error);
         return "";
     }
+}
+
+// ─── Перегенерация карточки игрока (перезаписывает файл) ──────────
+export async function regeneratePlayerCard(
+    playerId: string,
+    app: FastifyInstance,
+): Promise<string | null> {
+    const player = await app.prisma.player.findUnique({
+        where: { id: playerId },
+    });
+    if (!player) return null;
+
+    if (!fs.existsSync(CARD_DIR))
+        fs.mkdirSync(CARD_DIR, { recursive: true });
+
+    const cardData: PlayerCardData = {
+        name: player.name,
+        surname: player.surname || "",
+        nationality: player.nationality,
+        club: player.club,
+        clubId: player.clubId ?? undefined,
+        overallRating: player.overallRating,
+        position: player.position,
+        pace: player.pace,
+        shooting: player.shooting,
+        passing: player.passing,
+        dribbling: player.dribbling,
+        defending: player.defending,
+        physical: player.physical,
+    };
+
+    const rarity = player.rarity || "bronze";
+    const fileName = `${player.name}_${player.surname}`
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, '_');
+
+    const imageUrl = await generatePlayerImage(cardData, rarity, fileName);
+    if (!imageUrl) return null;
+
+    return imageUrl;
 }
 
 // ─── Главная функция (Генерация OpenAI + Авто-Мок фолбек) ──────────

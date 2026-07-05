@@ -415,8 +415,8 @@ export async function generatePlayer(
         physicalBonus: 0,
     };
 
-    // Генерация портрета через Together AI
-    const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
+    // Генерация портрета — fileName на основе имени, чтобы при перегенерации перезаписывался
+    const fileName = `${name}_${surname}`.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
     const { generatePlayerImage } = await import("./playerImage.together");
     const generatedImage = await generatePlayerImage(
         {

@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { TRAINING } from "../../config/constants";
 import { calculateTeamRating } from "../player/synergy.engine";
+import { regeneratePlayerCard } from "../player/playerImage.together";
 
 export async function startTraining(
     app: FastifyInstance,
@@ -119,6 +120,16 @@ export async function startTraining(
             },
         }),
     ]);
+
+    // Перегенерация карточки (фоново — не блокируем ответ)
+    regeneratePlayerCard(playerId, app).then((newImageUrl) => {
+        if (newImageUrl) {
+            app.prisma.player.update({
+                where: { id: playerId },
+                data: { imageUrl: newImageUrl },
+            }).catch((err) => app.log.error(err, "Failed to update player card"));
+        }
+    }).catch((err) => app.log.error(err, "Failed to regenerate player card"));
 
     if (teamPlayer.isStarter) {
         const team = await app.prisma.team.findUnique({
