@@ -62,6 +62,24 @@ async function userRoutes(app: FastifyInstance) {
     userController.deleteUser,
   );
   // --- USER PROFILE RUNS ---
+  app.post(
+    "/user/sync-telegram",
+    {
+      schema: {
+        tags: ["User"],
+        body: {
+          type: "object",
+          required: ["initData"],
+          properties: {
+            initData: { type: "string" },
+          },
+        },
+      },
+      preHandler: [app.authenticate],
+    },
+    userController.syncTelegram,
+  );
+
   app.get(
     "/user/me",
     {

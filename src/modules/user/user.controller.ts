@@ -3,6 +3,7 @@ import {
   registerUser,
   loginUser,
   getUserProfile,
+  syncTelegramProfile,
   applyReferralCode,
   getUserReferrals,
   ClubInfo,
@@ -67,6 +68,16 @@ export const userController = {
       const { initData, clubInfo } = req.body;
       const result = await registerUser(req.server, initData, clubInfo);
       reply.send(result);
+    } catch (err: any) {
+      reply.status(err.statusCode || 400).send({ error: err.message });
+    }
+  },
+
+  async syncTelegram(req: FastifyRequest<{ Body: { initData: string } }>, reply: FastifyReply) {
+    try {
+      const { initData } = req.body;
+      const user = await syncTelegramProfile(req.server, req.user.userId, initData);
+      reply.send(user);
     } catch (err: any) {
       reply.status(err.statusCode || 400).send({ error: err.message });
     }

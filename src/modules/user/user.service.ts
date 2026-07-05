@@ -110,12 +110,26 @@ export async function loginUser(app: FastifyInstance, initData: string) {
     return { isRegistered: false };
   }
 
+  const updates: Record<string, string | undefined> = {};
+  if (tgUser.username && existing.username !== tgUser.username) {
+    updates.username = tgUser.username;
+  }
+  if (tgUser.first_name && existing.firstName !== tgUser.first_name) {
+    updates.firstName = tgUser.first_name;
+  }
+  if (tgUser.last_name && existing.lastName !== tgUser.last_name) {
+    updates.lastName = tgUser.last_name;
+  }
   if (tgUser.photo_url && existing.photoUrl !== tgUser.photo_url) {
+    updates.photoUrl = tgUser.photo_url;
+  }
+
+  if (Object.keys(updates).length > 0) {
     await app.prisma.user.update({
       where: { id: existing.id },
-      data: { photoUrl: tgUser.photo_url },
+      data: updates,
     });
-    existing.photoUrl = tgUser.photo_url;
+    Object.assign(existing, updates);
   }
 
   const token = app.jwt.sign({
@@ -148,12 +162,26 @@ export async function registerUser(
   });
 
   if (existing) {
+    const updates: Record<string, string | undefined> = {};
+    if (tgUser.username && existing.username !== tgUser.username) {
+      updates.username = tgUser.username;
+    }
+    if (tgUser.first_name && existing.firstName !== tgUser.first_name) {
+      updates.firstName = tgUser.first_name;
+    }
+    if (tgUser.last_name && existing.lastName !== tgUser.last_name) {
+      updates.lastName = tgUser.last_name;
+    }
     if (tgUser.photo_url && existing.photoUrl !== tgUser.photo_url) {
+      updates.photoUrl = tgUser.photo_url;
+    }
+
+    if (Object.keys(updates).length > 0) {
       await app.prisma.user.update({
         where: { id: existing.id },
-        data: { photoUrl: tgUser.photo_url },
+        data: updates,
       });
-      existing.photoUrl = tgUser.photo_url;
+      Object.assign(existing, updates);
     }
 
     const token = app.jwt.sign({
@@ -169,6 +197,8 @@ export async function registerUser(
     data: {
       telegramId,
       username: tgUser.username,
+      firstName: tgUser.first_name,
+      lastName: tgUser.last_name,
       clubName: clubInfo.clubName.trim(),
       clubIcon: clubInfo.clubIcon || "default",
       photoUrl: tgUser.photo_url,
@@ -186,6 +216,54 @@ export async function registerUser(
 
 import { rentService } from "../player/rent.service";
 import { syncUserEnergy } from "./energy.service";
+
+export async function syncTelegramProfile(
+  app: FastifyInstance,
+  userId: string,
+  initData: string,
+) {
+  const botToken = process.env.BOT_TOKEN || "";
+  const isValid = verifyTelegramInitData(initData, botToken);
+  if (!isValid) {
+    throw new AppError("Invalid Telegram signature", 401);
+  }
+
+  const tgUser = parseTelegramInitData(initData);
+  if (!tgUser) {
+    throw new AppError("Could not parse Telegram user data", 400);
+  }
+
+  const user = await app.prisma.user.findUnique({
+    where: { id: userId },
+  });
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  const updates: Record<string, string | undefined> = {};
+
+  if (tgUser.username && user.username !== tgUser.username) {
+    updates.username = tgUser.username;
+  }
+  if (tgUser.first_name && user.firstName !== tgUser.first_name) {
+    updates.firstName = tgUser.first_name;
+  }
+  if (tgUser.last_name && user.lastName !== tgUser.last_name) {
+    updates.lastName = tgUser.last_name;
+  }
+  if (tgUser.photo_url && user.photoUrl !== tgUser.photo_url) {
+    updates.photoUrl = tgUser.photo_url;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await app.prisma.user.update({
+      where: { id: userId },
+      data: updates,
+    });
+  }
+
+  return getUserProfile(app, userId);
+}
 
 export async function getUserProfile(app: FastifyInstance, userId: string) {
   rentService
