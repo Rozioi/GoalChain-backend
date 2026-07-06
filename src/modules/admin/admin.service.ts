@@ -117,18 +117,10 @@ export async function endSeason(app: FastifyInstance, seasonId: string) {
 }
 
 export async function deleteUser(app: FastifyInstance, userId: string) {
-    // Сначала удаляем зависимые сущности
-    const teams = await app.prisma.team.findMany({
-        where: { userId },
-        select: { id: true },
+    console.log(`Deleting user ${userId}`);
+    await app.prisma.user.delete({
+        where: { id: userId },
     });
-    const teamIds = teams.map((t) => t.id);
-
-    await app.prisma.$transaction([
-        app.prisma.user.delete({
-            where: { id: userId },
-        }),
-    ]);
 
     return { success: true };
 }
