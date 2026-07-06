@@ -125,37 +125,6 @@ export async function deleteUser(app: FastifyInstance, userId: string) {
     const teamIds = teams.map((t) => t.id);
 
     await app.prisma.$transaction([
-        // Удаляем players команды
-        app.prisma.teamPlayer.deleteMany({
-            where: { teamId: { in: teamIds } },
-        }),
-        // Удаляем команды
-        app.prisma.team.deleteMany({
-            where: { userId },
-        }),
-        // Удаляем матчи где участвовал пользователь
-        app.prisma.match.deleteMany({
-            where: {
-                OR: [{ homeUserId: userId }, { awayUserId: userId }],
-            },
-        }),
-        // Удаляем скауты
-        app.prisma.scout.deleteMany({
-            where: { userId },
-        }),
-        // Удаляем результаты скаутов
-        app.prisma.scoutResult.deleteMany({
-            where: { scout: { userId } },
-        }),
-        // Удаляем экономику
-        app.prisma.economyLog.deleteMany({
-            where: { userId },
-        }),
-        // Удаляем прогресс задач
-        app.prisma.userTask.deleteMany({
-            where: { userId },
-        }),
-        // Удаляем пользователя
         app.prisma.user.delete({
             where: { id: userId },
         }),
