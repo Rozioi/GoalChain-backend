@@ -152,7 +152,7 @@ export async function deleteUser(app: FastifyInstance, userId: string) {
             where: { userId },
         }),
         // Удаляем прогресс задач
-        app.prisma.taskProgress.deleteMany({
+        app.prisma.userTask.deleteMany({
             where: { userId },
         }),
         // Удаляем пользователя
