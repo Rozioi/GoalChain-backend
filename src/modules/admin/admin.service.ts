@@ -1,100 +1,110 @@
 import { FastifyInstance } from "fastify";
 
 export async function getGlobalStats(app: FastifyInstance) {
-  const [userCount, teamCount, matchCount, totalCoins] = await Promise.all([
-    app.prisma.user.count(),
-    app.prisma.team.count(),
-    app.prisma.match.count(),
-    app.prisma.user.aggregate({ _sum: { coins: true } }),
-  ]);
+    const [userCount, teamCount, matchCount, totalCoins] = await Promise.all([
+        app.prisma.user.count(),
+        app.prisma.team.count(),
+        app.prisma.match.count(),
+        app.prisma.user.aggregate({ _sum: { coins: true } }),
+    ]);
 
-  return {
-    users: userCount,
-    teams: teamCount,
-    matches: matchCount,
-    economy: totalCoins._sum.coins || 0,
-    timestamp: new Date().toISOString(),
-  };
+    return {
+        users: userCount,
+        teams: teamCount,
+        matches: matchCount,
+        economy: totalCoins._sum.coins || 0,
+        timestamp: new Date().toISOString(),
+    };
 }
 
 export async function listUsers(
-  app: FastifyInstance,
-  query: { search?: string; skip?: number; take?: number },
+    app: FastifyInstance,
+    query: { search?: string; skip?: number; take?: number },
 ) {
-  const { search, skip = 0, take = 50 } = query;
+    const { search, skip = 0, take = 50 } = query;
 
-  const where = search
-    ? {
-        OR: [
-          { username: { contains: search, mode: "insensitive" as any } },
-          { firstName: { contains: search, mode: "insensitive" as any } },
-          { telegramId: { contains: search } },
-        ],
-      }
-    : {};
+    const where = search
+        ? {
+              OR: [
+                  {
+                      username: {
+                          contains: search,
+                          mode: "insensitive" as any,
+                      },
+                  },
+                  {
+                      firstName: {
+                          contains: search,
+                          mode: "insensitive" as any,
+                      },
+                  },
+                  { telegramId: { contains: search } },
+              ],
+          }
+        : {};
 
-  const [users, total] = await Promise.all([
-    app.prisma.user.findMany({
-      where,
-      skip,
-      take,
-      orderBy: { createdAt: "desc" },
-    }),
-    app.prisma.user.count({ where }),
-  ]);
+    const [users, total] = await Promise.all([
+        app.prisma.user.findMany({
+            where,
+            skip,
+            take,
+            orderBy: { createdAt: "desc" },
+        }),
+        app.prisma.user.count({ where }),
+    ]);
 
-  return { users, total };
+    return { users, total };
 }
 
 export async function updateUser(
-  app: FastifyInstance,
-  userId: string,
-  data: {
-    coins?: number;
-    points?: number;
-    level?: number;
-    username?: string;
-    isAdmin?: boolean;
-  },
+    app: FastifyInstance,
+    userId: string,
+    data: {
+        coins?: number;
+        points?: number;
+        level?: number;
+        username?: string;
+        isAdmin?: boolean;
+    },
 ) {
-  return app.prisma.user.update({
-    where: { id: userId },
-    data,
-  });
+    return app.prisma.user.update({
+        where: { id: userId },
+        data,
+    });
 }
 
 export async function createSeason(
-  app: FastifyInstance,
-  data: {
-    name: string;
-    startDate: Date;
-    endDate: Date;
-    division: number;
-  },
-) {
-  return app.prisma.season.create({
+    app: FastifyInstance,
     data: {
-      ...data,
-      status: "UPCOMING",
+        name: string;
+        startDate: Date;
+        endDate: Date;
+        division: number;
     },
-  });
+) {
+    return app.prisma.season.create({
+        data: {
+            ...data,
+            status: "UPCOMING",
+        },
+    });
 }
 
 export async function updateSeasonStatus(
-  app: FastifyInstance,
-  seasonId: string,
-  status: "UPCOMING" | "ACTIVE" | "PLAYOFFS" | "COMPLETED",
+    app: FastifyInstance,
+    seasonId: string,
+    status: "UPCOMING" | "ACTIVE" | "PLAYOFFS" | "COMPLETED",
 ) {
-  return app.prisma.season.update({
-    where: { id: seasonId },
-    data: { status },
-  });
+    return app.prisma.season.update({
+        where: { id: seasonId },
+        data: { status },
+    });
 }
 
 export async function listSeasons(app: FastifyInstance) {
-  return app.prisma.season.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+    return app.prisma.season.findMany({
+        orderBy: { createdAt: "desc" },
+    });
 }
 
 import { endSeason as finishSeason } from "../season/season.service";
@@ -103,5 +113,72 @@ import { broadcastMessage } from "./broadcast.service";
 export { broadcastMessage };
 
 export async function endSeason(app: FastifyInstance, seasonId: string) {
-  return finishSeason(app, seasonId);
+    return finishSeason(app, seasonId);
+}
+
+export async function deleteUser(app: FastifyInstance, userId: string) {
+    // Сначала удаляем зависимые сущности
+    const teams = await app.prisma.team.findMany({
+        where: { userId },
+        select: { id: true },
+    });
+    const teamIds = teams.map((t) => t.id);
+
+    await app.prisma.$transaction([
+        // Удаляем players команды
+        app.prisma.teamPlayer.deleteMany({
+            where: { teamId: { in: teamIds } },
+        }),
+        // Удаляем команды
+        app.prisma.team.deleteMany({
+            where: { userId },
+        }),
+        // Удаляем матчи где участвовал пользователь
+        app.prisma.match.deleteMany({
+            where: {
+                OR: [{ homeUserId: userId }, { awayUserId: userId }],
+            },
+        }),
+        // Удаляем скауты
+        app.prisma.scout.deleteMany({
+            where: { userId },
+        }),
+        // Удаляем результаты скаутов
+        app.prisma.scoutResult.deleteMany({
+            where: { scout: { userId } },
+        }),
+        // Удаляем экономику
+        app.prisma.economyLog.deleteMany({
+            where: { userId },
+        }),
+        // Удаляем прогресс задач
+        app.prisma.taskProgress.deleteMany({
+            where: { userId },
+        }),
+        // Удаляем пользователя
+        app.prisma.user.delete({
+            where: { id: userId },
+        }),
+    ]);
+
+    return { success: true };
+}
+
+export async function deleteUserTeam(app: FastifyInstance, userId: string) {
+    const teams = await app.prisma.team.findMany({
+        where: { userId },
+        select: { id: true },
+    });
+    const teamIds = teams.map((t) => t.id);
+
+    await app.prisma.$transaction([
+        app.prisma.teamPlayer.deleteMany({
+            where: { teamId: { in: teamIds } },
+        }),
+        app.prisma.team.deleteMany({
+            where: { userId },
+        }),
+    ]);
+
+    return { success: true };
 }
