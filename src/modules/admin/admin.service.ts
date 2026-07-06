@@ -117,7 +117,6 @@ export async function endSeason(app: FastifyInstance, seasonId: string) {
 }
 
 export async function deleteUser(app: FastifyInstance, userId: string) {
-    console.log(`Deleting user ${userId}`);
     await app.prisma.user.delete({
         where: { id: userId },
     });
