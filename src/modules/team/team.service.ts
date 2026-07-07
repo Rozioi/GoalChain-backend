@@ -73,29 +73,25 @@ export async function updateLineup(
         }
     }
 
-    // Валидация: GK (позиция GOALKEEPER) только на позиции 1 (вратарь)
-    // Позиция GK должна быть первой в starterIds
+    // Валидация: ровно один GK в стартовом составе, и только GK может быть вратарём
     const playersMap = new Map(
         team.players.map((tp: any) => [tp.playerId, tp.player]),
     );
 
-    for (let i = 0; i < starterIds.length; i++) {
-        const playerId = starterIds[i];
+    let gkCount = 0;
+    for (const playerId of starterIds) {
         const player = playersMap.get(playerId);
         if (!player) throw new Error(`Player ${playerId} not found in team`);
 
         const isGk =
             player.position === "GOALKEEPER" || player.role === "GOALKEEPER";
-        const isGkSlot = i === 0;
+        if (isGk) gkCount++;
+    }
 
-        if (isGk && !isGkSlot) {
-            throw new Error(
-                "Goalkeeper can only be placed in the GK slot (first position)",
-            );
-        }
-        if (isGkSlot && !isGk) {
-            throw new Error("Only a Goalkeeper can be placed in the GK slot");
-        }
+    if (gkCount !== 1) {
+        throw new Error(
+            "Team must have exactly one Goalkeeper in the starting lineup",
+        );
     }
 
     await app.prisma.teamPlayer.updateMany({
