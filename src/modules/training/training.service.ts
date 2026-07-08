@@ -72,10 +72,6 @@ export async function startTraining(
         }
     }
 
-    const maxOvr = Math.min(
-        TRAINING.MAX_OVR,
-        teamPlayer.player.potentialMax || TRAINING.MAX_OVR,
-    );
     const maxOvr = teamPlayer.player.potentialMax || 99;
 
     const currentOvr = teamPlayer.player.overallRating;

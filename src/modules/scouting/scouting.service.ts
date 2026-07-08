@@ -231,7 +231,6 @@ export async function syncScoutStates(app: FastifyInstance, userId: string) {
                     role: (scout.targetRole as PlayerRole) || undefined,
                     ovrMin: ovr,
                     ovrMax: ovr,
-                    isNft: false, // NFT игроки не выпадают из скаутинга
                     seed: `scout-${scout.id}`,
                 });
 
