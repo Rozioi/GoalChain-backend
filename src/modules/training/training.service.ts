@@ -1,6 +1,9 @@
 import { FastifyInstance } from "fastify";
 import { TRAINING } from "../../config/constants";
-import { calculateTeamRating } from "../player/synergy.engine";
+import {
+    calculateTeamRating,
+    calculatePlayerOverall,
+} from "../player/synergy.engine";
 import { regeneratePlayerCard } from "../player/playerImage.together";
 
 export async function startTraining(
@@ -73,6 +76,7 @@ export async function startTraining(
         TRAINING.MAX_OVR,
         teamPlayer.player.potentialMax || TRAINING.MAX_OVR,
     );
+    const maxOvr = teamPlayer.player.potentialMax || 99;
 
     const currentOvr = teamPlayer.player.overallRating;
     if (currentOvr >= maxOvr) {
@@ -101,10 +105,12 @@ export async function startTraining(
     }
 
     const boost = TRAINING.BOOST;
-    const newOvr = Math.min(
-        maxOvr,
-        Math.round(currentOvr + TRAINING.OVR_BOOST),
-    );
+    // Пересчитываем OVR из параметров после тренировки
+    const updatedStats = {
+        ...teamPlayer.player,
+        [stat]: currentStatValue + boost,
+    };
+    const newOvr = Math.min(maxOvr, calculatePlayerOverall(updatedStats));
     const newXp =
         (teamPlayer.player.trainingExperience || 0) + TRAINING.XP_PER_TRAINING;
     const neededXp =
@@ -220,10 +226,7 @@ export async function getTrainingCost(
         include: { player: true },
     });
 
-    const maxOvr = Math.min(
-        TRAINING.MAX_OVR,
-        teamPlayer?.player.potentialMax || TRAINING.MAX_OVR,
-    );
+    const maxOvr = teamPlayer?.player.potentialMax || 99;
 
     const lastTraining = await app.prisma.training.findFirst({
         where: { userId, playerId, status: "COMPLETED" },
