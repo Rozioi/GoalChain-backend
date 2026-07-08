@@ -69,7 +69,17 @@ export async function startTraining(
         }
     }
 
-    const maxOvr = TRAINING.MAX_OVR;
+    const maxOvr = Math.min(
+        TRAINING.MAX_OVR,
+        teamPlayer.player.potentialMax || TRAINING.MAX_OVR,
+    );
+
+    const currentOvr = teamPlayer.player.overallRating;
+    if (currentOvr >= maxOvr) {
+        throw new Error(
+            `Player has reached their maximum potential (${maxOvr} OVR)`,
+        );
+    }
 
     const currentStatValue = (teamPlayer.player as any)[stat] as number;
     if (currentStatValue >= maxOvr) {
@@ -91,6 +101,23 @@ export async function startTraining(
     }
 
     const boost = TRAINING.BOOST;
+    const newOvr = Math.min(
+        maxOvr,
+        Math.round(currentOvr + TRAINING.OVR_BOOST),
+    );
+    const newXp =
+        (teamPlayer.player.trainingExperience || 0) + TRAINING.XP_PER_TRAINING;
+    const neededXp =
+        teamPlayer.player.trainingExperienceRequired || TRAINING.XP_PER_LEVEL;
+    let newLevel = teamPlayer.player.trainingLevel || 1;
+    let newExp = newXp;
+    let newNeededXp = neededXp;
+
+    if (newExp >= newNeededXp) {
+        newExp -= newNeededXp;
+        newLevel += 1;
+        newNeededXp = newLevel * TRAINING.XP_PER_LEVEL;
+    }
 
     const endsAt = new Date(Date.now() + TRAINING.COOLDOWN_MS);
 
@@ -114,22 +141,29 @@ export async function startTraining(
             where: { id: playerId },
             data: {
                 [stat]: { increment: boost },
-                overallRating: {
-                    increment: Math.round(boost / 6),
-                },
+                overallRating: newOvr,
+                trainingLevel: newLevel,
+                trainingExperience: newExp,
+                trainingExperienceRequired: newNeededXp,
             },
         }),
     ]);
 
     // Перегенерация карточки (фоново — не блокируем ответ)
-    regeneratePlayerCard(playerId, app).then((newImageUrl) => {
-        if (newImageUrl) {
-            app.prisma.player.update({
-                where: { id: playerId },
-                data: { imageUrl: newImageUrl },
-            }).catch((err) => app.log.error(err, "Failed to update player card"));
-        }
-    }).catch((err) => app.log.error(err, "Failed to regenerate player card"));
+    regeneratePlayerCard(playerId, app)
+        .then((newImageUrl) => {
+            if (newImageUrl) {
+                app.prisma.player
+                    .update({
+                        where: { id: playerId },
+                        data: { imageUrl: newImageUrl },
+                    })
+                    .catch((err) =>
+                        app.log.error(err, "Failed to update player card"),
+                    );
+            }
+        })
+        .catch((err) => app.log.error(err, "Failed to regenerate player card"));
 
     if (teamPlayer.isStarter) {
         const team = await app.prisma.team.findUnique({
@@ -186,7 +220,10 @@ export async function getTrainingCost(
         include: { player: true },
     });
 
-    const maxOvr = TRAINING.MAX_OVR;
+    const maxOvr = Math.min(
+        TRAINING.MAX_OVR,
+        teamPlayer?.player.potentialMax || TRAINING.MAX_OVR,
+    );
 
     const lastTraining = await app.prisma.training.findFirst({
         where: { userId, playerId, status: "COMPLETED" },
@@ -208,8 +245,17 @@ export async function getTrainingCost(
         totalTrainings: trainingCount,
         maxOvr,
         currentOverallRating: teamPlayer?.player.overallRating || 0,
+        currentOvr: teamPlayer?.player.overallRating || 0,
+        potentialMin: teamPlayer?.player.potentialMin || 0,
+        potentialMax: teamPlayer?.player.potentialMax || maxOvr,
         isNft: teamPlayer?.player.isNft || false,
         cooldownEndsAt,
         lastTrainedStat: lastTraining?.stat || null,
+        trainingLevel: teamPlayer?.player.trainingLevel || 1,
+        trainingLevelMax: TRAINING.MAX_TRAINING_LEVEL,
+        trainingExperience: teamPlayer?.player.trainingExperience || 0,
+        trainingExperienceRequired:
+            teamPlayer?.player.trainingExperienceRequired ||
+            TRAINING.XP_PER_LEVEL,
     };
 }

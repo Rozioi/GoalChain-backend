@@ -319,16 +319,15 @@ export async function generatePlayer(
     const style = pickRandom(rng, STYLES_BY_ROLE[role]);
 
     const stats = generateStatsForRole(rng, role, style, overallRating);
-    const potentialMin = randomInt(
-        rng,
-        overallRating + 2,
-        Math.min(99, overallRating + 10),
-    );
+    // Потенциал: от текущего OVR до макс. возможного
+    // potentialMin — нижняя граница (сейчас = OVR)
+    // potentialMax — максимальный OVR, до которого может прокачаться игрок
     const potentialMax = randomInt(
         rng,
-        potentialMin + 5,
-        Math.min(99, potentialMin + 15),
+        Math.max(overallRating + 5, 60),
+        Math.min(99, overallRating + 20),
     );
+    const potentialMin = overallRating; // текущий OVR = нижняя граница
 
     const formValue = 1.0 + randomInt(rng, -10, 20) / 100;
     const age = randomInt(rng, 17, 34);
@@ -416,7 +415,9 @@ export async function generatePlayer(
     };
 
     // Генерация портрета — fileName на основе имени, чтобы при перегенерации перезаписывался
-    const fileName = `${name}_${surname}`.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+    const fileName = `${name}_${surname}`
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_");
     const { generatePlayerImage } = await import("./playerImage.together");
     const generatedImage = await generatePlayerImage(
         {

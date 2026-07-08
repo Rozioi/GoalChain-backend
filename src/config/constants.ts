@@ -64,11 +64,15 @@ export const INVITE = {
 
 // ─── TRAINING ───────────────────────────────────────────────────
 export const TRAINING = {
-    BASE_COST: 100,
-    COST_MULTIPLIER: 1.5,
-    COOLDOWN_MS: 2 * 60 * 60 * 1000,
-    BOOST: 1,
-    MAX_OVR: 99,
+    BASE_COST: 100, // начальная стоимость
+    COST_MULTIPLIER: 1.3, // каждая тренировка дорожает на 30%
+    COOLDOWN_MS: 1 * 60 * 60 * 1000, // 1 час кулдаун
+    BOOST: 1, // +1 к выбранной стате
+    OVR_BOOST: 0.5, // +0.5 к общему OVR (округляется)
+    MAX_OVR: 99, // глобальный максимум
+    XP_PER_TRAINING: 25, // XP за тренировку
+    XP_PER_LEVEL: 100, // XP для нового уровня тр.
+    MAX_TRAINING_LEVEL: 25, // макс. уровень тренировки
 };
 
 // ─── NFT ────────────────────────────────────────────────────────
