@@ -217,37 +217,21 @@ export async function syncScoutStates(app: FastifyInstance, userId: string) {
                 const levelBoost = Math.floor((scoutingLevel - 1) / 2);
 
                 const [baseMin, baseMax] = tierConfig.OVR_RANGE;
-                const ovrMin = Math.min(45, baseMin + levelBoost);
-                const ovrMax = Math.min(79, baseMax + levelBoost);
+                const ovrMin = Math.max(45, Math.min(baseMin + levelBoost, 99));
+                const ovrMax = Math.max(
+                    ovrMin,
+                    Math.min(baseMax + levelBoost, 99),
+                );
 
-                const chanceConfig = tierConfig.CHANCE || { min: 50, max: 50 };
-                const effectiveChance =
-                    chanceConfig.min +
-                    Math.floor(
-                        Math.random() *
-                            (chanceConfig.max - chanceConfig.min + 1),
-                    );
-                const roll = Math.random() * 100;
-
-                // Если roll НЕ прошёл — результата нет, скаут завершается без игрока
-                if (roll >= effectiveChance) {
-                    app.log.info(
-                        `[Scout] Scout ${scout.id} failed (tier: ${scout.tier}, roll: ${roll.toFixed(1)}%, needed: ${effectiveChance}%)`,
-                    );
-                    await app.prisma.scout.update({
-                        where: { id: scout.id },
-                        data: { status: "COMPLETED" },
-                    });
-                    return;
-                }
-
-                // Шанс прошёл — определяем OVR в верхней части диапазона
-                const midPoint = ovrMin + Math.floor((ovrMax - ovrMin) * 0.4);
+                // OVR равномерно в диапазоне (всегда успех)
+                const ovr =
+                    ovrMin + Math.floor(Math.random() * (ovrMax - ovrMin + 1));
 
                 const generated = await generatePlayer({
                     role: (scout.targetRole as PlayerRole) || undefined,
-                    ovrMin: midPoint,
-                    ovrMax: ovrMax,
+                    ovrMin: ovr,
+                    ovrMax: ovr,
+                    isNft: false, // NFT игроки не выпадают из скаутинга
                     seed: `scout-${scout.id}`,
                 });
 
