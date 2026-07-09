@@ -354,32 +354,6 @@ export async function completeDraft(
             );
         }
 
-      const cleanClubName = clubName?.trim();
-      const team = await tx.team.create({
-        data: {
-          name: cleanClubName || `${user?.clubName || "Player"}'s Team`,
-          userId,
-        },
-      });
-
-      // Sort starters: FORWARD -> MIDFIELDER -> DEFENDER -> GOALKEEPER
-      // To align with the UI formation layout indexes: 0-1 (FWD), 2-5 (MID), 6-9 (DEF), 10 (GK)
-      const fwds = starters.filter((p: any) => p && p.role === "FORWARD");
-      const mids = starters.filter((p: any) => p && p.role === "MIDFIELDER");
-      const defs = starters.filter((p: any) => p && p.role === "DEFENDER");
-      const gks = starters.filter((p: any) => p && p.role === "GOALKEEPER");
-      const sortedStarters = [...fwds, ...mids, ...defs, ...gks];
-
-      for (let i = 0; i < sortedStarters.length; i++) {
-        const player = sortedStarters[i];
-        if (!player || !player.id) {
-          app.log.warn(
-            { i, player, teamId: team.id },
-            "completeDraft: skipping invalid starter",
-          );
-          continue;
-        }
-
         const user = await app.prisma.user.findUnique({
             where: { id: userId },
         });
