@@ -27,36 +27,44 @@ export declare function getCurrentSeason(app: FastifyInstance): Promise<{
         goalsAgainst: number;
     }[];
 } | null>;
-export declare function getSeasonStandings(app: FastifyInstance, seasonId: string): Promise<({
-    team: {
-        user: {
-            username: string | null;
-            clubName: string | null;
+export declare function getSeasonStandings(
+    app: FastifyInstance,
+    seasonId: string,
+): Promise<
+    ({
+        team: {
+            user: {
+                username: string | null;
+                clubName: string | null;
+            };
+        } & {
+            name: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            rating: number;
+            formation: string;
+            userId: string;
+            isEvent: boolean;
+            eventId: string | null;
         };
     } & {
-        name: string;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        rating: number;
-        formation: string;
-        userId: string;
-        isEvent: boolean;
-        eventId: string | null;
-    };
-} & {
-    id: string;
-    points: number;
-    seasonId: string;
-    teamId: string;
-    played: number;
-    wins: number;
-    draws: number;
-    losses: number;
-    goalsFor: number;
-    goalsAgainst: number;
-})[]>;
-export declare function registerForSeason(app: FastifyInstance, userId: string): Promise<{
+        points: number;
+        seasonId: string;
+        teamId: string;
+        played: number;
+        wins: number;
+        draws: number;
+        losses: number;
+        goalsFor: number;
+        goalsAgainst: number;
+    })[]
+>;
+export declare function registerForSeason(
+    app: FastifyInstance,
+    userId: string,
+): Promise<{
     season: {
         name: string;
         id: string;
@@ -79,7 +87,14 @@ export declare function registerForSeason(app: FastifyInstance, userId: string):
         goalsAgainst: number;
     };
 }>;
-export declare function updateStandings(app: FastifyInstance, seasonId: string, teamId: string, goalsFor: number, goalsAgainst: number, result: "win" | "draw" | "loss"): Promise<{
+export declare function updateStandings(
+    app: FastifyInstance,
+    seasonId: string,
+    teamId: string,
+    goalsFor: number,
+    goalsAgainst: number,
+    result: "win" | "draw" | "loss",
+): Promise<{
     id: string;
     points: number;
     seasonId: string;
@@ -91,7 +106,11 @@ export declare function updateStandings(app: FastifyInstance, seasonId: string, 
     goalsFor: number;
     goalsAgainst: number;
 }>;
-export declare function createSeason(app: FastifyInstance, name: string, division: number): Promise<{
+export declare function createSeason(
+    app: FastifyInstance,
+    name: string,
+    division: number,
+): Promise<{
     name: string;
     id: string;
     createdAt: Date;
@@ -100,12 +119,17 @@ export declare function createSeason(app: FastifyInstance, name: string, divisio
     endDate: Date;
     division: number;
 }>;
-/**
- * Automatically start seasons whose startDate has passed and are still UPCOMING
- */
-export declare function checkAndStartUpcomingSeasons(app: FastifyInstance): Promise<void>;
-export declare function checkAndEndExpiredSeasons(app: FastifyInstance): Promise<void>;
-export declare function endSeason(app: FastifyInstance, seasonId: string): Promise<{
+
+export declare function checkAndStartUpcomingSeasons(
+    app: FastifyInstance,
+): Promise<void>;
+export declare function checkAndEndExpiredSeasons(
+    app: FastifyInstance,
+): Promise<void>;
+export declare function endSeason(
+    app: FastifyInstance,
+    seasonId: string,
+): Promise<{
     name: string;
     id: string;
     createdAt: Date;
@@ -114,7 +138,10 @@ export declare function endSeason(app: FastifyInstance, seasonId: string): Promi
     endDate: Date;
     division: number;
 }>;
-export declare function playSeasonMatch(app: FastifyInstance, userId: string): Promise<{
+export declare function playSeasonMatch(
+    app: FastifyInstance,
+    userId: string,
+): Promise<{
     match: {
         id: string;
         createdAt: Date;

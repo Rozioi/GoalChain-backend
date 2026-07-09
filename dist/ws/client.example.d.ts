@@ -1,6 +1,4 @@
-/**
- * Client WebSocket integration example (Telegram Mini App / React)
- *
+
  * npm install socket.io-client
  */
 import { Socket } from "socket.io-client";
