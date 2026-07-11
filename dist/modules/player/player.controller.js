@@ -59,6 +59,24 @@ exports.playerController = {
             reply.status(404).send({ error: err.message });
         }
     },
+    async lockPlayer(req, reply) {
+        try {
+            const result = await nft_mint_service_1.nftMintService.lockPlayer(req.server, req.user.userId, req.params.id);
+            reply.send(result);
+        }
+        catch (err) {
+            reply.status(400).send({ error: err.message });
+        }
+    },
+    async unlockPlayer(req, reply) {
+        try {
+            const result = await nft_mint_service_1.nftMintService.unlockPlayer(req.server, req.user.userId, req.params.id);
+            reply.send(result);
+        }
+        catch (err) {
+            reply.status(400).send({ error: err.message });
+        }
+    },
     async prepareMint(req, reply) {
         try {
             const result = await nft_mint_service_1.nftMintService.prepareMint(req.server, req.user.userId, req.body.playerId, req.body.walletAddress);
@@ -77,4 +95,26 @@ exports.playerController = {
             reply.status(400).send({ error: err.message });
         }
     },
+    // async webhookValidateMint(
+    //     req: FastifyRequest<{
+    //         Body: {
+    //             transactionComment: string;
+    //             senderAddress: string;
+    //             txHash: string;
+    //         };
+    //     }>,
+    //     reply: FastifyReply,
+    // ) {
+    //     try {
+    //         const result = await nftMintService.validateMintTransaction(
+    //             req.server,
+    //             req.body.transactionComment,
+    //             req.body.senderAddress,
+    //             req.body.txHash,
+    //         );
+    //         reply.send({ success: result });
+    //     } catch (err: any) {
+    //         reply.status(400).send({ error: err.message });
+    //     }
+    // },
 };

@@ -4,6 +4,10 @@ export declare function getTasksForUser(app: FastifyInstance, userId: string): P
     id: string;
     title: string;
     description: string | null;
+    titleRu: string;
+    descriptionRu: string | null;
+    titleEn: string;
+    descriptionEn: string | null;
     type: import(".prisma/client").$Enums.TaskType;
     objective: import(".prisma/client").$Enums.TaskObjective;
     reward: number;
@@ -22,6 +26,10 @@ export declare function updateTaskProgress(app: FastifyInstance, userId: string,
 export declare function createTask(app: FastifyInstance, data: {
     title: string;
     description?: string;
+    titleRu?: string;
+    descriptionRu?: string;
+    titleEn?: string;
+    descriptionEn?: string;
     type: TaskType;
     objective?: TaskObjective;
     reward: number;
@@ -36,6 +44,10 @@ export declare function createTask(app: FastifyInstance, data: {
     createdAt: Date;
     reward: number;
     type: import(".prisma/client").$Enums.TaskType;
+    titleRu: string;
+    descriptionRu: string | null;
+    titleEn: string;
+    descriptionEn: string | null;
     objective: import(".prisma/client").$Enums.TaskObjective;
     goal: number;
     icon: string | null;
@@ -44,6 +56,10 @@ export declare function createTask(app: FastifyInstance, data: {
 export declare function updateTask(app: FastifyInstance, taskId: string, data: Partial<{
     title: string;
     description: string;
+    titleRu: string;
+    descriptionRu: string;
+    titleEn: string;
+    descriptionEn: string;
     type: TaskType;
     objective: TaskObjective;
     reward: number;
@@ -59,6 +75,10 @@ export declare function updateTask(app: FastifyInstance, taskId: string, data: P
     createdAt: Date;
     reward: number;
     type: import(".prisma/client").$Enums.TaskType;
+    titleRu: string;
+    descriptionRu: string | null;
+    titleEn: string;
+    descriptionEn: string | null;
     objective: import(".prisma/client").$Enums.TaskObjective;
     goal: number;
     icon: string | null;
@@ -72,6 +92,10 @@ export declare function deleteTask(app: FastifyInstance, taskId: string): Promis
     createdAt: Date;
     reward: number;
     type: import(".prisma/client").$Enums.TaskType;
+    titleRu: string;
+    descriptionRu: string | null;
+    titleEn: string;
+    descriptionEn: string | null;
     objective: import(".prisma/client").$Enums.TaskObjective;
     goal: number;
     icon: string | null;
@@ -85,6 +109,10 @@ export declare function getAllTasks(app: FastifyInstance): Promise<{
     createdAt: Date;
     reward: number;
     type: import(".prisma/client").$Enums.TaskType;
+    titleRu: string;
+    descriptionRu: string | null;
+    titleEn: string;
+    descriptionEn: string | null;
     objective: import(".prisma/client").$Enums.TaskObjective;
     goal: number;
     icon: string | null;

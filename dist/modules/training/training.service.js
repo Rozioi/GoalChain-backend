@@ -4,6 +4,7 @@ exports.startTraining = startTraining;
 exports.getTrainingCost = getTrainingCost;
 const constants_1 = require("../../config/constants");
 const synergy_engine_1 = require("../player/synergy.engine");
+const playerImage_together_1 = require("../player/playerImage.together");
 async function startTraining(app, userId, playerId, stat) {
     const validStats = [
         "pace",
@@ -47,9 +48,11 @@ async function startTraining(app, userId, playerId, stat) {
             throw new Error(`Training on cooldown. Available at ${cooldownEnd.toISOString()}`);
         }
     }
-    const maxOvr = teamPlayer.player.isNft
-        ? constants_1.TRAINING.MAX_OVR_NFT
-        : constants_1.TRAINING.MAX_OVR_NORMAL;
+    const maxOvr = teamPlayer.player.potentialMax || 99;
+    const currentOvr = teamPlayer.player.overallRating;
+    if (currentOvr >= maxOvr) {
+        throw new Error(`Player has reached their maximum potential (${maxOvr} OVR)`);
+    }
     const currentStatValue = teamPlayer.player[stat];
     if (currentStatValue >= maxOvr) {
         throw new Error(`${stat} is already at maximum (${maxOvr})`);
@@ -62,9 +65,23 @@ async function startTraining(app, userId, playerId, stat) {
     if (!user || user.coins < cost) {
         throw new Error(`Not enough coins. Need ${cost}, have ${user?.coins || 0}`);
     }
-    const boost = teamPlayer.player.isNft
-        ? constants_1.TRAINING.BOOST_NFT
-        : constants_1.TRAINING.BOOST_NORMAL;
+    const boost = constants_1.TRAINING.BOOST;
+    // Пересчитываем OVR из параметров после тренировки
+    const updatedStats = {
+        ...teamPlayer.player,
+        [stat]: currentStatValue + boost,
+    };
+    const newOvr = Math.min(maxOvr, (0, synergy_engine_1.calculatePlayerOverall)(updatedStats));
+    const newXp = (teamPlayer.player.trainingExperience || 0) + constants_1.TRAINING.XP_PER_TRAINING;
+    const neededXp = teamPlayer.player.trainingExperienceRequired || constants_1.TRAINING.XP_PER_LEVEL;
+    let newLevel = teamPlayer.player.trainingLevel || 1;
+    let newExp = newXp;
+    let newNeededXp = neededXp;
+    if (newExp >= newNeededXp) {
+        newExp -= newNeededXp;
+        newLevel += 1;
+        newNeededXp = newLevel * constants_1.TRAINING.XP_PER_LEVEL;
+    }
     const endsAt = new Date(Date.now() + constants_1.TRAINING.COOLDOWN_MS);
     const [training] = await app.prisma.$transaction([
         app.prisma.training.create({
@@ -86,12 +103,26 @@ async function startTraining(app, userId, playerId, stat) {
             where: { id: playerId },
             data: {
                 [stat]: { increment: boost },
-                overallRating: {
-                    increment: Math.round(boost / 6),
-                },
+                overallRating: newOvr,
+                trainingLevel: newLevel,
+                trainingExperience: newExp,
+                trainingExperienceRequired: newNeededXp,
             },
         }),
     ]);
+    // Перегенерация карточки (фоново — не блокируем ответ)
+    (0, playerImage_together_1.regeneratePlayerCard)(playerId, app)
+        .then((newImageUrl) => {
+        if (newImageUrl) {
+            app.prisma.player
+                .update({
+                where: { id: playerId },
+                data: { imageUrl: newImageUrl },
+            })
+                .catch((err) => app.log.error(err, "Failed to update player card"));
+        }
+    })
+        .catch((err) => app.log.error(err, "Failed to regenerate player card"));
     if (teamPlayer.isStarter) {
         const team = await app.prisma.team.findUnique({
             where: { id: teamPlayer.teamId },
@@ -136,9 +167,7 @@ async function getTrainingCost(app, userId, playerId) {
         },
         include: { player: true },
     });
-    const maxOvr = teamPlayer?.player.isNft
-        ? constants_1.TRAINING.MAX_OVR_NFT
-        : constants_1.TRAINING.MAX_OVR_NORMAL;
+    const maxOvr = teamPlayer?.player.potentialMax || 99;
     const lastTraining = await app.prisma.training.findFirst({
         where: { userId, playerId, status: "COMPLETED" },
         orderBy: { createdAt: "desc" },
@@ -155,8 +184,16 @@ async function getTrainingCost(app, userId, playerId) {
         totalTrainings: trainingCount,
         maxOvr,
         currentOverallRating: teamPlayer?.player.overallRating || 0,
+        currentOvr: teamPlayer?.player.overallRating || 0,
+        potentialMin: teamPlayer?.player.potentialMin || 0,
+        potentialMax: teamPlayer?.player.potentialMax || maxOvr,
         isNft: teamPlayer?.player.isNft || false,
         cooldownEndsAt,
         lastTrainedStat: lastTraining?.stat || null,
+        trainingLevel: teamPlayer?.player.trainingLevel || 1,
+        trainingLevelMax: constants_1.TRAINING.MAX_TRAINING_LEVEL,
+        trainingExperience: teamPlayer?.player.trainingExperience || 0,
+        trainingExperienceRequired: teamPlayer?.player.trainingExperienceRequired ||
+            constants_1.TRAINING.XP_PER_LEVEL,
     };
 }

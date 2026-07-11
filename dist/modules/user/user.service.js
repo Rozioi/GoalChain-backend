@@ -33,10 +33,12 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.calculateTeamPublicOvr = calculateTeamPublicOvr;
 exports.verifyTelegramInitData = verifyTelegramInitData;
 exports.parseTelegramInitData = parseTelegramInitData;
 exports.loginUser = loginUser;
 exports.registerUser = registerUser;
+exports.syncTelegramProfile = syncTelegramProfile;
 exports.getUserProfile = getUserProfile;
 exports.applyReferralCode = applyReferralCode;
 exports.getUserReferrals = getUserReferrals;
@@ -47,6 +49,16 @@ exports.getUserGlobalRank = getUserGlobalRank;
 exports.getLeaderboard = getLeaderboard;
 const crypto_1 = require("crypto");
 const app_error_1 = require("../../utils/app-error");
+const synergy_engine_1 = require("../player/synergy.engine");
+function calculateTeamPublicOvr(players) {
+    const formattedPlayers = players.map((tp) => ({
+        position: tp.player.position,
+        role: tp.player.role,
+        style: tp.player.style,
+        overallRating: tp.player.overallRating,
+    }));
+    return (0, synergy_engine_1.calculatePublicRating)(formattedPlayers);
+}
 function verifyTelegramInitData(initData, botToken) {
     if (process.env.NODE_ENV !== "production" &&
         (!initData || initData === "mock")) {
@@ -112,12 +124,25 @@ async function loginUser(app, initData) {
     if (!existing) {
         return { isRegistered: false };
     }
+    const updates = {};
+    if (tgUser.username && existing.username !== tgUser.username) {
+        updates.username = tgUser.username;
+    }
+    if (tgUser.first_name && existing.firstName !== tgUser.first_name) {
+        updates.firstName = tgUser.first_name;
+    }
+    if (tgUser.last_name && existing.lastName !== tgUser.last_name) {
+        updates.lastName = tgUser.last_name;
+    }
     if (tgUser.photo_url && existing.photoUrl !== tgUser.photo_url) {
+        updates.photoUrl = tgUser.photo_url;
+    }
+    if (Object.keys(updates).length > 0) {
         await app.prisma.user.update({
             where: { id: existing.id },
-            data: { photoUrl: tgUser.photo_url },
+            data: updates,
         });
-        existing.photoUrl = tgUser.photo_url;
+        Object.assign(existing, updates);
     }
     const token = app.jwt.sign({
         userId: existing.id,
@@ -140,12 +165,25 @@ async function registerUser(app, initData, clubInfo) {
         where: { telegramId },
     });
     if (existing) {
+        const updates = {};
+        if (tgUser.username && existing.username !== tgUser.username) {
+            updates.username = tgUser.username;
+        }
+        if (tgUser.first_name && existing.firstName !== tgUser.first_name) {
+            updates.firstName = tgUser.first_name;
+        }
+        if (tgUser.last_name && existing.lastName !== tgUser.last_name) {
+            updates.lastName = tgUser.last_name;
+        }
         if (tgUser.photo_url && existing.photoUrl !== tgUser.photo_url) {
+            updates.photoUrl = tgUser.photo_url;
+        }
+        if (Object.keys(updates).length > 0) {
             await app.prisma.user.update({
                 where: { id: existing.id },
-                data: { photoUrl: tgUser.photo_url },
+                data: updates,
             });
-            existing.photoUrl = tgUser.photo_url;
+            Object.assign(existing, updates);
         }
         const token = app.jwt.sign({
             userId: existing.id,
@@ -159,7 +197,9 @@ async function registerUser(app, initData, clubInfo) {
         data: {
             telegramId,
             username: tgUser.username,
-            clubName: clubInfo.clubName,
+            firstName: tgUser.first_name,
+            lastName: tgUser.last_name,
+            clubName: clubInfo.clubName.trim(),
             clubIcon: clubInfo.clubIcon || "default",
             photoUrl: tgUser.photo_url,
             referralCode,
@@ -173,6 +213,43 @@ async function registerUser(app, initData, clubInfo) {
 }
 const rent_service_1 = require("../player/rent.service");
 const energy_service_1 = require("./energy.service");
+async function syncTelegramProfile(app, userId, initData) {
+    const botToken = process.env.BOT_TOKEN || "";
+    const isValid = verifyTelegramInitData(initData, botToken);
+    if (!isValid) {
+        throw new app_error_1.AppError("Invalid Telegram signature", 401);
+    }
+    const tgUser = parseTelegramInitData(initData);
+    if (!tgUser) {
+        throw new app_error_1.AppError("Could not parse Telegram user data", 400);
+    }
+    const user = await app.prisma.user.findUnique({
+        where: { id: userId },
+    });
+    if (!user) {
+        throw new app_error_1.AppError("User not found", 404);
+    }
+    const updates = {};
+    if (tgUser.username && user.username !== tgUser.username) {
+        updates.username = tgUser.username;
+    }
+    if (tgUser.first_name && user.firstName !== tgUser.first_name) {
+        updates.firstName = tgUser.first_name;
+    }
+    if (tgUser.last_name && user.lastName !== tgUser.last_name) {
+        updates.lastName = tgUser.last_name;
+    }
+    if (tgUser.photo_url && user.photoUrl !== tgUser.photo_url) {
+        updates.photoUrl = tgUser.photo_url;
+    }
+    if (Object.keys(updates).length > 0) {
+        await app.prisma.user.update({
+            where: { id: userId },
+            data: updates,
+        });
+    }
+    return getUserProfile(app, userId);
+}
 async function getUserProfile(app, userId) {
     rent_service_1.rentService
         .syncExpiredRentals(app)
@@ -208,6 +285,7 @@ async function getUserProfile(app, userId) {
             (1000 * 60 * 60));
         rentIncomeCoins += Math.floor(contract.price / hours);
     });
+    const publicOvr = calculateTeamPublicOvr(user.teams[0].players);
     const rentedOutPlayers = await app.prisma.player.findMany({
         where: {
             ownerId: userId,
@@ -238,6 +316,7 @@ async function getUserProfile(app, userId) {
     return {
         ...user,
         energy: energyState.energy,
+        publicOvr: publicOvr,
         maxEnergy: energyState.maxEnergy,
         energyUpdatedAt: energyState.energyUpdatedAt.toISOString(),
         nextRegenAt: energyState.nextRegenAt,

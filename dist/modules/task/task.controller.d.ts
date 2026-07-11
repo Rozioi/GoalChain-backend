@@ -13,6 +13,10 @@ export declare const adminTaskController: {
         Body: {
             title: string;
             description?: string;
+            titleRu?: string;
+            descriptionRu?: string;
+            titleEn?: string;
+            descriptionEn?: string;
             type: string;
             objective?: string;
             reward: number;

@@ -1,5 +1,39 @@
 import { FastifyInstance } from "fastify";
 import { PlayerRole } from "@prisma/client";
+/**
+ * Подготовка MASTER скаута — только возвращает данные для TON-транзакции.
+ * Скаут создаётся ТОЛЬКО после подтверждения оплаты.
+ */
+export declare function prepareMasterScoutPayment(app: FastifyInstance, userId: string, region: string, targetRole?: PlayerRole, ageMin?: number, ageMax?: number): Promise<{
+    scoutId: string;
+    validUntil: number;
+    messages: {
+        address: string;
+        amount: string;
+        payload: string;
+    }[];
+    region: string;
+    targetRole: import(".prisma/client").$Enums.PlayerRole | undefined;
+    ageMin: number;
+    ageMax: number;
+}>;
+/**
+ * Создание MASTER скаута ПОСЛЕ успешной TON-транзакции.
+ */
+export declare function confirmMasterScoutPayment(app: FastifyInstance, userId: string, region: string, targetRole?: PlayerRole, ageMin?: number, ageMax?: number): Promise<{
+    id: string;
+    createdAt: Date;
+    userId: string;
+    region: string;
+    ageMin: number;
+    ageMax: number;
+    targetRole: import(".prisma/client").$Enums.PlayerRole | null;
+    status: import(".prisma/client").$Enums.ScoutStatus;
+    endsAt: Date;
+    tier: string;
+    cost: number;
+    costCurrency: string;
+}>;
 export declare function hireScount(app: FastifyInstance, userId: string, region: string, tier?: "COMMON" | "PRO" | "MASTER", targetRole?: PlayerRole, ageMin?: number, ageMax?: number): Promise<{
     id: string;
     createdAt: Date;
@@ -56,6 +90,10 @@ export declare function getScoutResults(app: FastifyInstance, userId: string): P
             isNft: boolean;
             mintedAt: Date | null;
             tokenId: string | null;
+            nftAddress: string | null;
+            matchesPlayed: number;
+            mintingStatus: string;
+            lockedAt: Date | null;
             nationality: string;
             clubId: number | null;
             club: string;
@@ -82,7 +120,6 @@ export declare function getScoutResults(app: FastifyInstance, userId: string): P
         id: string;
         createdAt: Date;
         playerId: string;
-        isNft: boolean;
         scoutId: string;
     })[];
 } & {

@@ -8,6 +8,8 @@ exports.createSeason = createSeason;
 exports.updateSeasonStatus = updateSeasonStatus;
 exports.listSeasons = listSeasons;
 exports.endSeason = endSeason;
+exports.deleteUser = deleteUser;
+exports.deleteUserTeam = deleteUserTeam;
 async function getGlobalStats(app) {
     const [userCount, teamCount, matchCount, totalCoins] = await Promise.all([
         app.prisma.user.count(),
@@ -28,8 +30,18 @@ async function listUsers(app, query) {
     const where = search
         ? {
             OR: [
-                { username: { contains: search, mode: "insensitive" } },
-                { firstName: { contains: search, mode: "insensitive" } },
+                {
+                    username: {
+                        contains: search,
+                        mode: "insensitive",
+                    },
+                },
+                {
+                    firstName: {
+                        contains: search,
+                        mode: "insensitive",
+                    },
+                },
                 { telegramId: { contains: search } },
             ],
         }
@@ -75,4 +87,26 @@ const broadcast_service_1 = require("./broadcast.service");
 Object.defineProperty(exports, "broadcastMessage", { enumerable: true, get: function () { return broadcast_service_1.broadcastMessage; } });
 async function endSeason(app, seasonId) {
     return (0, season_service_1.endSeason)(app, seasonId);
+}
+async function deleteUser(app, userId) {
+    await app.prisma.user.delete({
+        where: { id: userId },
+    });
+    return { success: true };
+}
+async function deleteUserTeam(app, userId) {
+    const teams = await app.prisma.team.findMany({
+        where: { userId },
+        select: { id: true },
+    });
+    const teamIds = teams.map((t) => t.id);
+    await app.prisma.$transaction([
+        app.prisma.teamPlayer.deleteMany({
+            where: { teamId: { in: teamIds } },
+        }),
+        app.prisma.team.deleteMany({
+            where: { userId },
+        }),
+    ]);
+    return { success: true };
 }

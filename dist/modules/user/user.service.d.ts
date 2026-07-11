@@ -10,6 +10,7 @@ export interface ClubInfo {
     clubName: string;
     clubIcon: string;
 }
+export declare function calculateTeamPublicOvr(players: any[]): number;
 export declare function verifyTelegramInitData(initData: string, botToken: string): boolean;
 export declare function parseTelegramInitData(initData: string): TelegramUserData | null;
 export declare function loginUser(app: FastifyInstance, initData: string): Promise<{
@@ -22,6 +23,8 @@ export declare function loginUser(app: FastifyInstance, initData: string): Promi
         id: string;
         telegramId: string;
         username: string | null;
+        firstName: string | null;
+        lastName: string | null;
         clubName: string | null;
         clubIcon: string | null;
         photoUrl: string | null;
@@ -50,6 +53,8 @@ export declare function registerUser(app: FastifyInstance, initData: string, clu
         id: string;
         telegramId: string;
         username: string | null;
+        firstName: string | null;
+        lastName: string | null;
         clubName: string | null;
         clubIcon: string | null;
         photoUrl: string | null;
@@ -72,8 +77,9 @@ export declare function registerUser(app: FastifyInstance, initData: string, clu
     token: string;
     isNew: boolean;
 }>;
-export declare function getUserProfile(app: FastifyInstance, userId: string): Promise<{
+export declare function syncTelegramProfile(app: FastifyInstance, userId: string, initData: string): Promise<{
     energy: number;
+    publicOvr: number;
     maxEnergy: number;
     energyUpdatedAt: string;
     nextRegenAt: string | null;
@@ -121,6 +127,10 @@ export declare function getUserProfile(app: FastifyInstance, userId: string): Pr
                 isNft: boolean;
                 mintedAt: Date | null;
                 tokenId: string | null;
+                nftAddress: string | null;
+                matchesPlayed: number;
+                mintingStatus: string;
+                lockedAt: Date | null;
                 nationality: string;
                 clubId: number | null;
                 club: string;
@@ -159,6 +169,7 @@ export declare function getUserProfile(app: FastifyInstance, userId: string): Pr
         formation: string;
         userId: string;
         isEvent: boolean;
+        isBot: boolean;
         eventId: string | null;
     })[];
     _count: {
@@ -168,6 +179,129 @@ export declare function getUserProfile(app: FastifyInstance, userId: string): Pr
     id: string;
     telegramId: string;
     username: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    clubName: string | null;
+    clubIcon: string | null;
+    photoUrl: string | null;
+    coins: number;
+    reputation: number;
+    points: number;
+    experience: number;
+    isAdmin: boolean;
+    scoutingLevel: number;
+    scoutingExp: number;
+    referralCode: string;
+    referredById: string | null;
+    dailyMatchesPlayed: number;
+    dailyMatchesResetAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+} | null>;
+export declare function getUserProfile(app: FastifyInstance, userId: string): Promise<{
+    energy: number;
+    publicOvr: number;
+    maxEnergy: number;
+    energyUpdatedAt: string;
+    nextRegenAt: string | null;
+    rentIncomeCoins: number;
+    rentIncomeGems: number;
+    rentedOutPlayers: any[];
+    teams: ({
+        players: ({
+            player: {
+                age: number;
+                name: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                surname: string | null;
+                overallRating: number;
+                position: import(".prisma/client").$Enums.Position;
+                role: import(".prisma/client").$Enums.PlayerRole;
+                style: import(".prisma/client").$Enums.PlayerStyle;
+                pace: number;
+                paceBonus: number;
+                shooting: number;
+                shootingBonus: number;
+                passing: number;
+                passingBonus: number;
+                dribbling: number;
+                dribblingBonus: number;
+                defending: number;
+                defendingBonus: number;
+                physical: number;
+                physicalBonus: number;
+                goalkeeping: number;
+                formValue: number;
+                fatigue: number;
+                country: string;
+                potentialMin: number;
+                potentialMax: number;
+                heightCm: number;
+                weightKg: number;
+                foot: string;
+                skillMoves: number;
+                weakFoot: number;
+                injuryType: string | null;
+                injuryEndsAt: Date | null;
+                isNft: boolean;
+                mintedAt: Date | null;
+                tokenId: string | null;
+                nftAddress: string | null;
+                matchesPlayed: number;
+                mintingStatus: string;
+                lockedAt: Date | null;
+                nationality: string;
+                clubId: number | null;
+                club: string;
+                leagueId: number | null;
+                leagueDivisionId: number | null;
+                trainingLevel: number;
+                trainingLevelMax: number;
+                trainingExperience: number;
+                trainingExperienceRequired: number;
+                face: string | null;
+                hairStyle: string | null;
+                hairColor: string | null;
+                skinColor: string | null;
+                beardStyle: string | null;
+                beardColor: string | null;
+                emotion: string | null;
+                rarity: string | null;
+                imageUrl: string | null;
+                ownerId: string | null;
+                isOnRent: boolean;
+                rentPrice: number | null;
+            };
+        } & {
+            id: string;
+            playerId: string;
+            teamId: string;
+            isStarter: boolean;
+            positionInFormation: string | null;
+        })[];
+    } & {
+        name: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        rating: number;
+        formation: string;
+        userId: string;
+        isEvent: boolean;
+        isBot: boolean;
+        eventId: string | null;
+    })[];
+    _count: {
+        referralsMade: number;
+    };
+    level: number;
+    id: string;
+    telegramId: string;
+    username: string | null;
+    firstName: string | null;
+    lastName: string | null;
     clubName: string | null;
     clubIcon: string | null;
     photoUrl: string | null;
@@ -218,6 +352,8 @@ export declare function addExperience(app: FastifyInstance, userId: string, amou
     id: string;
     telegramId: string;
     username: string | null;
+    firstName: string | null;
+    lastName: string | null;
     clubName: string | null;
     clubIcon: string | null;
     photoUrl: string | null;
@@ -242,6 +378,8 @@ export declare function addPoints(app: FastifyInstance, userId: string, amount: 
     id: string;
     telegramId: string;
     username: string | null;
+    firstName: string | null;
+    lastName: string | null;
     clubName: string | null;
     clubIcon: string | null;
     photoUrl: string | null;

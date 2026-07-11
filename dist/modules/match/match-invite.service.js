@@ -48,7 +48,7 @@ const socket_connection_handler_1 = require("../../ws/socket.connection.handler"
 const match_live_service_1 = require("./match-live.service");
 function buildInviteLink(inviteId) {
     const botName = process.env.TELEGRAM_BOT_USERNAME || "goalchaintest_bot";
-    return `https://t.me/${botName}/startapp?startapp=invite_${inviteId}`;
+    return `https://t.me/${botName}/startapp?startapp=match_${inviteId}`;
 }
 async function assertNoDuplicateInvite(app, senderId, recipientId) {
     const existing = await app.prisma.matchInvite.findFirst({

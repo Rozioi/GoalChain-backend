@@ -5,8 +5,40 @@ const scouting_service_1 = require("./scouting.service");
 exports.scoutingController = {
     async hire(req, reply) {
         try {
-            const scout = await (0, scouting_service_1.hireScount)(req.server, req.user.userId, req.body.region, req.body.tier, req.body.targetRole, req.body.ageMin, req.body.ageMax);
+            // Map frontend tier names to backend tier names
+            const tierMap = {
+                BASE: "COMMON",
+                COMMON: "COMMON",
+                PRO: "PRO",
+                MASTER: "MASTER",
+            };
+            const mappedTier = tierMap[req.body.tier] || "COMMON";
+            // For MASTER tier, use prepare/confirm flow (TON payment)
+            if (mappedTier === "MASTER") {
+                return reply.status(400).send({
+                    error: "MASTER tier requires TON payment. Use POST /scout/master/prepare",
+                });
+            }
+            const scout = await (0, scouting_service_1.hireScount)(req.server, req.user.userId, req.body.region, mappedTier, req.body.targetRole, req.body.ageMin, req.body.ageMax);
             reply.send(scout);
+        }
+        catch (err) {
+            reply.status(400).send({ error: err.message });
+        }
+    },
+    async masterPrepare(req, reply) {
+        try {
+            const result = await (0, scouting_service_1.prepareMasterScoutPayment)(req.server, req.user.userId, req.body.region, req.body.targetRole, req.body.ageMin, req.body.ageMax);
+            reply.send(result);
+        }
+        catch (err) {
+            reply.status(400).send({ error: err.message });
+        }
+    },
+    async masterConfirm(req, reply) {
+        try {
+            const result = await (0, scouting_service_1.confirmMasterScoutPayment)(req.server, req.user.userId, req.body.region, req.body.targetRole, req.body.ageMin, req.body.ageMax);
+            reply.send(result);
         }
         catch (err) {
             reply.status(400).send({ error: err.message });

@@ -13,6 +13,11 @@ export declare const userController: {
             clubInfo: ClubInfo;
         };
     }>, reply: FastifyReply): Promise<void>;
+    syncTelegram(req: FastifyRequest<{
+        Body: {
+            initData: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
     me(req: FastifyRequest, reply: FastifyReply): Promise<undefined>;
     getReferralCode(req: FastifyRequest, reply: FastifyReply): Promise<void>;
     applyReferral(req: FastifyRequest<{

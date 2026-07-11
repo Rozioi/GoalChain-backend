@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateTeamSynergy = calculateTeamSynergy;
 exports.calculateTeamRating = calculateTeamRating;
+exports.calculatePublicRating = calculatePublicRating;
+exports.calculatePlayerOverall = calculatePlayerOverall;
 const STYLE_SYNERGY = {
     SPEEDY: { TECHNICAL: 3, ATTACKING: 2 },
     POWERFUL: { DEFENSIVE: 3, POSITIONAL: 2 },
@@ -79,4 +81,82 @@ function calculateTeamRating(players) {
     const avgOvr = players.reduce((sum, p) => sum + p.overallRating, 0) / players.length;
     const synergy = calculateTeamSynergy(players);
     return Math.round((avgOvr + synergy.totalBonus) * 10) / 10;
+}
+/** Средний OVR всего состава (старт + скамейка), без синергии */
+function calculatePublicRating(players) {
+    if (players.length === 0)
+        return 0;
+    const avgOvr = players.reduce((sum, p) => sum + p.overallRating, 0) / players.length;
+    return Math.round(avgOvr * 10) / 10;
+}
+/**
+ * Веса параметров для расчёта OVR по позиции
+ */
+const STAT_WEIGHTS = {
+    GOALKEEPER: {
+        pace: 0.05,
+        shooting: 0.05,
+        passing: 0.15,
+        dribbling: 0.05,
+        defending: 0.3,
+        physical: 0.1,
+        goalkeeping: 0.3,
+    },
+    DEFENDER: {
+        pace: 0.15,
+        shooting: 0.05,
+        passing: 0.1,
+        dribbling: 0.05,
+        defending: 0.4,
+        physical: 0.25,
+        goalkeeping: 0,
+    },
+    MIDFIELDER: {
+        pace: 0.1,
+        shooting: 0.1,
+        passing: 0.3,
+        dribbling: 0.15,
+        defending: 0.2,
+        physical: 0.15,
+        goalkeeping: 0,
+    },
+    FORWARD: {
+        pace: 0.25,
+        shooting: 0.3,
+        passing: 0.1,
+        dribbling: 0.2,
+        defending: 0.05,
+        physical: 0.1,
+        goalkeeping: 0,
+    },
+};
+/**
+ * Рассчитывает OVR игрока на основе его параметров и позиции.
+ * Используется после тренировки для пересчёта.
+ */
+function calculatePlayerOverall(player) {
+    const role = player.role || "MIDFIELDER";
+    let roleKey = role.toUpperCase();
+    // Нормализуем роль
+    if (!STAT_WEIGHTS[roleKey]) {
+        // Определяем по позиции
+        if (player.position === "GK")
+            roleKey = "GOALKEEPER";
+        else if (["CB", "LB", "RB", "LWB", "RWB"].includes(player.position || ""))
+            roleKey = "DEFENDER";
+        else if (["CDM", "CM", "CAM", "LM", "RM"].includes(player.position || ""))
+            roleKey = "MIDFIELDER";
+        else
+            roleKey = "FORWARD";
+    }
+    const weights = STAT_WEIGHTS[roleKey] || STAT_WEIGHTS.MIDFIELDER;
+    let weightedSum = 0;
+    weightedSum += (player.pace || 0) * weights.pace;
+    weightedSum += (player.shooting || 0) * weights.shooting;
+    weightedSum += (player.passing || 0) * weights.passing;
+    weightedSum += (player.dribbling || 0) * weights.dribbling;
+    weightedSum += (player.defending || 0) * weights.defending;
+    weightedSum += (player.physical || 0) * weights.physical;
+    weightedSum += (player.goalkeeping || 0) * (weights.goalkeeping || 0);
+    return Math.round(weightedSum);
 }

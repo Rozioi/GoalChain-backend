@@ -49,7 +49,10 @@ async function matchRoutes(app) {
                 type: "object",
                 required: ["matchId"],
                 properties: {
-                    matchId: { type: "string", description: "inviteId или legacy matchId" },
+                    matchId: {
+                        type: "string",
+                        description: "inviteId или legacy matchId",
+                    },
                 },
             },
         },
@@ -100,7 +103,7 @@ async function matchRoutes(app) {
                     pressingType: {
                         type: "string",
                         enum: ["SOFT", "MEDIUM", "INTENSIVE"],
-                        description: "Новый уровень прессинга команды"
+                        description: "Новый уровень прессинга команды",
                     },
                     substitutions: {
                         type: "array",
@@ -108,8 +111,14 @@ async function matchRoutes(app) {
                         items: {
                             type: "object",
                             properties: {
-                                outId: { type: "string", description: "ID игрока, покидающего поле" },
-                                inId: { type: "string", description: "ID игрока, выходящего на поле" },
+                                outId: {
+                                    type: "string",
+                                    description: "ID игрока, покидающего поле",
+                                },
+                                inId: {
+                                    type: "string",
+                                    description: "ID игрока, выходящего на поле",
+                                },
                             },
                             required: ["outId", "inId"],
                         },
@@ -143,5 +152,18 @@ async function matchRoutes(app) {
             summary: "Отменить поиск матча",
         },
     }, match_controller_1.default.cancel);
+    app.get("/match/streak/:userId", {
+        schema: {
+            tags: ["Match"],
+            summary: "Получить текущую серию побед/поражений игрока",
+            params: {
+                type: "object",
+                required: ["userId"],
+                properties: {
+                    userId: { type: "string" },
+                },
+            },
+        },
+    }, match_controller_1.default.streak);
 }
 exports.default = matchRoutes;

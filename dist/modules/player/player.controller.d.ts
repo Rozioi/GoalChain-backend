@@ -26,6 +26,16 @@ export declare const playerController: {
             id: string;
         };
     }>, reply: FastifyReply): Promise<void>;
+    lockPlayer(req: FastifyRequest<{
+        Params: {
+            id: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
+    unlockPlayer(req: FastifyRequest<{
+        Params: {
+            id: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
     prepareMint(req: FastifyRequest<{
         Body: {
             playerId: string;

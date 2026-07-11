@@ -149,5 +149,15 @@ const matchController = {
             reply.status(500).send({ error: err.message });
         }
     },
+    async streak(req, reply) {
+        try {
+            const { getMatchStreak } = await Promise.resolve().then(() => __importStar(require("./match.service")));
+            const result = await getMatchStreak(req.server, req.params.userId);
+            reply.send(result);
+        }
+        catch (err) {
+            reply.status(404).send({ error: err.message });
+        }
+    },
 };
 exports.default = matchController;

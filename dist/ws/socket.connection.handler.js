@@ -82,7 +82,7 @@ async function restoreUserRooms(app, socket, userId) {
         },
     });
     for (const invite of pendingInvites) {
-        const inviteLink = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME || "goalchaintest_bot"}/startapp?startapp=invite_${invite.id}`;
+        const inviteLink = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME || "goalchaintest_bot"}/startapp?startapp=match_${invite.id}`;
         if (invite.recipientId === userId) {
             const sender = await app.prisma.user.findUnique({
                 where: { id: invite.senderId },

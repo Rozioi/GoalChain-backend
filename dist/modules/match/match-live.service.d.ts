@@ -11,6 +11,7 @@ export declare function createMatchFromInvite(app: FastifyInstance, params: {
     id: string;
     createdAt: Date;
     updatedAt: Date;
+    isBot: boolean;
     eventId: string | null;
     status: import(".prisma/client").$Enums.MatchStatus;
     type: import(".prisma/client").$Enums.MatchType;
@@ -18,7 +19,6 @@ export declare function createMatchFromInvite(app: FastifyInstance, params: {
     awayUserId: string | null;
     homeTeamId: string;
     awayTeamId: string | null;
-    isBot: boolean;
     homeScore: number | null;
     awayScore: number | null;
     seed: string | null;
@@ -47,6 +47,7 @@ export declare function createPvPMatch(app: FastifyInstance, params: {
     id: string;
     createdAt: Date;
     updatedAt: Date;
+    isBot: boolean;
     eventId: string | null;
     status: import(".prisma/client").$Enums.MatchStatus;
     type: import(".prisma/client").$Enums.MatchType;
@@ -54,7 +55,6 @@ export declare function createPvPMatch(app: FastifyInstance, params: {
     awayUserId: string | null;
     homeTeamId: string;
     awayTeamId: string | null;
-    isBot: boolean;
     homeScore: number | null;
     awayScore: number | null;
     seed: string | null;
@@ -80,6 +80,7 @@ export declare function startInstantBotMatch(app: FastifyInstance, userId: strin
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        isBot: boolean;
         eventId: string | null;
         status: import(".prisma/client").$Enums.MatchStatus;
         type: import(".prisma/client").$Enums.MatchType;
@@ -87,7 +88,6 @@ export declare function startInstantBotMatch(app: FastifyInstance, userId: strin
         awayUserId: string | null;
         homeTeamId: string;
         awayTeamId: string | null;
-        isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
         seed: string | null;

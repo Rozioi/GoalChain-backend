@@ -12,5 +12,10 @@ exports.env = {
     CORS_ORIGIN: process.env.CORS_ORIGIN || "*",
     TON_COLLECTION_ADDRESS: process.env.TON_COLLECTION_ADDRESS || "",
     TON_RPC_ENDPOINT: process.env.TON_RPC_ENDPOINT || "https://toncenter.com/api/v2/jsonRPC",
+    TON_API_KEY: process.env.TON_API_KEY || "",
+    TON_PAYMENT_ADDRESS: process.env.TON_PAYMENT_ADDRESS || "",
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
     WEBAPP_URL: process.env.WEBAPP_URL || "",
+    NETWORK: process.env.NETWORK || "mainnet",
+    NFT_MINT_UNLOCKED: process.env.NFT_MINT_UNLOCKED || "",
 };

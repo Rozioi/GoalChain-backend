@@ -136,21 +136,24 @@ const STYLES_BY_ROLE: Record<PlayerRole, PlayerStyle[]> = {
     ],
 };
 
-function randomInt(rng: seedrandom.PRNG, min: number, max: number): number {
+type RNG = () => number;
+
+function randomInt(rng: RNG, min: number, max: number): number {
     return Math.floor(rng() * (max - min + 1)) + min;
 }
 
-function pickRandom<T>(rng: seedrandom.PRNG, arr: readonly T[]): T {
+function pickRandom<T>(rng: RNG, arr: readonly T[]): T {
     return arr[Math.floor(rng() * arr.length)];
 }
 
-function generateName(rng: seedrandom.PRNG): { name: string; surname: string } {
+function generateName(rng: RNG): { name: string; surname: string } {
     const name = pickRandom(rng, PLAYER_FIRST_NAMES);
     const surname = pickRandom(rng, PLAYER_LAST_NAMES);
     return { name, surname };
 }
+
 function generateStatsForRole(
-    rng: seedrandom.PRNG,
+    rng: RNG,
     role: PlayerRole,
     style: PlayerStyle,
     overallRating: number,
@@ -231,8 +234,9 @@ function generateStatsForRole(
     return stats;
 }
 
+
 function mapAppearanceFromNationality(
-    rng: seedrandom.PRNG,
+    rng: RNG,
     nationality: string,
 ) {
     let skinColor = pickRandom(rng, SKIN_COLORS);

@@ -11,6 +11,11 @@ async function playerRoutes(app) {
     app.get("/player/:id/nft-metadata", player_controller_1.playerController.getNftMetadata);
     app.post("/players/populate", player_controller_1.playerController.populate);
     app.addHook("preHandler", app.authenticate);
+    // Lock/unlock for minting
+    app.post("/players/:id/lock", player_controller_1.playerController.lockPlayer);
+    app.post("/players/:id/unlock", player_controller_1.playerController.unlockPlayer);
     app.post("/nft/mint/prepare", player_controller_1.playerController.prepareMint);
     app.post("/nft/mint/confirm", player_controller_1.playerController.confirmMint);
+    // Webhook endpoint for mint validation (no auth - called by TON webhook)
+    // app.post("/nft/mint/validate", playerController.webhookValidateMint);
 }

@@ -14,13 +14,16 @@ exports.nftMetadataService = {
             { trait_type: "Dribbling", value: player.dribbling },
             { trait_type: "Defending", value: player.defending },
             { trait_type: "Physical", value: player.physical },
+            { trait_type: "Skill Moves", value: player.skillMoves },
+            { trait_type: "Weak Foot", value: player.weakFoot },
             { trait_type: "Nationality", value: player.nationality },
             { trait_type: "Club", value: player.club },
             { trait_type: "Age", value: player.age },
+            { trait_type: "Matches Played", value: player.matchesPlayed },
         ];
         return {
             name: `${player.name} ${player.surname || ""}`.trim(),
-            description: `Professional Football Player Card - ${player.position} (${player.overallRating} OVR)`,
+            description: `Professional Football Player Card - ${player.position} (${player.overallRating} OVR) - GoalChain`,
             image: player.imageUrl || "",
             attributes,
         };

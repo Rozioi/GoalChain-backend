@@ -47,6 +47,16 @@ exports.userController = {
             reply.status(err.statusCode || 400).send({ error: err.message });
         }
     },
+    async syncTelegram(req, reply) {
+        try {
+            const { initData } = req.body;
+            const user = await (0, user_service_1.syncTelegramProfile)(req.server, req.user.userId, initData);
+            reply.send(user);
+        }
+        catch (err) {
+            reply.status(err.statusCode || 400).send({ error: err.message });
+        }
+    },
     async me(req, reply) {
         try {
             await (0, scouting_service_1.syncScoutStates)(req.server, req.user.userId);

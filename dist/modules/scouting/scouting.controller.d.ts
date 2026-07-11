@@ -3,7 +3,23 @@ export declare const scoutingController: {
     hire(req: FastifyRequest<{
         Body: {
             region: string;
-            tier: "COMMON" | "PRO" | "MASTER";
+            tier: "BASE" | "COMMON" | "PRO" | "MASTER";
+            targetRole?: string;
+            ageMin?: number;
+            ageMax?: number;
+        };
+    }>, reply: FastifyReply): Promise<undefined>;
+    masterPrepare(req: FastifyRequest<{
+        Body: {
+            region: string;
+            targetRole?: string;
+            ageMin?: number;
+            ageMax?: number;
+        };
+    }>, reply: FastifyReply): Promise<void>;
+    masterConfirm(req: FastifyRequest<{
+        Body: {
+            region: string;
             targetRole?: string;
             ageMin?: number;
             ageMax?: number;

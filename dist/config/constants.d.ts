@@ -20,6 +20,32 @@ export declare const ENERGY: {
     MAX: number;
     REGEN_INTERVAL_MS: number;
 };
+export declare const DIVISION_TIERS: readonly [{
+    readonly name: "Bronze";
+    readonly min: 0;
+    readonly max: 1499;
+    readonly lossPenalty: 5;
+}, {
+    readonly name: "Silver";
+    readonly min: 1500;
+    readonly max: 2999;
+    readonly lossPenalty: 15;
+}, {
+    readonly name: "Gold";
+    readonly min: 3000;
+    readonly max: 4499;
+    readonly lossPenalty: 22;
+}, {
+    readonly name: "Diamond";
+    readonly min: 4500;
+    readonly max: 5999;
+    readonly lossPenalty: 28;
+}, {
+    readonly name: "Master";
+    readonly min: 6000;
+    readonly max: number;
+    readonly lossPenalty: 30;
+}];
 export declare const MATCH: {
     MATCHMAKING_RATING_RANGE: number;
     MATCHMAKING_POINTS_RANGE: number;
@@ -47,10 +73,17 @@ export declare const TRAINING: {
     BASE_COST: number;
     COST_MULTIPLIER: number;
     COOLDOWN_MS: number;
-    BOOST_NORMAL: number;
-    BOOST_NFT: number;
-    MAX_OVR_NORMAL: number;
-    MAX_OVR_NFT: number;
+    BOOST: number;
+    XP_PER_TRAINING: number;
+    XP_PER_LEVEL: number;
+    MAX_TRAINING_LEVEL: number;
+};
+export declare const NFT: {
+    MAX_OVR: number;
+    MIN_OVR_FOR_MINT: number;
+    MIN_MATCHES_FOR_MINT: number;
+    COLLECTION_ADDRESS: string;
+    MINT_LOCK_DURATION_MS: number;
 };
 export declare const SCOUTING: {
     MAX_ACTIVE_SCOUTS: number;
@@ -61,19 +94,28 @@ export declare const SCOUTING: {
             COST: number;
             CURRENCY: string;
             OVR_RANGE: number[];
-            NFT_CHANCE: number;
+            CHANCE: {
+                min: number;
+                max: number;
+            };
         };
         PRO: {
             COST: number;
             CURRENCY: string;
             OVR_RANGE: number[];
-            NFT_CHANCE: number;
+            CHANCE: {
+                min: number;
+                max: number;
+            };
         };
         MASTER: {
             COST: number;
             CURRENCY: string;
             OVR_RANGE: number[];
-            NFT_CHANCE: number;
+            CHANCE: {
+                min: number;
+                max: number;
+            };
         };
     };
 };

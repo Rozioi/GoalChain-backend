@@ -11,10 +11,18 @@ async function scoutingRoutes(app) {
                 required: ["region"],
                 properties: {
                     region: { type: "string" },
-                    tier: { type: "string", enum: ["COMMON", "PRO", "MASTER"] },
+                    tier: {
+                        type: "string",
+                        enum: ["BASE", "COMMON", "PRO", "MASTER"],
+                    },
                     targetRole: {
                         type: "string",
-                        enum: ["GOALKEEPER", "DEFENDER", "MIDFIELDER", "FORWARD"],
+                        enum: [
+                            "GOALKEEPER",
+                            "DEFENDER",
+                            "MIDFIELDER",
+                            "FORWARD",
+                        ],
                     },
                     ageMin: { type: "number", minimum: 16, maximum: 40 },
                     ageMax: { type: "number", minimum: 16, maximum: 40 },
@@ -22,6 +30,52 @@ async function scoutingRoutes(app) {
             },
         },
     }, scouting_controller_1.scoutingController.hire);
+    app.post("/scout/master/prepare", {
+        schema: {
+            tags: ["Scouting"],
+            body: {
+                type: "object",
+                required: ["region"],
+                properties: {
+                    region: { type: "string" },
+                    targetRole: {
+                        type: "string",
+                        enum: [
+                            "GOALKEEPER",
+                            "DEFENDER",
+                            "MIDFIELDER",
+                            "FORWARD",
+                        ],
+                    },
+                    ageMin: { type: "number", minimum: 16, maximum: 40 },
+                    ageMax: { type: "number", minimum: 16, maximum: 40 },
+                },
+            },
+        },
+    }, scouting_controller_1.scoutingController.masterPrepare);
+    app.post("/scout/master/confirm", {
+        schema: {
+            tags: ["Scouting"],
+            body: {
+                type: "object",
+                required: ["region"],
+                properties: {
+                    region: { type: "string" },
+                    targetRole: {
+                        type: "string",
+                        enum: [
+                            "GOALKEEPER",
+                            "DEFENDER",
+                            "MIDFIELDER",
+                            "FORWARD",
+                        ],
+                    },
+                    ageMin: { type: "number", minimum: 16, maximum: 40 },
+                    ageMax: { type: "number", minimum: 16, maximum: 40 },
+                },
+            },
+        },
+    }, scouting_controller_1.scoutingController.masterConfirm);
     app.get("/scout/results", {
         schema: {
             tags: ["Scouting"],

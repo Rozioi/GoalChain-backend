@@ -182,7 +182,9 @@ function simulateMatch(home, away, seed, options = {}) {
         const active = isHomeAction ? homeActive : awayActive;
         const bench = isHomeAction ? homeBench : awayBench;
         const yellowCards = isHomeAction ? homeYellowCards : awayYellowCards;
-        const pressing = isHomeAction ? currentHomePressing : currentAwayPressing;
+        const pressing = isHomeAction
+            ? currentHomePressing
+            : currentAwayPressing;
         if (active.length === 0)
             continue;
         const cardMult = currentHomePressing === "INTENSIVE"
@@ -313,11 +315,16 @@ function simulateMatch(home, away, seed, options = {}) {
                     homeShotsOnTarget++;
                 else
                     awayShotsOnTarget++;
+                // Находим GK команды, которая совершила сейв
+                const saveTeam = isHomeAction ? awayActive : homeActive;
+                const gk = saveTeam.find((p) => p.role === "GOALKEEPER");
                 events.push({
                     minute,
                     type: "save",
                     team: team === "home" ? "away" : "home",
-                    description: `Great save by ${team === "home" ? "Away" : "Home"} goalkeeper.`,
+                    playerId: gk?.id,
+                    playerName: gk?.name,
+                    description: `Great save by ${gk?.name || "Goalkeeper"}!`,
                 });
             }
             else {
@@ -325,6 +332,8 @@ function simulateMatch(home, away, seed, options = {}) {
                     minute,
                     type: "chance",
                     team,
+                    playerId: player.id,
+                    playerName: player.name,
                     description: `${player.name} takes a shot but it goes wide.`,
                 });
             }
@@ -381,12 +390,14 @@ function simulateMatch(home, away, seed, options = {}) {
         seed,
         events,
         homeStats: {
-            possession: Math.round((lastHomeS.power / (lastHomeS.power + lastAwayS.power) || 0.5) * 100),
+            possession: Math.round((lastHomeS.power / (lastHomeS.power + lastAwayS.power) || 0.5) *
+                100),
             shots: homeShots,
             shotsOnTarget: homeShotsOnTarget,
         },
         awayStats: {
-            possession: Math.round((lastAwayS.power / (lastHomeS.power + lastAwayS.power) || 0.5) * 100),
+            possession: Math.round((lastAwayS.power / (lastHomeS.power + lastAwayS.power) || 0.5) *
+                100),
             shots: awayShots,
             shotsOnTarget: awayShotsOnTarget,
         },

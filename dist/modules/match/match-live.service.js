@@ -11,7 +11,6 @@ const crypto_1 = require("crypto");
 const socket_emitter_1 = require("../../ws/socket.emitter");
 const types_1 = require("../../ws/types");
 const constants_1 = require("../../config/constants");
-const energy_service_1 = require("../user/energy.service");
 const match_completion_service_1 = require("./match-completion.service");
 const match_team_service_1 = require("./match-team.service");
 const activeRunners = new Map();
@@ -43,8 +42,12 @@ async function createPvPMatch(app, params) {
         app.io.in((0, socket_emitter_1.userRoom)(params.homeUserId)).socketsJoin((0, socket_emitter_1.matchRoom)(match.id));
         app.io.in((0, socket_emitter_1.userRoom)(params.awayUserId)).socketsJoin((0, socket_emitter_1.matchRoom)(match.id));
     }
-    (0, socket_emitter_1.emitToUser)(params.homeUserId, types_1.ServerEvent.MATCH_READY, { matchId: match.id });
-    (0, socket_emitter_1.emitToUser)(params.awayUserId, types_1.ServerEvent.MATCH_READY, { matchId: match.id });
+    (0, socket_emitter_1.emitToUser)(params.homeUserId, types_1.ServerEvent.MATCH_READY, {
+        matchId: match.id,
+    });
+    (0, socket_emitter_1.emitToUser)(params.awayUserId, types_1.ServerEvent.MATCH_READY, {
+        matchId: match.id,
+    });
     return match;
 }
 async function markPlayerReady(app, userId, matchId) {
@@ -92,16 +95,19 @@ async function startLiveMatch(app, matchId) {
             currentMinute: 0,
         },
     });
-    const userIds = [match.homeUserId, match.awayUserId].filter(Boolean);
-    if (userIds.length > 0 && !match.isBot) {
-        await (0, energy_service_1.consumeEnergyForUsers)(app, userIds);
-    }
-    (0, socket_emitter_1.emitToMatch)(matchId, types_1.ServerEvent.MATCH_STARTED, {
+    const startedPayload = {
         matchId,
         seed,
         homeUserId: match.homeUserId,
         awayUserId: match.awayUserId,
-    });
+    };
+    (0, socket_emitter_1.emitToMatch)(matchId, types_1.ServerEvent.MATCH_STARTED, startedPayload);
+    if (match.homeUserId) {
+        (0, socket_emitter_1.emitToUser)(match.homeUserId, types_1.ServerEvent.MATCH_STARTED, startedPayload);
+    }
+    if (match.awayUserId) {
+        (0, socket_emitter_1.emitToUser)(match.awayUserId, types_1.ServerEvent.MATCH_STARTED, startedPayload);
+    }
     streamMatchEvents(app, matchId, result, seed, match);
 }
 function streamMatchEvents(app, matchId, result, seed, match) {
@@ -171,14 +177,14 @@ async function finishLiveMatch(app, matchId, result, seed, match) {
         const r = role(userId);
         const coins = r === "home" ? rewards.homeCoins : rewards.awayCoins;
         const exp = r === "home" ? rewards.homeExp : rewards.awayExp;
-        return { coins, exp };
+        const points = r === "home" ? rewards.homePoints : rewards.awayPoints;
+        return { coins, exp, points };
     };
     (0, socket_emitter_1.emitToMatch)(matchId, types_1.ServerEvent.MATCH_FINISHED, {
         matchId,
         homeScore: result.homeScore,
         awayScore: result.awayScore,
         winner: result.winner,
-        rewards: match.homeUserId ? buildRewards(match.homeUserId) : { coins: 0, exp: 0 },
     });
     if (match.homeUserId) {
         (0, socket_emitter_1.emitToUser)(match.homeUserId, types_1.ServerEvent.MATCH_FINISHED, {
@@ -215,12 +221,12 @@ async function startInstantBotMatch(app, userId, homeTeamId, awayTeamId) {
     if (app.io) {
         app.io.in((0, socket_emitter_1.userRoom)(userId)).socketsJoin((0, socket_emitter_1.matchRoom)(match.id));
     }
-    // Short delay so the client can connect WebSocket and join the room
+    // Delay so the client can enter PREMATCH and join the WebSocket room
     setTimeout(() => {
         startLiveMatch(app, match.id).catch((err) => {
             app.log.error({ err, matchId: match.id }, "Failed to start bot live match");
         });
-    }, 1200);
+    }, 3000);
     return { match };
 }
 async function updateLiveTactics(app, matchId, userId, tactics) {
@@ -267,8 +273,8 @@ async function updateLiveTactics(app, matchId, userId, tactics) {
         minute: e.minute,
         type: e.type.toLowerCase(),
         team: e.team,
-        playerId: e.playerId,
-        playerName: e.playerName,
+        playerId: e.playerId ?? undefined,
+        playerName: e.playerName ?? undefined,
         description: e.description,
     }));
     const result = (0, match_team_service_1.simulateMatch)(homeTeamData, awayTeamData, match.seed, {

@@ -1,9 +1,10 @@
+/** Client → Server events */
 export declare enum ClientEvent {
     MATCH_READY = "match:ready",
     MATCHMAKING_START = "matchmaking:start",
     MATCHMAKING_CANCEL = "matchmaking:cancel",
     TACTICS_UPDATE = "match:tactics",
-    PING = "ping",
+    PING = "ping"
 }
 /** Server → Client events */
 export declare enum ServerEvent {
@@ -26,7 +27,7 @@ export declare enum ServerEvent {
     PLAYER_RECONNECTED = "match:player_reconnected",
     CONNECTED = "connected",
     ERROR = "error",
-    PONG = "pong",
+    PONG = "pong"
 }
 export interface InvitePayload {
     inviteId: string;

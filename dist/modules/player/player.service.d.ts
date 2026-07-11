@@ -39,6 +39,10 @@ declare function getPlayerById(app: FastifyInstance, playerId: string): Promise<
     isNft: boolean;
     mintedAt: Date | null;
     tokenId: string | null;
+    nftAddress: string | null;
+    matchesPlayed: number;
+    mintingStatus: string;
+    lockedAt: Date | null;
     nationality: string;
     clubId: number | null;
     club: string;

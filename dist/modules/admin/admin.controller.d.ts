@@ -42,6 +42,16 @@ export declare const adminController: {
             id: string;
         };
     }>, reply: FastifyReply) => Promise<never>;
+    deleteUser: (request: FastifyRequest<{
+        Params: {
+            id: string;
+        };
+    }>, reply: FastifyReply) => Promise<never>;
+    deleteUserTeam: (request: FastifyRequest<{
+        Params: {
+            id: string;
+        };
+    }>, reply: FastifyReply) => Promise<never>;
     broadcast: (request: FastifyRequest<{
         Body: {
             text: string;

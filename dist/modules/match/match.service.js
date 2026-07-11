@@ -4,10 +4,12 @@ exports.simulateMatch = exports.handleMatchCompletion = exports.getTeamForMatch 
 exports.playBotMatch = playBotMatch;
 exports.getMatchById = getMatchById;
 exports.getMatchHistory = getMatchHistory;
+exports.getMatchStreak = getMatchStreak;
 const energy_service_1 = require("../user/energy.service");
 const bot_generator_1 = require("./bot.generator");
 const match_completion_service_1 = require("./match-completion.service");
 Object.defineProperty(exports, "handleMatchCompletion", { enumerable: true, get: function () { return match_completion_service_1.handleMatchCompletion; } });
+const match_preview_service_1 = require("./match-preview.service");
 const match_team_service_1 = require("./match-team.service");
 Object.defineProperty(exports, "getTeamForMatch", { enumerable: true, get: function () { return match_team_service_1.getTeamForMatch; } });
 Object.defineProperty(exports, "simulateMatch", { enumerable: true, get: function () { return match_team_service_1.simulateMatch; } });
@@ -16,7 +18,7 @@ Object.defineProperty(exports, "playFriendlyMatch", { enumerable: true, get: fun
 Object.defineProperty(exports, "cancelMatchmaking", { enumerable: true, get: function () { return matchmaking_service_1.cancelMatchmaking; } });
 const match_live_service_1 = require("./match-live.service");
 async function playBotMatch(app, userId) {
-    await (0, energy_service_1.consumeEnergy)(app, userId);
+    await (0, energy_service_1.syncUserEnergy)(app, userId);
     const user = await app.prisma.user.findUnique({ where: { id: userId } });
     if (!user)
         throw new Error("User not found");
@@ -33,8 +35,16 @@ async function playBotMatch(app, userId) {
         status: "IN_PROGRESS",
         isBot: true,
         preloaderData: {
-            homePlayer: { id: user.id, name: user.clubName, points: user.points },
-            awayPlayer: { id: "bot", name: botResult.team.name ?? "Bot", points: user.points + 10 },
+            homePlayer: {
+                id: user.id,
+                name: user.clubName,
+                points: user.points,
+            },
+            awayPlayer: {
+                id: "bot",
+                name: botResult.team.name ?? "Bot",
+                points: user.points + 10,
+            },
         },
     };
 }
@@ -51,6 +61,7 @@ async function getMatchById(app, matchId) {
     });
     if (!match)
         return null;
+    const preview = await (0, match_preview_service_1.buildMatchPreview)(app, match);
     let result = null;
     if (match.status === "COMPLETED" || match.status === "IN_PROGRESS") {
         result = {
@@ -65,7 +76,7 @@ async function getMatchById(app, matchId) {
             events: (0, match_completion_service_1.formatMatchEvents)(match.events),
         };
     }
-    return { match, result };
+    return { match, result, preview };
 }
 async function getMatchHistory(app, userId, limit = 20) {
     return app.prisma.match.findMany({
@@ -76,9 +87,34 @@ async function getMatchHistory(app, userId, limit = 20) {
         orderBy: { createdAt: "desc" },
         take: limit,
         include: {
-            homeTeam: true,
-            awayTeam: true,
+            homeTeam: {
+                include: {
+                    user: {
+                        select: {
+                            clubIcon: true, // Вытягиваем только иконку, чтобы не перегружать сеть
+                        },
+                    },
+                },
+            },
+            awayTeam: {
+                include: {
+                    user: {
+                        select: {
+                            clubIcon: true,
+                        },
+                    },
+                },
+            },
             events: { orderBy: { minute: "asc" } },
         },
     });
+}
+async function getMatchStreak(app, userId) {
+    const streak = await app.prisma.matchStreak.findUnique({
+        where: { userId },
+    });
+    if (!streak) {
+        return { userId, streak: 0, bestStreak: 0 };
+    }
+    return streak;
 }

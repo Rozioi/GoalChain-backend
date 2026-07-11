@@ -1,6 +1,149 @@
 import { FastifyInstance } from "fastify";
 export declare const nftMintService: {
+    /**
+     * Lock player for minting (sets minting_status to "minting_process")
+     */
+    lockPlayer(app: FastifyInstance, userId: string, playerId: string): Promise<{
+        age: number;
+        name: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        surname: string | null;
+        overallRating: number;
+        position: import(".prisma/client").$Enums.Position;
+        role: import(".prisma/client").$Enums.PlayerRole;
+        style: import(".prisma/client").$Enums.PlayerStyle;
+        pace: number;
+        paceBonus: number;
+        shooting: number;
+        shootingBonus: number;
+        passing: number;
+        passingBonus: number;
+        dribbling: number;
+        dribblingBonus: number;
+        defending: number;
+        defendingBonus: number;
+        physical: number;
+        physicalBonus: number;
+        goalkeeping: number;
+        formValue: number;
+        fatigue: number;
+        country: string;
+        potentialMin: number;
+        potentialMax: number;
+        heightCm: number;
+        weightKg: number;
+        foot: string;
+        skillMoves: number;
+        weakFoot: number;
+        injuryType: string | null;
+        injuryEndsAt: Date | null;
+        isNft: boolean;
+        mintedAt: Date | null;
+        tokenId: string | null;
+        nftAddress: string | null;
+        matchesPlayed: number;
+        mintingStatus: string;
+        lockedAt: Date | null;
+        nationality: string;
+        clubId: number | null;
+        club: string;
+        leagueId: number | null;
+        leagueDivisionId: number | null;
+        trainingLevel: number;
+        trainingLevelMax: number;
+        trainingExperience: number;
+        trainingExperienceRequired: number;
+        face: string | null;
+        hairStyle: string | null;
+        hairColor: string | null;
+        skinColor: string | null;
+        beardStyle: string | null;
+        beardColor: string | null;
+        emotion: string | null;
+        rarity: string | null;
+        imageUrl: string | null;
+        ownerId: string | null;
+        isOnRent: boolean;
+        rentPrice: number | null;
+    }>;
+    /**
+     * Unlock player (cancel minting process)
+     */
+    unlockPlayer(app: FastifyInstance, userId: string, playerId: string): Promise<{
+        age: number;
+        name: string;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        surname: string | null;
+        overallRating: number;
+        position: import(".prisma/client").$Enums.Position;
+        role: import(".prisma/client").$Enums.PlayerRole;
+        style: import(".prisma/client").$Enums.PlayerStyle;
+        pace: number;
+        paceBonus: number;
+        shooting: number;
+        shootingBonus: number;
+        passing: number;
+        passingBonus: number;
+        dribbling: number;
+        dribblingBonus: number;
+        defending: number;
+        defendingBonus: number;
+        physical: number;
+        physicalBonus: number;
+        goalkeeping: number;
+        formValue: number;
+        fatigue: number;
+        country: string;
+        potentialMin: number;
+        potentialMax: number;
+        heightCm: number;
+        weightKg: number;
+        foot: string;
+        skillMoves: number;
+        weakFoot: number;
+        injuryType: string | null;
+        injuryEndsAt: Date | null;
+        isNft: boolean;
+        mintedAt: Date | null;
+        tokenId: string | null;
+        nftAddress: string | null;
+        matchesPlayed: number;
+        mintingStatus: string;
+        lockedAt: Date | null;
+        nationality: string;
+        clubId: number | null;
+        club: string;
+        leagueId: number | null;
+        leagueDivisionId: number | null;
+        trainingLevel: number;
+        trainingLevelMax: number;
+        trainingExperience: number;
+        trainingExperienceRequired: number;
+        face: string | null;
+        hairStyle: string | null;
+        hairColor: string | null;
+        skinColor: string | null;
+        beardStyle: string | null;
+        beardColor: string | null;
+        emotion: string | null;
+        rarity: string | null;
+        imageUrl: string | null;
+        ownerId: string | null;
+        isOnRent: boolean;
+        rentPrice: number | null;
+    }>;
+    /**
+     * prepareMint — возвращает данные для TON-транзакции пользователю.
+     * Пользователь платит газ сам через TonConnect.
+     * После подтверждения транзакции клиент вызывает confirmMint,
+     * который уже реально создаёт NFT через Getgems API.
+     */
     prepareMint(app: FastifyInstance, userId: string, playerId: string, walletAddress: string): Promise<{
+        devMode: boolean;
         validUntil: number;
         messages: {
             address: string;
@@ -61,6 +204,10 @@ export declare const nftMintService: {
             isNft: boolean;
             mintedAt: Date | null;
             tokenId: string | null;
+            nftAddress: string | null;
+            matchesPlayed: number;
+            mintingStatus: string;
+            lockedAt: Date | null;
             nationality: string;
             clubId: number | null;
             club: string;
@@ -85,6 +232,9 @@ export declare const nftMintService: {
         };
         tokenId: string;
     }>;
+    /**
+     * Получение метаданных NFT
+     */
     getMetadata(app: FastifyInstance, playerId: string): Promise<{
         name: string;
         description: string;

@@ -16,6 +16,8 @@ export declare function listUsers(app: FastifyInstance, query: {
         id: string;
         telegramId: string;
         username: string | null;
+        firstName: string | null;
+        lastName: string | null;
         clubName: string | null;
         clubIcon: string | null;
         photoUrl: string | null;
@@ -48,6 +50,8 @@ export declare function updateUser(app: FastifyInstance, userId: string, data: {
     id: string;
     telegramId: string;
     username: string | null;
+    firstName: string | null;
+    lastName: string | null;
     clubName: string | null;
     clubIcon: string | null;
     photoUrl: string | null;
@@ -109,4 +113,10 @@ export declare function endSeason(app: FastifyInstance, seasonId: string): Promi
     startDate: Date;
     endDate: Date;
     division: number;
+}>;
+export declare function deleteUser(app: FastifyInstance, userId: string): Promise<{
+    success: boolean;
+}>;
+export declare function deleteUserTeam(app: FastifyInstance, userId: string): Promise<{
+    success: boolean;
 }>;

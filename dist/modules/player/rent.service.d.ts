@@ -39,6 +39,10 @@ export declare const rentService: {
         isNft: boolean;
         mintedAt: Date | null;
         tokenId: string | null;
+        nftAddress: string | null;
+        matchesPlayed: number;
+        mintingStatus: string;
+        lockedAt: Date | null;
         nationality: string;
         clubId: number | null;
         club: string;
@@ -112,6 +116,10 @@ export declare const rentService: {
         isNft: boolean;
         mintedAt: Date | null;
         tokenId: string | null;
+        nftAddress: string | null;
+        matchesPlayed: number;
+        mintingStatus: string;
+        lockedAt: Date | null;
         nationality: string;
         clubId: number | null;
         club: string;
@@ -173,6 +181,10 @@ export declare const rentService: {
         isNft: boolean;
         mintedAt: Date | null;
         tokenId: string | null;
+        nftAddress: string | null;
+        matchesPlayed: number;
+        mintingStatus: string;
+        lockedAt: Date | null;
         nationality: string;
         clubId: number | null;
         club: string;

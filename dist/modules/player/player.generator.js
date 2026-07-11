@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -8,85 +41,6 @@ exports.generateMultiplePlayers = generateMultiplePlayers;
 const seedrandom_1 = __importDefault(require("seedrandom"));
 const client_1 = require("@prisma/client");
 const constants_1 = require("../../config/constants");
-const background_removal_node_1 = require("@imgly/background-removal-node");
-const fs_1 = __importDefault(require("fs"));
-const sharp_1 = __importDefault(require("sharp"));
-const path_1 = __importDefault(require("path"));
-async function processPlayerImage(promptOrUrl, fileName, isUrl = true) {
-    const publicDir = "./public/generated-players/";
-    const relativeUrl = `/generated-players/${fileName}.png`;
-    let imageBuffer = null;
-    let lastError = null;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-            if (isUrl) {
-                console.log(`[Pollinations] Попытка ${attempt} для ${fileName}`);
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 20000);
-                const response = await fetch(promptOrUrl, {
-                    signal: controller.signal,
-                });
-                clearTimeout(timeoutId);
-                if (response.ok) {
-                    imageBuffer = Buffer.from(await response.arrayBuffer());
-                    break;
-                }
-            }
-            else {
-                console.log(`[LocalAI] Попытка ${attempt} для ${fileName}`);
-                imageBuffer = await fetchLocalImage(promptOrUrl);
-                break;
-            }
-        }
-        catch (err) {
-            lastError = err;
-            console.warn(`[ImageGen] Ошибка при попытке ${attempt}:`, err);
-            if (attempt < 3)
-                await new Promise((r) => setTimeout(r, 2000));
-        }
-    }
-    if (!imageBuffer) {
-        console.error("[processPlayerImage] Не удалось получить изображение:", lastError);
-        return isUrl ? promptOrUrl : "";
-    }
-    try {
-        if (!fs_1.default.existsSync(publicDir))
-            fs_1.default.mkdirSync(publicDir, { recursive: true });
-        // Нормализуем изображение через sharp перед удалением фона
-        const normalizedBuffer = await (0, sharp_1.default)(imageBuffer).png().toBuffer();
-        // await sharp(imageBuffer).png().toBuffer();
-        const tempDir = "./temp/bg-removal/";
-        if (!fs_1.default.existsSync(tempDir))
-            fs_1.default.mkdirSync(tempDir, { recursive: true });
-        const tempPath = path_1.default.resolve(`${tempDir}${fileName}_temp.png`);
-        fs_1.default.writeFileSync(tempPath, normalizedBuffer);
-        let resultBuffer = normalizedBuffer;
-        try {
-            console.log(`[ImageGen] Удаление фона через файл: ${tempPath}`);
-            const resultBlob = await (0, background_removal_node_1.removeBackground)(tempPath);
-            resultBuffer = Buffer.from(await resultBlob.arrayBuffer());
-            if (fs_1.default.existsSync(tempPath))
-                fs_1.default.unlinkSync(tempPath);
-        }
-        catch (bgError) {
-            console.warn("[BG Removal] Ошибка при обработке файла:", bgError);
-            if (fs_1.default.existsSync(tempPath))
-                fs_1.default.unlinkSync(tempPath);
-        }
-        const pixelatedBuffer = await (0, sharp_1.default)(resultBuffer)
-            .resize(128, 128, { kernel: sharp_1.default.kernel.nearest })
-            .resize(512, 512, { kernel: sharp_1.default.kernel.nearest })
-            .png()
-            .toBuffer();
-        const finalPath = path_1.default.resolve(`${publicDir}${fileName}.png`);
-        fs_1.default.writeFileSync(finalPath, pixelatedBuffer);
-        return relativeUrl;
-    }
-    catch (error) {
-        console.error("[processPlayerImage] Критическая ошибка при обработке:", error);
-        return isUrl ? promptOrUrl : "";
-    }
-}
 function generateImagePrompt(player) {
     return `
     Pixel art 16-bit SNES football player headshot,
@@ -274,17 +228,29 @@ function mapAppearanceFromNationality(rng, nationality) {
 }
 async function generatePlayer(options = {}) {
     const rng = (0, seedrandom_1.default)(options.seed || Math.random().toString());
-    const leagueLevel = randomInt(rng, 1, 70);
+    const leagueLevel = options.ovrMin !== undefined && options.ovrMax !== undefined
+        ? 0
+        : randomInt(rng, 1, 70);
     const leagueDivisionId = leagueLevel > 35 ? 2 : 1;
     const leagueId = leagueLevel > 35 ? leagueLevel - 35 : leagueLevel;
-    const leagueBaseOVR = Math.max(40, 95 - leagueLevel);
-    const overallRating = randomInt(rng, leagueBaseOVR - 5, Math.min(99, leagueBaseOVR + 5));
-    const role = options.role ?? pickRandom(rng, Object.values(client_1.PlayerRole));
+    let overallRating;
+    if (options.ovrMin !== undefined && options.ovrMax !== undefined) {
+        overallRating = randomInt(rng, options.ovrMin, options.ovrMax);
+    }
+    else {
+        const leagueBaseOVR = Math.max(40, 95 - leagueLevel);
+        overallRating = randomInt(rng, leagueBaseOVR - 5, Math.min(99, leagueBaseOVR + 5));
+    }
+    const role = options.role ??
+        pickRandom(rng, Object.values(client_1.PlayerRole));
     const position = options.position ?? pickRandom(rng, POSITIONS_BY_ROLE[role]);
     const style = pickRandom(rng, STYLES_BY_ROLE[role]);
     const stats = generateStatsForRole(rng, role, style, overallRating);
-    const potentialMin = randomInt(rng, overallRating + 2, Math.min(99, overallRating + 10));
-    const potentialMax = randomInt(rng, potentialMin + 5, Math.min(99, potentialMin + 15));
+    // Потенциал: от текущего OVR до макс. возможного
+    // potentialMin — нижняя граница (сейчас = OVR)
+    // potentialMax — максимальный OVR, до которого может прокачаться игрок
+    const potentialMax = randomInt(rng, Math.max(overallRating + 5, 60), Math.min(99, overallRating + 20));
+    const potentialMin = overallRating; // текущий OVR = нижняя граница
     const formValue = 1.0 + randomInt(rng, -10, 20) / 100;
     const age = randomInt(rng, 17, 34);
     const nationality = pickRandom(rng, constants_1.PLAYER_NATIONALITIES);
@@ -294,11 +260,39 @@ async function generatePlayer(options = {}) {
     const heightCm = randomInt(rng, 165, 205);
     const weightKg = randomInt(rng, 60, 95);
     const foot = rng() > 0.7 ? "Left" : "Right";
-    const skillMoves = randomInt(rng, 1, 5);
+    // Skill Moves logic based on position and OVR
+    const isDefenderOrGK = role === client_1.PlayerRole.GOALKEEPER ||
+        role === client_1.PlayerRole.DEFENDER ||
+        position === client_1.Position.CB ||
+        position === client_1.Position.LB ||
+        position === client_1.Position.RB;
+    let skillMoves;
+    if (isDefenderOrGK) {
+        skillMoves = randomInt(rng, 1, 2); // 1 or 2 stars
+    }
+    else {
+        // Forwards, Midfielders, etc.
+        if (overallRating >= 85) {
+            skillMoves = randomInt(rng, 4, 5); // 4 or 5 stars
+        }
+        else if (overallRating >= 75) {
+            skillMoves = randomInt(rng, 3, 4); // 3 or 4 stars
+        }
+        else if (overallRating >= 60) {
+            skillMoves = 3; // 3 stars
+        }
+        else {
+            skillMoves = 2; // 2 stars
+        }
+    }
     const weakFoot = randomInt(rng, 1, 5);
     const country = nationality || "RU";
     const appearance = mapAppearanceFromNationality(rng, nationality);
-    const rarity = overallRating >= 75 ? "gold" : overallRating >= 65 ? "silver" : "bronze";
+    const rarity = overallRating >= 75
+        ? "gold"
+        : overallRating >= 65
+            ? "silver"
+            : "bronze";
     const { name, surname } = generateName(rng);
     const playerData = {
         name,
@@ -336,21 +330,29 @@ async function generatePlayer(options = {}) {
         defendingBonus: 0,
         physicalBonus: 0,
     };
-    // Генерация портрета через Together AI (FLUX)
-    // const fileName = `${name}_${surname}_${Date.now()}`.toLowerCase();
-    // let finalImageUrl = "ф.png"; // дефолт, если генерация недоступна
-    // try {
-    //   const generated = await generatePlayerImage(
-    //     { name, surname, nationality, club },
-    //     fileName,
-    //   );
-    //   if (generated) finalImageUrl = generated;
-    // } catch (e) {
-    //   console.error("generatePlayerImage failed:", e);
-    // }
+    // Генерация портрета — fileName на основе имени, чтобы при перегенерации перезаписывался
+    const fileName = `${name}_${surname}`
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_");
+    const { generatePlayerImage } = await Promise.resolve().then(() => __importStar(require("./playerImage.together")));
+    const generatedImage = await generatePlayerImage({
+        name,
+        surname,
+        nationality,
+        club,
+        clubId,
+        overallRating,
+        position,
+        pace: playerData.pace,
+        shooting: playerData.shooting,
+        passing: playerData.passing,
+        dribbling: playerData.dribbling,
+        defending: playerData.defending,
+        physical: playerData.physical,
+    }, rarity, fileName);
     return {
         ...playerData,
-        imageUrl: "default.png",
+        imageUrl: generatedImage || "https://i.ibb.co/XxP14GR9/result-card.png",
     };
 }
 async function generateMultiplePlayers(count, options = {}) {

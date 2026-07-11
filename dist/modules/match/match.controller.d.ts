@@ -43,5 +43,10 @@ declare const matchController: {
         };
     }>, reply: FastifyReply): Promise<undefined>;
     cancel(req: FastifyRequest, reply: FastifyReply): Promise<void>;
+    streak(req: FastifyRequest<{
+        Params: {
+            userId: string;
+        };
+    }>, reply: FastifyReply): Promise<void>;
 };
 export default matchController;

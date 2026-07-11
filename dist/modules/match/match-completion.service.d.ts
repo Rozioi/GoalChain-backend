@@ -14,6 +14,21 @@ interface MatchResult {
         description: string;
     }>;
 }
+export interface PlayerMatchRewards {
+    coins: number;
+    exp: number;
+    points: number;
+}
+export interface MatchCompletionRewards {
+    homeCoins: number;
+    awayCoins: number;
+    homeExp: number;
+    awayExp: number;
+    homePoints: number;
+    awayPoints: number;
+    home: PlayerMatchRewards;
+    away: PlayerMatchRewards;
+}
 export declare function handleMatchCompletion(app: FastifyInstance, match: {
     id: string;
     homeUserId?: string | null;
@@ -21,12 +36,7 @@ export declare function handleMatchCompletion(app: FastifyInstance, match: {
     homeTeamId: string;
     awayTeamId?: string | null;
     isBot?: boolean;
-}, result: MatchResult, seed: string): Promise<{
-    homeCoins: number;
-    awayCoins: number;
-    homeExp: number;
-    awayExp: number;
-}>;
+}, result: MatchResult, seed: string): Promise<MatchCompletionRewards>;
 export declare function formatMatchEvents(events: Array<{
     type: string;
     minute: number;

@@ -20,10 +20,23 @@ async function adminTaskRoutes(app) {
                 properties: {
                     title: { type: "string" },
                     description: { type: "string" },
-                    type: { type: "string", enum: ["SEASON", "DAILY", "INTRO"] },
+                    titleRu: { type: "string" },
+                    descriptionRu: { type: "string" },
+                    titleEn: { type: "string" },
+                    descriptionEn: { type: "string" },
+                    type: {
+                        type: "string",
+                        enum: ["SEASON", "DAILY", "INTRO"],
+                    },
                     objective: {
                         type: "string",
-                        enum: ["GOALS", "WINS", "MATCHES", "CLEAN_SHEETS", "REFERRALS"],
+                        enum: [
+                            "GOALS",
+                            "WINS",
+                            "MATCHES",
+                            "CLEAN_SHEETS",
+                            "REFERRALS",
+                        ],
                     },
                     reward: { type: "number" },
                     goal: { type: "number" },
@@ -36,16 +49,32 @@ async function adminTaskRoutes(app) {
         schema: {
             tags: ["Admin - Task"],
             description: "Update a task",
-            params: { type: "object", properties: { id: { type: "string" } } },
+            params: {
+                type: "object",
+                properties: { id: { type: "string" } },
+            },
             body: {
                 type: "object",
                 properties: {
                     title: { type: "string" },
                     description: { type: "string" },
-                    type: { type: "string", enum: ["SEASON", "DAILY", "INTRO"] },
+                    titleRu: { type: "string" },
+                    descriptionRu: { type: "string" },
+                    titleEn: { type: "string" },
+                    descriptionEn: { type: "string" },
+                    type: {
+                        type: "string",
+                        enum: ["SEASON", "DAILY", "INTRO"],
+                    },
                     objective: {
                         type: "string",
-                        enum: ["GOALS", "WINS", "MATCHES", "CLEAN_SHEETS", "REFERRALS"],
+                        enum: [
+                            "GOALS",
+                            "WINS",
+                            "MATCHES",
+                            "CLEAN_SHEETS",
+                            "REFERRALS",
+                        ],
                     },
                     reward: { type: "number" },
                     goal: { type: "number" },
@@ -59,7 +88,10 @@ async function adminTaskRoutes(app) {
         schema: {
             tags: ["Admin - Task"],
             description: "Delete a task",
-            params: { type: "object", properties: { id: { type: "string" } } },
+            params: {
+                type: "object",
+                properties: { id: { type: "string" } },
+            },
         },
     }, task_controller_1.adminTaskController.delete);
 }

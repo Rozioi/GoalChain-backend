@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PLAYER_CLUBS = exports.PLAYER_NATIONALITIES = exports.PLAYER_LAST_NAMES = exports.PLAYER_FIRST_NAMES = exports.RENT = exports.REFERRAL = exports.SEASON = exports.SCOUTING = exports.TRAINING = exports.INVITE = exports.MATCH = exports.ENERGY = exports.DRAFT = void 0;
+exports.PLAYER_CLUBS = exports.PLAYER_NATIONALITIES = exports.PLAYER_LAST_NAMES = exports.PLAYER_FIRST_NAMES = exports.RENT = exports.REFERRAL = exports.SEASON = exports.SCOUTING = exports.NFT = exports.TRAINING = exports.INVITE = exports.MATCH = exports.DIVISION_TIERS = exports.ENERGY = exports.DRAFT = void 0;
 // ─── DRAFT ──────────────────────────────────────────────────────
 exports.DRAFT = {
     STARTER_GK_OPTIONS: 4,
@@ -15,17 +15,24 @@ exports.DRAFT = {
     RESERVE_DEF: 4,
     RESERVE_MID: 4,
     RESERVE_FWD: 5,
-    STARTER_OVR_MIN: 55,
-    STARTER_OVR_MAX: 75,
+    STARTER_OVR_MIN: 50,
+    STARTER_OVR_MAX: 70,
     RESERVE_OVR_MIN: 40,
-    RESERVE_OVR_MAX: 50,
+    RESERVE_OVR_MAX: 48,
 };
 // ─── ENERGY ─────────────────────────────────────────────────────
 exports.ENERGY = {
     MAX: 10,
     REGEN_INTERVAL_MS: 2 * 60 * 60 * 1000, // 1 unit every 2 hours
 };
-// ─── MATCH ──────────────────────────────────────────────────────
+// ─── RANK DIVISIONS ─────────────────────────────────────────────
+exports.DIVISION_TIERS = [
+    { name: "Bronze", min: 0, max: 1499, lossPenalty: 5 },
+    { name: "Silver", min: 1500, max: 2999, lossPenalty: 15 },
+    { name: "Gold", min: 3000, max: 4499, lossPenalty: 22 },
+    { name: "Diamond", min: 4500, max: 5999, lossPenalty: 28 },
+    { name: "Master", min: 6000, max: Infinity, lossPenalty: 30 },
+];
 exports.MATCH = {
     MATCHMAKING_RATING_RANGE: 0.1,
     MATCHMAKING_POINTS_RANGE: 300,
@@ -35,9 +42,9 @@ exports.MATCH = {
     OVERTIME_ITERATIONS: 10,
     LIVE_MS_PER_MINUTE: 500,
     REWARDS: {
-        WIN_COINS: 100,
-        DRAW_COINS: 50,
-        LOSS_COINS: 20,
+        WIN_COINS: 500,
+        DRAW_COINS: 100,
+        LOSS_COINS: 50,
         WIN_EXP: 30,
         DRAW_EXP: 15,
         LOSS_EXP: 10,
@@ -51,18 +58,26 @@ exports.INVITE = {
 };
 // ─── TRAINING ───────────────────────────────────────────────────
 exports.TRAINING = {
-    BASE_COST: 100,
-    COST_MULTIPLIER: 1.5,
-    COOLDOWN_MS: 2 * 60 * 60 * 1000,
-    BOOST_NORMAL: 1,
-    BOOST_NFT: 2,
-    MAX_OVR_NORMAL: 120,
-    MAX_OVR_NFT: 150,
+    BASE_COST: 100, // начальная стоимость
+    COST_MULTIPLIER: 1.3, // каждая тренировка дорожает на 30%
+    COOLDOWN_MS: 1 * 60 * 60 * 1000, // 1 час кулдаун
+    BOOST: 1, // +1 к выбранной стате
+    XP_PER_TRAINING: 25, // XP за тренировку
+    XP_PER_LEVEL: 100, // XP для нового уровня тр.
+    MAX_TRAINING_LEVEL: 25, // макс. уровень тренировки
+};
+// ─── NFT ────────────────────────────────────────────────────────
+exports.NFT = {
+    MAX_OVR: 99,
+    MIN_OVR_FOR_MINT: 75,
+    MIN_MATCHES_FOR_MINT: 100,
+    COLLECTION_ADDRESS: process.env.TON_COLLECTION_ADDRESS || "",
+    MINT_LOCK_DURATION_MS: 10 * 60 * 1000, // 10 minutes lock
 };
 exports.SCOUTING = {
     MAX_ACTIVE_SCOUTS: 3,
     // Default scouting duration: 1 hour
-    DURATION_MS: 60,
+    DURATION_MS: 1,
     REGIONS: [
         "Europe",
         "South America",
@@ -76,19 +91,19 @@ exports.SCOUTING = {
             COST: 1000,
             CURRENCY: "COIN",
             OVR_RANGE: [45, 70],
-            NFT_CHANCE: 0.05,
+            CHANCE: { min: 35, max: 50 }, // 35-50% chance to find a player
         },
         PRO: {
             COST: 5000,
             CURRENCY: "COIN",
             OVR_RANGE: [65, 82],
-            NFT_CHANCE: 0.15,
+            CHANCE: { min: 55, max: 70 }, // 55-70% chance to find a player
         },
         MASTER: {
             COST: 1, // 1 TON
             CURRENCY: "TON",
             OVR_RANGE: [75, 95],
-            NFT_CHANCE: 0.5,
+            CHANCE: { min: 85, max: 95 }, // 85-95% chance to find a player
         },
     },
 };

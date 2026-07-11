@@ -51,6 +51,10 @@ export declare function getDraftOptions(app: FastifyInstance, userId: string, st
                 isNft: boolean;
                 mintedAt: Date | null;
                 tokenId: string | null;
+                nftAddress: string | null;
+                matchesPlayed: number;
+                mintingStatus: string;
+                lockedAt: Date | null;
                 nationality: string;
                 clubId: number | null;
                 club: string;
@@ -142,6 +146,10 @@ export declare function pickDraftPlayers(app: FastifyInstance, userId: string, o
                 isNft: boolean;
                 mintedAt: Date | null;
                 tokenId: string | null;
+                nftAddress: string | null;
+                matchesPlayed: number;
+                mintingStatus: string;
+                lockedAt: Date | null;
                 nationality: string;
                 clubId: number | null;
                 club: string;

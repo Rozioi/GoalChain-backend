@@ -73,6 +73,24 @@ exports.adminController = {
         const result = await adminService.endSeason(request.server, request.params.id);
         return reply.send(result);
     },
+    deleteUser: async (request, reply) => {
+        try {
+            const result = await adminService.deleteUser(request.server, request.params.id);
+            return reply.send(result);
+        }
+        catch (err) {
+            return reply.status(400).send({ error: err.message });
+        }
+    },
+    deleteUserTeam: async (request, reply) => {
+        try {
+            const result = await adminService.deleteUserTeam(request.server, request.params.id);
+            return reply.send(result);
+        }
+        catch (err) {
+            return reply.status(400).send({ error: err.message });
+        }
+    },
     broadcast: async (request, reply) => {
         try {
             const result = await adminService.broadcastMessage(request.server, request.body.text, request.body.photoBase64);

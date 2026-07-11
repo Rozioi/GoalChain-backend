@@ -15,7 +15,9 @@ async function adminGuard(request, reply) {
         select: { isAdmin: true },
     });
     if (!user || !user.isAdmin) {
-        return reply.status(403).send({ error: "Forbidden: Admin access only" });
+        return reply
+            .status(403)
+            .send({ error: "Forbidden: Admin access only" });
     }
 }
 async function adminRoutes(app) {
@@ -24,6 +26,8 @@ async function adminRoutes(app) {
     app.get("/admin/users", admin_controller_1.adminController.listUsers);
     app.get("/admin/seasons", admin_controller_1.adminController.listSeasons);
     app.put("/admin/users/:id", admin_controller_1.adminController.updateUser);
+    app.delete("/admin/users/:id", admin_controller_1.adminController.deleteUser);
+    app.delete("/admin/users/:id/team", admin_controller_1.adminController.deleteUserTeam);
     app.post("/admin/season", admin_controller_1.adminController.createSeason);
     app.put("/admin/season/:id/status", admin_controller_1.adminController.updateSeason);
     app.put("/admin/season/:id/end", admin_controller_1.adminController.endSeason);

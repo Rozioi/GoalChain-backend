@@ -9,5 +9,10 @@ export declare const env: {
     CORS_ORIGIN: string;
     TON_COLLECTION_ADDRESS: string;
     TON_RPC_ENDPOINT: string;
+    TON_API_KEY: string;
+    TON_PAYMENT_ADDRESS: string;
+    OPENAI_API_KEY: string;
     WEBAPP_URL: string;
+    NETWORK: string;
+    NFT_MINT_UNLOCKED: string;
 };

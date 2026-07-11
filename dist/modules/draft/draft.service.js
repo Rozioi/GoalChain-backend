@@ -38,10 +38,7 @@ async function startDraft(app, userId) {
         where: { userId, isEvent: false },
     });
     if (existingTeam) {
-        throw new app_error_1.AppError(
-            "You already have a team. Draft is only for new users.",
-            409,
-        );
+        throw new app_error_1.AppError("You already have a team. Draft is only for new users.", 409);
     }
     const existingDraft = await app.prisma.draftSession.findFirst({
         where: { userId, status: "IN_PROGRESS" },
@@ -61,6 +58,7 @@ async function getDraftOptions(app, userId, step) {
     });
     console.log(session);
     if (!session) {
+        // If user already has a team, tell the client explicitly
         const existingTeam = await app.prisma.team.findFirst({
             where: { userId, isEvent: false },
         });
@@ -71,14 +69,9 @@ async function getDraftOptions(app, userId, step) {
     }
     const stepUpper = step.toUpperCase();
     if (session.step !== stepUpper) {
-        throw new app_error_1.AppError(
-            `Current draft step is ${session.step}, not ${stepUpper}`,
-            409,
-        );
+        throw new app_error_1.AppError(`Current draft step is ${session.step}, not ${stepUpper}`, 409);
     }
-    const existingOptions = session.options.filter(
-        (o) => o.step === stepUpper && !o.isPicked,
-    );
+    const existingOptions = session.options.filter((o) => o.step === stepUpper && !o.isPicked);
     if (existingOptions.length > 0) {
         return {
             session,
@@ -94,8 +87,7 @@ async function getDraftOptions(app, userId, step) {
     if (!config)
         throw new app_error_1.AppError(`Invalid draft step: ${stepUpper}`, 400);
     console.log("final step: ", config);
-    const generatedPlayers = await (0,
-    player_generator_1.generateMultiplePlayers)(config.count, {
+    const generatedPlayers = await (0, player_generator_1.generateMultiplePlayers)(config.count, {
         role: config.role,
         ovrMin: constants_1.DRAFT.STARTER_OVR_MIN,
         ovrMax: constants_1.DRAFT.STARTER_OVR_MAX,
@@ -123,13 +115,12 @@ async function getDraftOptions(app, userId, step) {
         }
         return createdOptions;
     });
+    // Re-fetch session so session.options includes newly created options
     const updatedSession = await app.prisma.draftSession.findUnique({
         where: { id: session.id },
         include: { options: { include: { player: true } } },
     });
-    const pickedOptions = (updatedSession?.options || []).filter(
-        (o) => o.isPicked,
-    );
+    const pickedOptions = (updatedSession?.options || []).filter((o) => o.isPicked);
     const pickedPlayers = pickedOptions.map((o) => o.player);
     const suggestions = options.map((opt) => {
         const testTeam = [
@@ -160,10 +151,7 @@ const app_error_1 = require("../../utils/app-error");
 async function pickDraftPlayers(app, userId, optionIds) {
     try {
         if (!Array.isArray(optionIds) || optionIds.length === 0) {
-            throw new app_error_1.AppError(
-                "optionIds must be a non-empty array",
-                400,
-            );
+            throw new app_error_1.AppError("optionIds must be a non-empty array", 400);
         }
         if (optionIds.length > 20) {
             throw new app_error_1.AppError("Too many optionIds", 400);
@@ -177,13 +165,12 @@ async function pickDraftPlayers(app, userId, optionIds) {
         const currentStep = session.step;
         const config = STEP_CONFIG[currentStep];
         if (!config)
-            throw new app_error_1.AppError(
-                "Draft is in reserve/done phase",
-                400,
-            );
+            throw new app_error_1.AppError("Draft is in reserve/done phase", 400);
+        // Validate provided optionIds belong to this session
         let foundOptions = await app.prisma.draftOption.findMany({
             where: { id: { in: optionIds }, draftSessionId: session.id },
         });
+        // Tolerant fallback: if client passed player IDs instead of draftOption IDs, try resolving
         if (foundOptions.length !== optionIds.length) {
             const alt = await app.prisma.draftOption.findMany({
                 where: {
@@ -194,46 +181,37 @@ async function pickDraftPlayers(app, userId, optionIds) {
             if (alt.length > 0) {
                 // build mapping from playerId -> draftOption.id
                 const playerToOption = new Map();
-                for (const a of alt) playerToOption.set(a.playerId, a.id);
-                const remapped = optionIds.map(
-                    (id) => playerToOption.get(id) || id,
-                );
+                for (const a of alt)
+                    playerToOption.set(a.playerId, a.id);
+                const remapped = optionIds.map((id) => playerToOption.get(id) || id);
+                // re-check
                 foundOptions = await app.prisma.draftOption.findMany({
                     where: { id: { in: remapped }, draftSessionId: session.id },
                 });
                 if (foundOptions.length === remapped.length) {
+                    // accept remapped optionIds going forward
                     optionIds = remapped;
                 }
             }
         }
         if (foundOptions.length !== optionIds.length) {
-            app.log.warn(
-                {
-                    optionIds,
-                    found: foundOptions.length,
-                    sessionId: session.id,
-                },
-                "pickDraftPlayers: invalid optionIds",
-            );
-            throw new app_error_1.AppError(
-                "One or more optionIds are invalid for this draft session",
-                400,
-            );
+            app.log.warn({
+                optionIds,
+                found: foundOptions.length,
+                sessionId: session.id,
+            }, "pickDraftPlayers: invalid optionIds");
+            throw new app_error_1.AppError("One or more optionIds are invalid for this draft session", 400);
         }
+        // Prevent double-pick: ensure none of them are already picked
         const alreadyPicked = foundOptions.filter((o) => o.isPicked);
         if (alreadyPicked.length > 0) {
-            app.log.warn(
-                {
-                    alreadyPicked: alreadyPicked.map((o) => o.id),
-                    sessionId: session.id,
-                },
-                "pickDraftPlayers: option already picked",
-            );
-            throw new app_error_1.AppError(
-                "One or more options were already picked",
-                409,
-            );
+            app.log.warn({
+                alreadyPicked: alreadyPicked.map((o) => o.id),
+                sessionId: session.id,
+            }, "pickDraftPlayers: option already picked");
+            throw new app_error_1.AppError("One or more options were already picked", 409);
         }
+        // Atomic guarded update - mark selected options as picked only if still not picked
         const updateRes = await app.prisma.draftOption.updateMany({
             where: {
                 id: { in: optionIds },
@@ -243,21 +221,17 @@ async function pickDraftPlayers(app, userId, optionIds) {
             data: { isPicked: true },
         });
         if (!updateRes || updateRes.count !== optionIds.length) {
+            // Race or partial update - surface conflict
             const refreshed = await app.prisma.draftOption.findMany({
                 where: { id: { in: optionIds }, draftSessionId: session.id },
             });
             const nowPicked = refreshed
                 .filter((r) => r.isPicked)
                 .map((r) => r.id);
-            app.log.warn(
-                { nowPicked, sessionId: session.id },
-                "pickDraftPlayers: partial update or race",
-            );
-            throw new app_error_1.AppError(
-                `Failed to pick some options (may be already picked by another user): ${nowPicked.join(", ")}`,
-                409,
-            );
+            app.log.warn({ nowPicked, sessionId: session.id }, "pickDraftPlayers: partial update or race");
+            throw new app_error_1.AppError(`Failed to pick some options (may be already picked by another user): ${nowPicked.join(", ")}`, 409);
         }
+        // Count picked and maybe advance step
         const pickedInStep = await app.prisma.draftOption.count({
             where: {
                 draftSessionId: session.id,
@@ -275,6 +249,7 @@ async function pickDraftPlayers(app, userId, optionIds) {
             nextStep = config.next;
             completedStep = true;
         }
+        // Re-fetch session to return authoritative state to client
         const freshSession = await app.prisma.draftSession.findUnique({
             where: { id: session.id },
             include: { options: { include: { player: true } } },
@@ -285,9 +260,11 @@ async function pickDraftPlayers(app, userId, optionIds) {
             completedStep,
             session: freshSession,
         };
-    } catch (err) {
+    }
+    catch (err) {
         app.log.error({ err, optionIds, userId }, "pickDraftPlayers failed");
-        if (err instanceof app_error_1.AppError) throw err;
+        if (err instanceof app_error_1.AppError)
+            throw err;
         throw new app_error_1.AppError("Failed to pick draft players", 500);
     }
 }
@@ -304,20 +281,7 @@ async function completeDraft(app, userId, clubName) {
             .map((o) => o.player)
             .filter(Boolean);
         if (starters.length < 11) {
-            throw new app_error_1.AppError(
-                `Draft is not finished yet. You must pick 11 starters (have ${starters.length})`,
-                400,
-            );
-        }
-        const existingTeam = await app.prisma.team.findFirst({
-            where: { userId, isEvent: false },
-        });
-        if (existingTeam) {
-            app.log.warn(
-                { userId, existingTeamId: existingTeam.id },
-                "completeDraft: user already has a team",
-            );
-            throw new app_error_1.AppError("User already has a team", 409);
+            throw new app_error_1.AppError(`Draft is not finished yet. You must pick 11 starters (have ${starters.length})`, 400);
         }
         const user = await app.prisma.user.findUnique({
             where: { id: userId },
@@ -331,8 +295,7 @@ async function completeDraft(app, userId, clubName) {
             ];
             const reserves = [];
             for (const rc of reserveConfig) {
-                const generated = await (0,
-                player_generator_1.generateMultiplePlayers)(rc.count, {
+                const generated = await (0, player_generator_1.generateMultiplePlayers)(rc.count, {
                     role: rc.role,
                     ovrMin: constants_1.DRAFT.RESERVE_OVR_MIN,
                     ovrMax: constants_1.DRAFT.RESERVE_OVR_MAX,
@@ -352,6 +315,8 @@ async function completeDraft(app, userId, clubName) {
                     userId,
                 },
             });
+            // Sort starters: FORWARD -> MIDFIELDER -> DEFENDER -> GOALKEEPER
+            // To align with the UI formation layout indexes: 0-1 (FWD), 2-5 (MID), 6-9 (DEF), 10 (GK)
             const fwds = starters.filter((p) => p && p.role === "FORWARD");
             const mids = starters.filter((p) => p && p.role === "MIDFIELDER");
             const defs = starters.filter((p) => p && p.role === "DEFENDER");
@@ -360,10 +325,7 @@ async function completeDraft(app, userId, clubName) {
             for (let i = 0; i < sortedStarters.length; i++) {
                 const player = sortedStarters[i];
                 if (!player || !player.id) {
-                    app.log.warn(
-                        { i, player, teamId: team.id },
-                        "completeDraft: skipping invalid starter",
-                    );
+                    app.log.warn({ i, player, teamId: team.id }, "completeDraft: skipping invalid starter");
                     continue;
                 }
                 await tx.teamPlayer.create({
@@ -376,7 +338,8 @@ async function completeDraft(app, userId, clubName) {
                 });
             }
             for (const player of reserves) {
-                if (!player || !player.id) continue;
+                if (!player || !player.id)
+                    continue;
                 await tx.teamPlayer.create({
                     data: {
                         teamId: team.id,
@@ -385,14 +348,12 @@ async function completeDraft(app, userId, clubName) {
                     },
                 });
             }
-            const rating = (0, synergy_engine_1.calculateTeamRating)(
-                starters.map((p) => ({
-                    position: p.position,
-                    role: p.role,
-                    style: p.style,
-                    overallRating: p.overallRating,
-                })),
-            );
+            const rating = (0, synergy_engine_1.calculateTeamRating)(starters.map((p) => ({
+                position: p.position,
+                role: p.role,
+                style: p.style,
+                overallRating: p.overallRating,
+            })));
             await tx.team.update({
                 where: { id: team.id },
                 data: { rating },
@@ -423,12 +384,11 @@ async function completeDraft(app, userId, clubName) {
                 total: teamResult.startersCount + teamResult.reservesCount,
             },
         };
-    } catch (err) {
+    }
+    catch (err) {
         app.log.error({ err, userId }, "completeDraft failed");
-        if (err instanceof app_error_1.AppError) throw err;
-        throw new app_error_1.AppError(
-            err?.message || "Failed to complete draft",
-            500,
-        );
+        if (err instanceof app_error_1.AppError)
+            throw err;
+        throw new app_error_1.AppError(err?.message || "Failed to complete draft", 500);
     }
 }

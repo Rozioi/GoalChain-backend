@@ -17,6 +17,7 @@ export declare function acceptInvite(app: FastifyInstance, userId: string, invit
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        isBot: boolean;
         eventId: string | null;
         status: import(".prisma/client").$Enums.MatchStatus;
         type: import(".prisma/client").$Enums.MatchType;
@@ -24,7 +25,6 @@ export declare function acceptInvite(app: FastifyInstance, userId: string, invit
         awayUserId: string | null;
         homeTeamId: string;
         awayTeamId: string | null;
-        isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
         seed: string | null;
@@ -82,6 +82,7 @@ export declare function acceptMatchLegacy(app: FastifyInstance, userId: string, 
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        isBot: boolean;
         eventId: string | null;
         status: import(".prisma/client").$Enums.MatchStatus;
         type: import(".prisma/client").$Enums.MatchType;
@@ -89,7 +90,6 @@ export declare function acceptMatchLegacy(app: FastifyInstance, userId: string, 
         awayUserId: string | null;
         homeTeamId: string;
         awayTeamId: string | null;
-        isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
         seed: string | null;
@@ -114,6 +114,7 @@ export declare function acceptMatchLegacy(app: FastifyInstance, userId: string, 
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        isBot: boolean;
         eventId: string | null;
         status: import(".prisma/client").$Enums.MatchStatus;
         type: import(".prisma/client").$Enums.MatchType;
@@ -121,7 +122,6 @@ export declare function acceptMatchLegacy(app: FastifyInstance, userId: string, 
         awayUserId: string | null;
         homeTeamId: string;
         awayTeamId: string | null;
-        isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
         seed: string | null;

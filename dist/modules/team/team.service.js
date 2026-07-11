@@ -10,7 +10,10 @@ async function getMyTeam(app, userId) {
         include: {
             players: {
                 include: { player: true },
-                orderBy: [{ isStarter: "desc" }, { positionInFormation: "asc" }],
+                orderBy: [
+                    { isStarter: "desc" },
+                    { positionInFormation: "asc" },
+                ],
             },
         },
     });
@@ -24,17 +27,26 @@ async function getMyTeam(app, userId) {
         style: tp.player.style,
         overallRating: tp.player.overallRating,
     })));
+    const allPlayers = team.players.map((tp) => ({
+        position: tp.player.position,
+        role: tp.player.role,
+        style: tp.player.style,
+        overallRating: tp.player.overallRating,
+    }));
+    const publicOvr = (0, synergy_engine_1.calculatePublicRating)(allPlayers);
     return {
         ...team,
         starters,
         reserves,
         synergy,
+        ovr: team.rating,
+        publicOvr,
     };
 }
 async function updateLineup(app, userId, starterIds, formation) {
     const team = await app.prisma.team.findFirst({
         where: { userId, isEvent: false },
-        include: { players: true },
+        include: { players: { include: { player: true } } },
     });
     if (!team)
         throw new Error("No team found");
@@ -45,6 +57,20 @@ async function updateLineup(app, userId, starterIds, formation) {
         if (!teamPlayerIds.includes(id)) {
             throw new Error(`Player ${id} is not on your team`);
         }
+    }
+    // Валидация: ровно один GK в стартовом составе, и только GK может быть вратарём
+    const playersMap = new Map(team.players.map((tp) => [tp.playerId, tp.player]));
+    let gkCount = 0;
+    for (const playerId of starterIds) {
+        const player = playersMap.get(playerId);
+        if (!player)
+            throw new Error(`Player ${playerId} not found in team`);
+        const isGk = player.position === "GOALKEEPER" || player.role === "GOALKEEPER";
+        if (isGk)
+            gkCount++;
+    }
+    if (gkCount !== 1) {
+        throw new Error("Team must have exactly one Goalkeeper in the starting lineup");
     }
     await app.prisma.teamPlayer.updateMany({
         where: { teamId: team.id },
@@ -79,7 +105,8 @@ async function updateLineup(app, userId, starterIds, formation) {
         where: { id: team.id },
         data: { rating },
     });
-    return { success: true, rating };
+    // Возвращаем обновлённую команду
+    return await getMyTeam(app, userId);
 }
 async function getTeamRating(app, userId) {
     const team = await app.prisma.team.findFirst({

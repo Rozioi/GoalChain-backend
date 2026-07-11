@@ -21,7 +21,14 @@ export declare function getTrainingCost(app: FastifyInstance, userId: string, pl
     totalTrainings: number;
     maxOvr: number;
     currentOverallRating: number;
+    currentOvr: number;
+    potentialMin: number;
+    potentialMax: number;
     isNft: boolean;
     cooldownEndsAt: Date | null;
     lastTrainedStat: string | null;
+    trainingLevel: number;
+    trainingLevelMax: number;
+    trainingExperience: number;
+    trainingExperienceRequired: number;
 }>;

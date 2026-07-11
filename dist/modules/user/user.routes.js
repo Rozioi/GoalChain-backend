@@ -48,6 +48,19 @@ async function userRoutes(app) {
         },
     }, user_controller_1.userController.deleteUser);
     // --- USER PROFILE RUNS ---
+    app.post("/user/sync-telegram", {
+        schema: {
+            tags: ["User"],
+            body: {
+                type: "object",
+                required: ["initData"],
+                properties: {
+                    initData: { type: "string" },
+                },
+            },
+        },
+        preHandler: [app.authenticate],
+    }, user_controller_1.userController.syncTelegram);
     app.get("/user/me", {
         schema: {
             tags: ["User"],

@@ -3,21 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.startMatchmaking = startMatchmaking;
 exports.cancelMatchmaking = cancelMatchmaking;
 exports.expireStaleMatchmaking = expireStaleMatchmaking;
-exports.onMatchmakingMatched = onMatchmakingMatched;
 const constants_1 = require("../../config/constants");
-const energy_service_1 = require("../user/energy.service");
 const socket_emitter_1 = require("../../ws/socket.emitter");
 const types_1 = require("../../ws/types");
 const match_live_service_1 = require("./match-live.service");
 const bot_generator_1 = require("./bot.generator");
-async function assertDailyLimit(app, userId) {
-    await (0, energy_service_1.assertHasEnergy)(app, userId);
-}
-async function incrementDailyMatch(app, userIds) {
-    await (0, energy_service_1.consumeEnergyForUsers)(app, userIds);
-}
 async function startMatchmaking(app, userId) {
-    await assertDailyLimit(app, userId);
     const myTeam = await app.prisma.team.findFirst({
         where: { userId, isEvent: false },
     });
@@ -89,7 +80,11 @@ async function startMatchmaking(app, userId) {
             });
             (0, socket_emitter_1.emitToUser)(opponent.userId, types_1.ServerEvent.MATCH_FOUND, {
                 matchId: match.id,
-                opponent: { id: userId, clubName: user.clubName, points: user.points },
+                opponent: {
+                    id: userId,
+                    clubName: user.clubName,
+                    points: user.points,
+                },
                 isBot: false,
             });
             (0, socket_emitter_1.emitToUser)(userId, types_1.ServerEvent.MATCH_FOUND, {
@@ -132,21 +127,35 @@ async function handleMatchmakingTimeout(app, queueId, userId) {
     });
     if (!entry || entry.status !== "SEARCHING")
         return;
-    await app.prisma.matchmakingQueue.update({
-        where: { id: queueId },
-        data: { status: "EXPIRED" },
-    });
-    (0, socket_emitter_1.emitToUser)(userId, types_1.ServerEvent.MATCHMAKING_EXPIRED, { queueId });
+    // Не шлём MATCHMAKING_EXPIRED — сразу создаём бота
     try {
         const botResult = await playBotMatchFallback(app, userId);
+        const createdMatch = botResult.match;
+        // Получаем название команды бота из базы
+        const awayTeam = createdMatch.awayTeamId
+            ? await app.prisma.team.findUnique({
+                where: { id: createdMatch.awayTeamId },
+                select: { name: true },
+            })
+            : null;
+        const botTeamName = awayTeam?.name || "Opponent";
         (0, socket_emitter_1.emitToUser)(userId, types_1.ServerEvent.MATCH_FOUND, {
-            matchId: botResult.match.id,
-            opponent: { id: "bot", clubName: "Bot", points: 0 },
+            matchId: createdMatch.id,
+            opponent: { id: "bot", clubName: botTeamName, points: 0 },
             isBot: true,
+        });
+        await app.prisma.matchmakingQueue.update({
+            where: { id: queueId },
+            data: { status: "MATCHED", matchId: createdMatch.id },
         });
     }
     catch (err) {
         app.log.error({ err, userId }, "Bot fallback failed after matchmaking timeout");
+        await app.prisma.matchmakingQueue.update({
+            where: { id: queueId },
+            data: { status: "EXPIRED" },
+        });
+        (0, socket_emitter_1.emitToUser)(userId, types_1.ServerEvent.MATCHMAKING_EXPIRED, { queueId });
     }
 }
 async function playBotMatchFallback(app, userId) {
@@ -156,9 +165,7 @@ async function playBotMatchFallback(app, userId) {
     if (!myTeam)
         throw new Error("No team found");
     const botResult = await (0, bot_generator_1.generateBotTeam)(app, myTeam.rating);
-    const result = await (0, match_live_service_1.startInstantBotMatch)(app, userId, myTeam.id, botResult.team.id);
-    await incrementDailyMatch(app, [userId]);
-    return result;
+    return (0, match_live_service_1.startInstantBotMatch)(app, userId, myTeam.id, botResult.team.id);
 }
 async function cancelMatchmaking(app, userId) {
     const entry = await app.prisma.matchmakingQueue.findFirst({
@@ -179,7 +186,9 @@ async function cancelMatchmaking(app, userId) {
         where: { id: entry.id },
         data: { status: "CANCELLED" },
     });
-    (0, socket_emitter_1.emitToUser)(userId, types_1.ServerEvent.MATCHMAKING_CANCELLED, { queueId: entry.id });
+    (0, socket_emitter_1.emitToUser)(userId, types_1.ServerEvent.MATCHMAKING_CANCELLED, {
+        queueId: entry.id,
+    });
     return { success: true };
 }
 async function expireStaleMatchmaking(app) {
@@ -190,7 +199,4 @@ async function expireStaleMatchmaking(app) {
         await handleMatchmakingTimeout(app, entry.id, entry.userId);
     }
     return stale.length;
-}
-async function onMatchmakingMatched(app, homeUserId, awayUserId, matchId) {
-    await incrementDailyMatch(app, [homeUserId, awayUserId]);
 }

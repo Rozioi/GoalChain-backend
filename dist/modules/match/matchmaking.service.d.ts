@@ -18,4 +18,3 @@ export declare function cancelMatchmaking(app: FastifyInstance, userId: string):
     message?: undefined;
 }>;
 export declare function expireStaleMatchmaking(app: FastifyInstance): Promise<number>;
-export declare function onMatchmakingMatched(app: FastifyInstance, homeUserId: string, awayUserId: string, matchId: string): Promise<void>;
