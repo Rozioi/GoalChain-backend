@@ -482,6 +482,8 @@ export function simulateMatch(
                     minute,
                     type: "chance",
                     team,
+                    playerId: player.id,
+                    playerName: player.name,
                     description: `${player.name} takes a shot but it goes wide.`,
                 });
             }
