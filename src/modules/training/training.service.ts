@@ -101,7 +101,6 @@ export async function startTraining(
     }
 
     const boost = TRAINING.BOOST;
-    // Пересчитываем OVR из параметров после тренировки
     const updatedStats = {
         ...teamPlayer.player,
         [stat]: currentStatValue + boost,

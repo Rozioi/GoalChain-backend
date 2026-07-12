@@ -18,6 +18,12 @@ async function seasonRoutes(app: FastifyInstance) {
     {
       schema: {
         tags: ["Season"],
+        querystring: {
+          type: "object",
+          properties: {
+            filter: { type: "string", enum: ["GLOBAL", "FRIENDS"] },
+          },
+        },
       },
     },
     seasonController.standings,

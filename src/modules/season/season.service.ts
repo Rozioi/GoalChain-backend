@@ -45,7 +45,51 @@ export async function getCurrentSeason(app: FastifyInstance) {
 export async function getSeasonStandings(
   app: FastifyInstance,
   seasonId: string,
+  userId?: string,
+  filter?: "GLOBAL" | "FRIENDS",
 ) {
+  if (filter === "FRIENDS" && userId) {
+    // Получаем реферралов пользователя
+    const user = await app.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        referrals: {
+          select: { inviteeId: true },
+        },
+      },
+    });
+
+    const friendIds = [
+      userId,
+      ...(user?.referrals.map((r) => r.inviteeId) || []),
+    ];
+
+    const friendTeams = await app.prisma.team.findMany({
+      where: { userId: { in: friendIds }, isEvent: false },
+      select: { id: true },
+    });
+
+    const teamIds = friendTeams.map((t) => t.id);
+
+    return app.prisma.seasonStanding.findMany({
+      where: { seasonId, teamId: { in: teamIds } },
+      include: {
+        team: {
+          include: {
+            user: {
+              select: {
+                username: true,
+                clubName: true,
+                firstName: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ points: "desc" }, { goalsFor: "desc" }],
+    });
+  }
+
   return app.prisma.seasonStanding.findMany({
     where: { seasonId },
     include: {
@@ -55,6 +99,7 @@ export async function getSeasonStandings(
             select: {
               username: true,
               clubName: true,
+              firstName: true,
             },
           },
         },
@@ -66,10 +111,11 @@ export async function getSeasonStandings(
 
 export async function registerForSeason(app: FastifyInstance, userId: string) {
   const season = await app.prisma.season.findFirst({
-    where: { status: "UPCOMING" },
+    where: { status: { in: ["UPCOMING", "ACTIVE"] } },
+    orderBy: { startDate: "desc" },
   });
 
-  if (!season) throw new Error("No upcoming season");
+  if (!season) throw new Error("No active or upcoming season");
 
   const team = await app.prisma.team.findFirst({
     where: { userId, isEvent: false },
@@ -82,6 +128,7 @@ export async function registerForSeason(app: FastifyInstance, userId: string) {
   });
   if (existing) throw new Error("Already registered for this season");
 
+  // догоняем — played пока 0, но команда уже в таблице
   const standing = await app.prisma.seasonStanding.create({
     data: {
       seasonId: season.id,

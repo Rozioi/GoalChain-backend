@@ -20,13 +20,18 @@ export const seasonController = {
   },
 
   async standings(
-    req: FastifyRequest<{ Params: { seasonId: string } }>,
+    req: FastifyRequest<{
+      Params: { seasonId: string };
+      Querystring: { filter?: "GLOBAL" | "FRIENDS" };
+    }>,
     reply: FastifyReply,
   ) {
     try {
       const standings = await getSeasonStandings(
         req.server,
         req.params.seasonId,
+        req.user.userId,
+        req.query.filter,
       );
       reply.send(standings);
     } catch (err: any) {
