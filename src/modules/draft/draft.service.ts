@@ -116,7 +116,6 @@ export async function getDraftOptions(
         seed: `draft-${session.id}-${stepUpper}`,
     });
 
-    console.log(generatedPlayers);
     const options = await app.prisma.$transaction(async (tx) => {
         const createdOptions = [];
         for (const gp of generatedPlayers) {
@@ -139,7 +138,6 @@ export async function getDraftOptions(
         return createdOptions;
     });
 
-    // Re-fetch session so session.options includes newly created options
     const updatedSession = await app.prisma.draftSession.findUnique({
         where: { id: session.id },
         include: { options: { include: { player: true } } },
@@ -203,12 +201,10 @@ export async function pickDraftPlayers(
         const config = STEP_CONFIG[currentStep];
         if (!config) throw new AppError("Draft is in reserve/done phase", 400);
 
-        // Validate provided optionIds belong to this session
         let foundOptions = await app.prisma.draftOption.findMany({
             where: { id: { in: optionIds }, draftSessionId: session.id },
         });
 
-        // Tolerant fallback: if client passed player IDs instead of draftOption IDs, try resolving
         if (foundOptions.length !== optionIds.length) {
             const alt = await app.prisma.draftOption.findMany({
                 where: {
@@ -217,18 +213,15 @@ export async function pickDraftPlayers(
                 },
             });
             if (alt.length > 0) {
-                // build mapping from playerId -> draftOption.id
                 const playerToOption = new Map<string, string>();
                 for (const a of alt) playerToOption.set(a.playerId, a.id);
                 const remapped = optionIds.map(
                     (id) => playerToOption.get(id) || id,
                 );
-                // re-check
                 foundOptions = await app.prisma.draftOption.findMany({
                     where: { id: { in: remapped }, draftSessionId: session.id },
                 });
                 if (foundOptions.length === remapped.length) {
-                    // accept remapped optionIds going forward
                     optionIds = remapped;
                 }
             }
@@ -249,7 +242,6 @@ export async function pickDraftPlayers(
             );
         }
 
-        // Prevent double-pick: ensure none of them are already picked
         const alreadyPicked = foundOptions.filter((o) => o.isPicked);
         if (alreadyPicked.length > 0) {
             app.log.warn(
@@ -262,7 +254,6 @@ export async function pickDraftPlayers(
             throw new AppError("One or more options were already picked", 409);
         }
 
-        // Atomic guarded update - mark selected options as picked only if still not picked
         const updateRes = await app.prisma.draftOption.updateMany({
             where: {
                 id: { in: optionIds },
@@ -273,7 +264,6 @@ export async function pickDraftPlayers(
         });
 
         if (!updateRes || updateRes.count !== optionIds.length) {
-            // Race or partial update - surface conflict
             const refreshed = await app.prisma.draftOption.findMany({
                 where: { id: { in: optionIds }, draftSessionId: session.id },
             });
@@ -290,7 +280,6 @@ export async function pickDraftPlayers(
             );
         }
 
-        // Count picked and maybe advance step
         const pickedInStep = await app.prisma.draftOption.count({
             where: {
                 draftSessionId: session.id,
@@ -310,7 +299,6 @@ export async function pickDraftPlayers(
             completedStep = true;
         }
 
-        // Re-fetch session to return authoritative state to client
         const freshSession = await app.prisma.draftSession.findUnique({
             where: { id: session.id },
             include: { options: { include: { player: true } } },
@@ -385,7 +373,7 @@ export async function completeDraft(
             const cleanClubName = clubName?.trim();
             const team = await tx.team.create({
                 data: {
-                    name: cleanClubName || `${user?.clubName || "Player"} Team`,
+                    name: cleanClubName || `${user?.clubName || "Player"}`,
                     userId,
                 },
             });
