@@ -1,5 +1,5 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import { startTraining, getTrainingCost } from "./training.service";
+import { startTraining, getTrainingCost, TrainingError } from "./training.service";
 
 export const trainingController = {
     async start(
@@ -17,6 +17,13 @@ export const trainingController = {
             );
             reply.send(result);
         } catch (err: any) {
+            if (err instanceof TrainingError) {
+                return reply.status(400).send({
+                    error: err.message,
+                    code: err.code,
+                    ...(err.details || {}),
+                });
+            }
             reply.status(400).send({ error: err.message });
         }
     },

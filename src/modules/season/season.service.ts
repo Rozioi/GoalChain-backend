@@ -49,19 +49,15 @@ export async function getSeasonStandings(
   filter?: "GLOBAL" | "FRIENDS",
 ) {
   if (filter === "FRIENDS" && userId) {
-    // Получаем реферралов пользователя
-    const user = await app.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        referrals: {
-          select: { inviteeId: true },
-        },
-      },
+    // Получаем реферралов пользователя через Referral модель
+    const referrals = await app.prisma.referral.findMany({
+      where: { inviterId: userId },
+      select: { inviteeId: true },
     });
 
     const friendIds = [
       userId,
-      ...(user?.referrals.map((r) => r.inviteeId) || []),
+      ...referrals.map((r) => r.inviteeId),
     ];
 
     const friendTeams = await app.prisma.team.findMany({

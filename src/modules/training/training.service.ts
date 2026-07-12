@@ -6,6 +6,20 @@ import {
 } from "../player/synergy.engine";
 import { regeneratePlayerCard } from "../player/playerImage.together";
 
+class TrainingError extends Error {
+    code: string;
+    details?: Record<string, any>;
+
+    constructor(message: string, code: string, details?: Record<string, any>) {
+        super(message);
+        this.code = code;
+        this.details = details;
+        this.name = "TrainingError";
+    }
+}
+
+export { TrainingError };
+
 export async function startTraining(
     app: FastifyInstance,
     userId: string,
@@ -34,7 +48,9 @@ export async function startTraining(
         include: { player: true },
     });
 
-    if (!teamPlayer) throw new Error("Player not on your team");
+    if (!teamPlayer) {
+        throw new TrainingError("Player not on your team", "NO_TEAM");
+    }
 
     const playerWithRent = await app.prisma.player.findUnique({
         where: { id: playerId },
@@ -44,15 +60,17 @@ export async function startTraining(
         playerWithRent?.rent?.isRented &&
         playerWithRent.rent.rentedById !== userId
     ) {
-        throw new Error("Cannot train a player that is currently rented out");
+        throw new TrainingError("Cannot train a rented out player", "RENTED_OUT");
     }
 
     if (
         teamPlayer.player.injuryEndsAt &&
         new Date() < new Date(teamPlayer.player.injuryEndsAt)
     ) {
-        throw new Error(
-            `Player is traumatized until ${teamPlayer.player.injuryEndsAt.toISOString()}`,
+        throw new TrainingError(
+            "Player is traumatized",
+            "TRAUMATIZED",
+            { endsAt: teamPlayer.player.injuryEndsAt.toISOString() },
         );
     }
 
@@ -66,8 +84,10 @@ export async function startTraining(
             lastTraining.createdAt.getTime() + TRAINING.COOLDOWN_MS,
         );
         if (new Date() < cooldownEnd) {
-            throw new Error(
-                `Training on cooldown. Available at ${cooldownEnd.toISOString()}`,
+            throw new TrainingError(
+                "Training on cooldown",
+                "COOLDOWN",
+                { cooldownEndsAt: cooldownEnd.toISOString() },
             );
         }
     }
@@ -76,14 +96,20 @@ export async function startTraining(
 
     const currentOvr = teamPlayer.player.overallRating;
     if (currentOvr >= maxOvr) {
-        throw new Error(
-            `Player has reached their maximum potential (${maxOvr} OVR)`,
+        throw new TrainingError(
+            "Player reached max potential",
+            "MAX_POTENTIAL",
+            { maxOvr },
         );
     }
 
     const currentStatValue = (teamPlayer.player as any)[stat] as number;
     if (currentStatValue >= maxOvr) {
-        throw new Error(`${stat} is already at maximum (${maxOvr})`);
+        throw new TrainingError(
+            "Stat already at max",
+            "STAT_MAXED",
+            { stat, maxOvr },
+        );
     }
 
     const trainingCount = await app.prisma.training.count({
@@ -95,8 +121,10 @@ export async function startTraining(
 
     const user = await app.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.coins < cost) {
-        throw new Error(
-            `Not enough coins. Need ${cost}, have ${user?.coins || 0}`,
+        throw new TrainingError(
+            "Not enough coins",
+            "INSUFFICIENT_FUNDS",
+            { required: cost, balance: user?.coins || 0 },
         );
     }
 
