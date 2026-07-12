@@ -3,7 +3,6 @@ import {
   getCurrentSeason,
   getSeasonStandings,
   registerForSeason,
-  playSeasonMatch,
 } from "./season.service";
 
 export const seasonController = {
@@ -42,15 +41,6 @@ export const seasonController = {
   async register(req: FastifyRequest, reply: FastifyReply) {
     try {
       const result = await registerForSeason(req.server, req.user.userId);
-      reply.send(result);
-    } catch (err: any) {
-      reply.status(400).send({ error: err.message });
-    }
-  },
-
-  async play(req: FastifyRequest, reply: FastifyReply) {
-    try {
-      const result = await playSeasonMatch(req.server, req.user.userId);
       reply.send(result);
     } catch (err: any) {
       reply.status(400).send({ error: err.message });

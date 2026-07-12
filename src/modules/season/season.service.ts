@@ -288,58 +288,42 @@ export async function playSeasonMatch(app: FastifyInstance, userId: string) {
 
   if (!opponentStanding) throw new Error("No opponents found in this season");
 
-  const { randomUUID } = await import("crypto");
-  const { simulateMatch } = await import("../match/match.simulator");
-  const { getTeamForMatch } = await import("../match/match-team.service");
-  const { handleMatchCompletion } = await import("../match/match-completion.service");
-  const seed = randomUUID();
-  const homeTeamData = await getTeamForMatch(app, team.id);
-  const awayTeamData = await getTeamForMatch(app, opponentStanding.team.id);
+  const { startInstantBotMatch } = await import("../match/match-live.service");
 
-  const result = simulateMatch(homeTeamData, awayTeamData, seed);
+  const { match } = await startInstantBotMatch(
+    app,
+    userId,
+    team.id,
+    opponentStanding.team.id,
+  );
 
-  const match = await app.prisma.match.create({
+  // Update match type and seasonId after creation
+  await app.prisma.match.update({
+    where: { id: match.id },
     data: {
       type: "SEASON",
-      status: "COMPLETED",
-      homeUserId: userId,
-      awayUserId: opponentStanding.team.userId,
-      homeTeamId: team.id,
-      awayTeamId: opponentStanding.team.id,
-      homeScore: result.homeScore,
-      awayScore: result.awayScore,
-      seed,
       seasonId,
+      awayUserId: opponentStanding.team.userId,
+      isBot: false,
     },
   });
 
-  await updateStandings(
-    app,
-    seasonId,
-    team.id,
-    result.homeScore,
-    result.awayScore,
-    result.winner === "home"
-      ? "win"
-      : result.winner === "draw"
-        ? "draw"
-        : "loss",
-  );
-
-  await updateStandings(
-    app,
-    seasonId,
-    opponentStanding.team.id,
-    result.awayScore,
-    result.homeScore,
-    result.winner === "away"
-      ? "win"
-      : result.winner === "draw"
-        ? "draw"
-        : "loss",
-  );
-
-  await handleMatchCompletion(app, match, result, seed);
-
-  return { match, result };
+  return {
+    match,
+    matchId: match.id,
+    status: "IN_PROGRESS" as const,
+    isBot: false,
+    preloaderData: {
+      homePlayer: {
+        id: userId,
+        name: team.name ?? "Home",
+        points: standing.points,
+      },
+      awayPlayer: {
+        id: opponentStanding.team.userId,
+        name: opponentStanding.team.name ?? "Away",
+        points: opponentStanding.points,
+      },
+    },
+  };
 }

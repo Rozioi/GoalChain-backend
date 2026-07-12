@@ -37,16 +37,6 @@ async function seasonRoutes(app: FastifyInstance) {
     },
     seasonController.register,
   );
-  app.post(
-    "/season/play",
-    {
-      schema: {
-        tags: ["Season"],
-        summary: "Сыграть сезонный матч",
-      },
-    },
-    seasonController.play,
-  );
 }
 
 export default seasonRoutes;

@@ -50,10 +50,34 @@ export async function handleMatchCompletion(
         homeTeamId: string;
         awayTeamId?: string | null;
         isBot?: boolean;
+        seasonId?: string | null;
     },
     result: MatchResult,
     seed: string,
 ): Promise<MatchCompletionRewards> {
+    // Check if match should be considered a season match
+    let resolvedSeasonId = match.seasonId;
+    if (!resolvedSeasonId && match.homeUserId) {
+      const seasonStanding = await app.prisma.seasonStanding.findFirst({
+        where: {
+          team: { userId: match.homeUserId, isEvent: false },
+          season: { status: "ACTIVE" },
+        },
+        select: { seasonId: true },
+      });
+      resolvedSeasonId = seasonStanding?.seasonId;
+    }
+
+    if (resolvedSeasonId && match.homeTeamId && match.awayTeamId) {
+      await app.prisma.match.update({
+        where: { id: match.id },
+        data: {
+          type: "SEASON",
+          seasonId: resolvedSeasonId,
+        },
+      });
+    }
+
     const homeWinPoints = randomWinPoints();
     const awayWinPoints = randomWinPoints();
 
@@ -219,6 +243,42 @@ export async function handleMatchCompletion(
 
     await recalcTeam(match.homeTeamId);
     await recalcTeam(match.awayTeamId);
+
+    // Update season standings if this is a season match
+    let resolvedSeasonId = match.seasonId;
+    if (!resolvedSeasonId) {
+      const fullMatch = await app.prisma.match.findUnique({
+        where: { id: match.id },
+        select: { seasonId: true },
+      });
+      resolvedSeasonId = fullMatch?.seasonId;
+    }
+
+    if (resolvedSeasonId && match.awayTeamId) {
+      try {
+        const { updateStandings } = await import("../season/season.service");
+
+        await updateStandings(
+          app,
+          resolvedSeasonId,
+          match.homeTeamId,
+          result.homeScore,
+          result.awayScore,
+          result.winner === "home" ? "win" : result.winner === "draw" ? "draw" : "loss",
+        );
+
+        await updateStandings(
+          app,
+          resolvedSeasonId,
+          match.awayTeamId,
+          result.awayScore,
+          result.homeScore,
+          result.winner === "away" ? "win" : result.winner === "draw" ? "draw" : "loss",
+        );
+      } catch (err) {
+        app.log.warn({ err, matchId: match.id }, "Failed to update season standings");
+      }
+    }
 
     // Increment matchesPlayed for all players who participated
     const incrementMatches = async (teamId: string) => {
