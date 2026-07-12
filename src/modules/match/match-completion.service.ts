@@ -245,15 +245,6 @@ export async function handleMatchCompletion(
     await recalcTeam(match.awayTeamId);
 
     // Update season standings if this is a season match
-    let resolvedSeasonId = match.seasonId;
-    if (!resolvedSeasonId) {
-      const fullMatch = await app.prisma.match.findUnique({
-        where: { id: match.id },
-        select: { seasonId: true },
-      });
-      resolvedSeasonId = fullMatch?.seasonId;
-    }
-
     if (resolvedSeasonId && match.awayTeamId) {
       try {
         const { updateStandings } = await import("../season/season.service");
