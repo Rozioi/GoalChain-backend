@@ -178,7 +178,7 @@ export async function startTraining(
         }),
     ]);
 
-    // Перегенерация карточки (фоново — не блокируем ответ)
+    // Перегенерация карточки (после транзакции, чтобы не блокировать её)
     regeneratePlayerCard(playerId, app)
         .then((newImageUrl) => {
             if (newImageUrl) {

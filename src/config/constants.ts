@@ -362,26 +362,38 @@ export const PLAYER_NATIONALITIES = [
 ] as const;
 
 export type NationalityCode = (typeof PLAYER_NATIONALITIES)[number];
-
 export const PLAYER_CLUBS = [
-    "Real Madrid",
+    "Chelsea",
     "Manchester City",
-    "Liverpool FC",
-    "FC Barcelona",
+    "Real Madrid",
+    "Barcelona",
     "Bayern Munich",
-    "Paris Saint-Germain",
+    "Arsenal",
     "Inter Milan",
-    "Arsenal FC",
-    "Bayer Leverkusen",
-    "AC Milan",
+    "Manchester United",
+    "PSG",
+    "Liverpool",
     "Borussia Dortmund",
-    "Atletico Madrid",
+    "Monaco",
     "Juventus",
-    "Chelsea FC",
-    "Tottenham Hotspur",
-    "Benfica",
-    "Napoli",
-    "Ajax",
-    "Sporting CP",
-    "Aston Villa",
-];
+    "AC Milan",
+] as const;
+
+export const PLAYER_CLUBS_CODES = {
+    "Chelsea": "che",
+    "Manchester City": "mci",
+    "Real Madrid": "rma",
+    "Barcelona": "bar",
+    "Bayern Munich": "fcb",
+    "Arsenal": "ars",
+    "Inter Milan": "int",
+    "Manchester United": "mun",
+    "PSG": "psg",
+    "Liverpool": "liv",
+    "Borussia Dortmund": "bvb",
+    "Monaco": "asm",
+    "Juventus": "juv",
+    "AC Milan": "acm",
+} as const;
+
+export type ClubCode = (typeof PLAYER_CLUBS_CODES)[keyof typeof PLAYER_CLUBS_CODES];

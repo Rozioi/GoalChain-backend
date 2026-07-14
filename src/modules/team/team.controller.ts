@@ -1,5 +1,10 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import { getMyTeam, updateLineup, getTeamRating } from "./team.service";
+import {
+    getMyTeam,
+    updateLineup,
+    substitutePlayer,
+    getTeamRating,
+} from "./team.service";
 
 export const teamController = {
     async myTeam(req: FastifyRequest, reply: FastifyReply) {
@@ -13,7 +18,7 @@ export const teamController = {
 
     async setLineup(
         req: FastifyRequest<{
-            Body: { starterIds: string[]; formation?: string };
+            Body: { starters: { playerId: string; slotKey: string }[]; formation?: string };
         }>,
         reply: FastifyReply,
     ) {
@@ -21,8 +26,28 @@ export const teamController = {
             const result = await updateLineup(
                 req.server,
                 req.user.userId,
-                req.body.starterIds,
+                req.body.starters,
                 req.body.formation,
+            );
+            reply.send(result);
+        } catch (err: any) {
+            reply.status(400).send({ error: err.message });
+        }
+    },
+
+    async substitute(
+        req: FastifyRequest<{
+            Body: { outPlayerId: string; inPlayerId: string; slotKey: string };
+        }>,
+        reply: FastifyReply,
+    ) {
+        try {
+            const result = await substitutePlayer(
+                req.server,
+                req.user.userId,
+                req.body.outPlayerId,
+                req.body.inPlayerId,
+                req.body.slotKey,
             );
             reply.send(result);
         } catch (err: any) {

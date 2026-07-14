@@ -17,11 +17,18 @@ async function teamRoutes(app: FastifyInstance) {
                 tags: ["Team"],
                 body: {
                     type: "object",
-                    required: ["starterIds"],
+                    required: ["starters"],
                     properties: {
-                        starterIds: {
+                        starters: {
                             type: "array",
-                            items: { type: "string" },
+                            items: {
+                                type: "object",
+                                required: ["playerId", "slotKey"],
+                                properties: {
+                                    playerId: { type: "string" },
+                                    slotKey: { type: "string" },
+                                },
+                            },
                             minItems: 11,
                             maxItems: 11,
                         },
@@ -31,6 +38,25 @@ async function teamRoutes(app: FastifyInstance) {
             },
         },
         teamController.setLineup,
+    );
+
+    app.post(
+        "/team/substitute",
+        {
+            schema: {
+                tags: ["Team"],
+                body: {
+                    type: "object",
+                    required: ["outPlayerId", "inPlayerId", "slotKey"],
+                    properties: {
+                        outPlayerId: { type: "string" },
+                        inPlayerId: { type: "string" },
+                        slotKey: { type: "string" },
+                    },
+                },
+            },
+        },
+        teamController.substitute,
     );
 
     app.get("/team/rating", {

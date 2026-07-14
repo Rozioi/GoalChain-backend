@@ -54,7 +54,7 @@ export async function getMyTeam(app: FastifyInstance, userId: string) {
 export async function updateLineup(
     app: FastifyInstance,
     userId: string,
-    starterIds: string[],
+    starters: { playerId: string; slotKey: string }[],
     formation?: string,
 ) {
     const team = await app.prisma.team.findFirst({
@@ -63,31 +63,21 @@ export async function updateLineup(
     });
 
     if (!team) throw new Error("No team found");
-    if (starterIds.length !== 11)
+    if (starters.length !== 11)
         throw new Error("Must have exactly 11 starters");
 
     const teamPlayerIds = team.players.map((tp: any) => tp.playerId);
-    for (const id of starterIds) {
-        if (!teamPlayerIds.includes(id)) {
-            throw new Error(`Player ${id} is not on your team`);
+    for (const s of starters) {
+        if (!teamPlayerIds.includes(s.playerId)) {
+            throw new Error(`Player ${s.playerId} is not on your team`);
         }
     }
 
-    // Валидация: ровно один GK в стартовом составе, и только GK может быть вратарём
-    const playersMap = new Map(
-        team.players.map((tp: any) => [tp.playerId, tp.player]),
-    );
-
+    // Валидация: ровно один GK в стартовом составе
     let gkCount = 0;
-    for (const playerId of starterIds) {
-        const player = playersMap.get(playerId);
-        if (!player) throw new Error(`Player ${playerId} not found in team`);
-
-        const isGk =
-            player.position === "GOALKEEPER" || player.role === "GOALKEEPER";
-        if (isGk) gkCount++;
+    for (const s of starters) {
+        if (s.slotKey === "gk") gkCount++;
     }
-
     if (gkCount !== 1) {
         throw new Error(
             "Team must have exactly one Goalkeeper in the starting lineup",
@@ -99,13 +89,12 @@ export async function updateLineup(
         data: { isStarter: false, positionInFormation: null },
     });
 
-    for (let i = 0; i < starterIds.length; i++) {
-        const playerId = starterIds[i];
+    for (const s of starters) {
         await app.prisma.teamPlayer.update({
-            where: { teamId_playerId: { teamId: team.id, playerId } },
+            where: { teamId_playerId: { teamId: team.id, playerId: s.playerId } },
             data: {
                 isStarter: true,
-                positionInFormation: i.toString(),
+                positionInFormation: s.slotKey,
             },
         });
     }
@@ -117,8 +106,9 @@ export async function updateLineup(
         });
     }
 
+    const starterPlayerIds = starters.map((s) => s.playerId);
     const starterPlayers = await app.prisma.player.findMany({
-        where: { id: { in: starterIds } },
+        where: { id: { in: starterPlayerIds } },
     });
     const rating = calculateTeamRating(
         starterPlayers.map((p: any) => ({
@@ -134,7 +124,62 @@ export async function updateLineup(
         data: { rating },
     });
 
-    // Возвращаем обновлённую команду
+    return await getMyTeam(app, userId);
+}
+
+export async function substitutePlayer(
+    app: FastifyInstance,
+    userId: string,
+    outPlayerId: string,
+    inPlayerId: string,
+    slotKey: string,
+) {
+    const team = await app.prisma.team.findFirst({
+        where: { userId, isEvent: false },
+        include: { players: { include: { player: true } } },
+    });
+
+    if (!team) throw new Error("No team found");
+
+    const outTP = team.players.find((tp: any) => tp.playerId === outPlayerId);
+    const inTP = team.players.find((tp: any) => tp.playerId === inPlayerId);
+
+    if (!outTP) throw new Error("Player to substitute out not found in team");
+    if (!inTP) throw new Error("Player to substitute in not found in team");
+    if (!outTP.isStarter) throw new Error("Player to substitute out is not a starter");
+    if (inTP.isStarter) throw new Error("Player to substitute in is already a starter");
+
+    // Swap: out → bench, in → starter with the slotKey
+    await app.prisma.teamPlayer.update({
+        where: { teamId_playerId: { teamId: team.id, playerId: outPlayerId } },
+        data: { isStarter: false, positionInFormation: null },
+    });
+
+    await app.prisma.teamPlayer.update({
+        where: { teamId_playerId: { teamId: team.id, playerId: inPlayerId } },
+        data: { isStarter: true, positionInFormation: slotKey },
+    });
+
+    // Recalc team rating
+    const starters = await app.prisma.teamPlayer.findMany({
+        where: { teamId: team.id, isStarter: true },
+        include: { player: true },
+    });
+
+    const rating = calculateTeamRating(
+        starters.map((tp: any) => ({
+            position: tp.player.position,
+            role: tp.player.role,
+            style: tp.player.style,
+            overallRating: tp.player.overallRating,
+        })),
+    );
+
+    await app.prisma.team.update({
+        where: { id: team.id },
+        data: { rating },
+    });
+
     return await getMyTeam(app, userId);
 }
 
