@@ -7,6 +7,11 @@ import {
 } from "../player/synergy.engine";
 import { DRAFT } from "../../config/constants";
 
+// Default formation slot order for 4-4-2
+const DEFAULT_FORMATION_SLOTS = [
+    "st1", "st2", "lm", "cm1", "cm2", "rm", "lb", "cb1", "cb2", "rb", "gk",
+];
+
 const STEP_CONFIG: Record<
     string,
     { role: PlayerRole; count: number; picks: number; next: DraftStep }
@@ -401,12 +406,13 @@ export async function completeDraft(
                     );
                     continue;
                 }
+                const slotKey = DEFAULT_FORMATION_SLOTS[i] || `slot-${i}`;
                 await tx.teamPlayer.create({
                     data: {
                         teamId: team.id,
                         playerId: player.id,
                         isStarter: true,
-                        positionInFormation: i.toString(),
+                        positionInFormation: slotKey,
                     },
                 });
             }

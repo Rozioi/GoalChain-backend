@@ -7,7 +7,7 @@ import {
     PLAYER_NATIONALITIES,
     PLAYER_CLUBS,
 } from "../../config/constants";
-import { generatePlayerImage } from "./playerImage.together";
+
 interface GenerateOptions {
     position?: Position;
     role?: PlayerRole;
@@ -67,20 +67,52 @@ export interface GeneratedPlayer {
 }
 
 function generateImagePrompt(player: Partial<GeneratedPlayer>): string {
-    return `
-    Pixel art 16-bit SNES football player headshot,
-    ${player.name} ${player.surname},
-    ${player.nationality} national kit,
-    full frontal view, looking at camera,
-    white background, sharp pixels, retro game
-  `
-        .replace(/\s+/g, " ")
-        .trim();
+    return "";
 }
 
 function generateImageUrlFromPrompt(prompt: string): string {
-    const seed = Math.floor(Math.random() * 1000000);
-    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${seed}`;
+    return "";
+}
+
+// Map PLAYER_CLUBS index (1-based) -> unreal folder short name
+const CLUB_SHORT_MAP: Record<number, string> = {
+    1: "che", // Chelsea
+    2: "mci", // Manchester City
+    3: "rma", // Real Madrid
+    4: "fcb", // Barcelona
+    5: "bcb", // Bayern Munich
+    6: "arc", // Arsenal
+    7: "int", // Inter Milan
+    8: "mun", // Manchester United
+    9: "psg", // PSG
+    10: "liv", // Liverpool
+    11: "asm", // Borussia Dortmund
+    12: "asm", // Monaco
+    13: "juv", // Juventus
+    14: "acm", // AC Milan
+};
+
+// Nationality -> ethnicity folder
+const ETHNICITY_MAP: Record<string, string[]> = {
+    eur: ["FR", "DE", "GB", "ES", "IT", "NL", "PT", "BE", "HR", "NO", "DK", "SE", "CH", "AT", "PL", "UA", "RU", "BY"],
+    afr: ["SN", "EG", "MA", "NG", "DZ", "CM", "CI", "GH", "ZA", "KE"],
+    lat: ["BR", "AR", "UY", "CO", "CL", "EC", "MX", "PE"],
+    asi: ["JP", "KR", "SA", "IR", "AU", "UZ", "CN", "IN"],
+    ara: ["AE", "QA", "SA", "OM", "KW", "BH", "JO", "LB"],
+};
+
+function getEthnicityKey(nationality: string): string {
+    for (const [key, countries] of Object.entries(ETHNICITY_MAP)) {
+        if (countries.includes(nationality)) return key;
+    }
+    return "eur";
+}
+
+function getUnrealAvatarPath(clubId: number, nationality: string, rng: RNG): string {
+    const clubShort = CLUB_SHORT_MAP[clubId] || "rma";
+    const ethnicity = getEthnicityKey(nationality);
+    const variant = randomInt(rng, 0, 4);
+    return `unreal/${clubShort}/${ethnicity}/${clubShort}_${ethnicity}_0${variant}.png`;
 }
 
 const FACES = [
@@ -418,13 +450,37 @@ export async function generatePlayer(
         physicalBonus: 0,
     };
 
-    // Генерация портрета — fileName на основе имени, чтобы при перегенерации перезаписывался
-    const fileName = `${name}_${surname}`
-        .toLowerCase()
-        .replace(/[^a-z0-9_]+/g, "_");
-    const { generatePlayerImage } = await import("./playerImage.together");
-    const generatedImage = await generatePlayerImage(
-        {
+    // Unreal avatar path
+    const face = getUnrealAvatarPath(clubId, nationality, rng);
+
+    // Generate card with unreal avatar
+    let imageUrl = "";
+    try {
+        const fs = await import("fs");
+        const path = await import("path");
+        const avatarPath = path.resolve(`./assets/${face}`);
+        let avatarBuffer: Buffer | null = null;
+
+        if (fs.existsSync(avatarPath)) {
+            avatarBuffer = fs.readFileSync(avatarPath);
+        }
+
+        if (!avatarBuffer) {
+            const fallbackPath = path.resolve("./assets/player.png");
+            if (fs.existsSync(fallbackPath)) {
+                avatarBuffer = fs.readFileSync(fallbackPath);
+            }
+        }
+
+        if (!avatarBuffer) {
+            const sharp = (await import("sharp")).default;
+            avatarBuffer = await sharp({
+                create: { width: 512, height: 512, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+            }).png().toBuffer();
+        }
+
+        const { assembleCardFromPlayerBuffer } = await import("./playerImage.together");
+        const cardData = {
             name,
             surname,
             nationality,
@@ -438,14 +494,17 @@ export async function generatePlayer(
             dribbling: playerData.dribbling,
             defending: playerData.defending,
             physical: playerData.physical,
-        },
-        rarity,
-        fileName,
-    );
+        };
+        const fileName = `${name}_${surname}`.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+        imageUrl = await assembleCardFromPlayerBuffer(avatarBuffer, cardData, rarity, fileName) || "";
+    } catch (err) {
+        console.error("Failed to generate player card:", err);
+    }
 
     return {
         ...playerData,
-        imageUrl: generatedImage || "https://i.ibb.co/XxP14GR9/result-card.png",
+        face,
+        imageUrl,
     };
 }
 

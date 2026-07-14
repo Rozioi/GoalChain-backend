@@ -20,25 +20,41 @@ class TrainingError extends Error {
 
 export { TrainingError };
 
+// Training complexes: each trains 2 stats
+const TRAINING_COMPLEXES: Record<string, { stats: string[]; label: string }> = {
+    PHYSICAL: { stats: ["pace", "physical"], label: "Физическая подготовка" },
+    TECHNIQUE: { stats: ["passing", "dribbling"], label: "Техника" },
+    ATTACK: { stats: ["shooting", "dribbling"], label: "Завершение атак" },
+    DEFENSE: { stats: ["defending", "physical"], label: "Оборона" },
+};
+
+const COMPLEX_IDS = Object.keys(TRAINING_COMPLEXES); // ["PHYSICAL", "TECHNIQUE", "ATTACK", "DEFENSE"]
+
+function pickRandomComplexes(count: number): string[] {
+    const shuffled = [...COMPLEX_IDS].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+}
+
+export { TrainingError };
+
+export async function getRandomComplexes(): Promise<string[]> {
+    return pickRandomComplexes(2);
+}
+
 export async function startTraining(
     app: FastifyInstance,
     userId: string,
     playerId: string,
-    stat: string,
+    complexId: string,
 ) {
-    const validStats = [
-        "pace",
-        "shooting",
-        "passing",
-        "dribbling",
-        "defending",
-        "physical",
-    ];
-    if (!validStats.includes(stat)) {
+    const complex = TRAINING_COMPLEXES[complexId];
+    if (!complex) {
         throw new Error(
-            `Invalid stat: ${stat}. Must be one of: ${validStats.join(", ")}`,
+            `Invalid complex: ${complexId}. Must be one of: ${COMPLEX_IDS.join(", ")}`,
         );
     }
+
+    const [stat1, stat2] = complex.stats;
 
     const teamPlayer = await app.prisma.teamPlayer.findFirst({
         where: {
@@ -103,12 +119,13 @@ export async function startTraining(
         );
     }
 
-    const currentStatValue = (teamPlayer.player as any)[stat] as number;
-    if (currentStatValue >= maxOvr) {
+    const currentStatValue1 = (teamPlayer.player as any)[stat1] as number;
+    const currentStatValue2 = (teamPlayer.player as any)[stat2] as number;
+    if (currentStatValue1 >= maxOvr && currentStatValue2 >= maxOvr) {
         throw new TrainingError(
-            "Stat already at max",
+            `Both stats (${stat1}, ${stat2}) are already at maximum (${maxOvr})`,
             "STAT_MAXED",
-            { stat, maxOvr },
+            { stat1, stat2, maxOvr },
         );
     }
 
@@ -129,9 +146,12 @@ export async function startTraining(
     }
 
     const boost = TRAINING.BOOST;
+    const newVal1 = Math.min(maxOvr, currentStatValue1 + boost);
+    const newVal2 = Math.min(maxOvr, currentStatValue2 + boost);
     const updatedStats = {
         ...teamPlayer.player,
-        [stat]: currentStatValue + boost,
+        [stat1]: newVal1,
+        [stat2]: newVal2,
     };
     const newOvr = Math.min(maxOvr, calculatePlayerOverall(updatedStats));
     const newXp =
@@ -155,7 +175,7 @@ export async function startTraining(
             data: {
                 userId,
                 playerId,
-                stat,
+                stat: complexId,
                 boost,
                 cost,
                 status: "COMPLETED",
@@ -169,7 +189,8 @@ export async function startTraining(
         app.prisma.player.update({
             where: { id: playerId },
             data: {
-                [stat]: { increment: boost },
+                [stat1]: newVal1,
+                [stat2]: newVal2,
                 overallRating: newOvr,
                 trainingLevel: newLevel,
                 trainingExperience: newExp,
@@ -222,10 +243,12 @@ export async function startTraining(
 
     return {
         training,
-        stat,
+        complexId,
+        complexLabel: complex.label,
+        stats: [stat1, stat2],
         boost,
         cost,
-        newStatValue: currentStatValue + boost,
+        newStatValues: { [stat1]: newVal1, [stat2]: newVal2 },
     };
 }
 
@@ -277,6 +300,9 @@ export async function getTrainingCost(
         isNft: teamPlayer?.player.isNft || false,
         cooldownEndsAt,
         lastTrainedStat: lastTraining?.stat || null,
+        lastTrainedStats: lastTraining?.stat
+            ? (TRAINING_COMPLEXES[lastTraining.stat]?.stats || [])
+            : [],
         trainingLevel: teamPlayer?.player.trainingLevel || 1,
         trainingLevelMax: TRAINING.MAX_TRAINING_LEVEL,
         trainingExperience: teamPlayer?.player.trainingExperience || 0,

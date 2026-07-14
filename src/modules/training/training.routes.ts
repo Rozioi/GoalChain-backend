@@ -11,12 +11,12 @@ async function trainingRoutes(app: FastifyInstance) {
                 tags: ["Training"],
                 body: {
                     type: "object",
-                    required: ["playerId", "stat"],
+                    required: ["playerId", "complexId"],
                     properties: {
                         playerId: { type: "string" },
-                        stat: {
+                        complexId: {
                             type: "string",
-                            enum: ["pace", "shooting", "passing", "dribbling", "defending", "physical"],
+                            enum: ["PHYSICAL", "TECHNIQUE", "ATTACK", "DEFENSE"],
                         },
                     },
                 },
@@ -30,6 +30,12 @@ async function trainingRoutes(app: FastifyInstance) {
             tags: ["Training"],
         },
     }, trainingController.cost);
+
+    app.get("/training/complexes/:playerId", {
+        schema: {
+            tags: ["Training"],
+        },
+    }, trainingController.complexes);
 }
 
 export default trainingRoutes;

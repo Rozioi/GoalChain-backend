@@ -1,10 +1,15 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import { startTraining, getTrainingCost, TrainingError } from "./training.service";
+import {
+    startTraining,
+    getTrainingCost,
+    getRandomComplexes,
+    TrainingError,
+} from "./training.service";
 
 export const trainingController = {
     async start(
         req: FastifyRequest<{
-            Body: { playerId: string; stat: string };
+            Body: { playerId: string; complexId: string };
         }>,
         reply: FastifyReply,
     ) {
@@ -13,7 +18,7 @@ export const trainingController = {
                 req.server,
                 req.user.userId,
                 req.body.playerId,
-                req.body.stat,
+                req.body.complexId,
             );
             reply.send(result);
         } catch (err: any) {
@@ -39,6 +44,18 @@ export const trainingController = {
                 req.params.playerId,
             );
             reply.send(result);
+        } catch (err: any) {
+            reply.status(400).send({ error: err.message });
+        }
+    },
+
+    async complexes(
+        req: FastifyRequest<{ Params: { playerId: string } }>,
+        reply: FastifyReply,
+    ) {
+        try {
+            const complexIds = await getRandomComplexes();
+            reply.send({ complexes: complexIds });
         } catch (err: any) {
             reply.status(400).send({ error: err.message });
         }
