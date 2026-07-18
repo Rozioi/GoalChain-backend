@@ -1,10 +1,5 @@
 import seedrandom from "seedrandom";
-
-export const IPFS_AVATAR_CID =
-    "bafybeia7sdif45zbosyfju3l75q42su3e324vyhq747begn3kghrhce7pi";
-
-export const IPFS_AVATAR_BASE =
-    "https://ipfs.io/ipfs/bafybeia7sdif45zbosyfju3l75q42su3e324vyhq747begn3kghrhce7pi";
+import path from "path";
 
 // 1-indexed, aligned with PLAYER_CLUBS order in constants.ts
 const CLUB_SHORT_BY_ID: Record<number, string> = {
@@ -45,15 +40,19 @@ export function getEthnicityKey(nationality: string): string {
     return "eur";
 }
 
-export function buildIpfsAvatarUrl(
+function getAvatarSubPath(clubId: number, nationality: string, variant: number): string {
+    const clubCode = CLUB_SHORT_BY_ID[clubId] || "rma";
+    const ethCode = getEthnicityKey(nationality);
+    const number = String(variant).padStart(2, "0");
+    return `${clubCode}/${ethCode}/${clubCode}_${ethCode}_${number}.png`;
+}
+
+export function getGeneratedPlayerAvatarFile(
     clubId: number,
     nationality: string,
     variant: number,
 ): string {
-    const clubCode = CLUB_SHORT_BY_ID[clubId] || "rma";
-    const ethCode = getEthnicityKey(nationality);
-    const number = String(variant).padStart(2, "0");
-    return `${IPFS_AVATAR_BASE}/${clubCode}/${ethCode}/${clubCode}_${ethCode}_${number}.png`;
+    return path.resolve(`./assets/cards/${getAvatarSubPath(clubId, nationality, variant)}`);
 }
 
 export function getGeneratedPlayerAvatarUrl(
@@ -61,9 +60,9 @@ export function getGeneratedPlayerAvatarUrl(
     nationality: string,
     rng: () => number,
 ): string {
-    // variant 1–4 for the 4 avatar options on IPFS
     const variant = Math.floor(rng() * 4) + 1;
-    return buildIpfsAvatarUrl(clubId, nationality, variant);
+    // Возвращаем URL, под которым сервер раздаёт файлы
+    return `/cards/${getAvatarSubPath(clubId, nationality, variant)}`;
 }
 
 export function getGeneratedPlayerAvatarUrlFromSeed(
@@ -72,7 +71,6 @@ export function getGeneratedPlayerAvatarUrlFromSeed(
     seed: string,
 ): string {
     const rng = seedrandom(seed);
-    // variant 1–4 for the 4 avatar options on IPFS
     const variant = Math.floor(rng() * 4) + 1;
-    return buildIpfsAvatarUrl(clubId, nationality, variant);
+    return `/cards/${getAvatarSubPath(clubId, nationality, variant)}`;
 }

@@ -65,8 +65,14 @@ export function buildApp() {
   app.register(adminTeamRoutes, { prefix: "/api/v1" });
   app.register(playerRoutes, { prefix: "/api/v1" });
   app.register(fastifyStatic, {
-    root: path.join(__dirname, "../public"), // путь к твоей папке public
-    prefix: "/", // префикс, который будет в URL
+    root: path.join(__dirname, "../public"),
+    prefix: "/",
+  });
+  // Раздача аватаров из assets/cards
+  app.register(fastifyStatic, {
+    root: path.join(__dirname, "../assets/cards"),
+    prefix: "/cards/",
+    decorateReply: false,
   });
   // health endoint
   app.get("/api/v1/health", async () => ({

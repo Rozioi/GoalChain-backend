@@ -99,46 +99,58 @@ export async function assembleCardFromPlayerBuffer(
     rarity: string,
     fileName: string
 ): Promise<string> {
-    // 1. Загружаем аватар по IPFS с fallback через разные шлюзы
-    //    Сохраняем во временный файл, чтобы sharp работал быстрее
+    // 1. Загружаем аватар — с локального диска или по IPFS
     let avatarPath: string | null = null;
-    if (player.face && (player.face.startsWith("http://") || player.face.startsWith("https://"))) {
-        const ipfsCid = extractIpfsCid(player.face);
-        const urlsToTry = [
-            player.face,
-            ...(ipfsCid ? [
+    if (player.face) {
+        if (player.face.startsWith("/cards/")) {
+            // Локальный файл из assets/cards
+            const resolvedPath = path.resolve(`./assets${player.face}`);
+            if (fs.existsSync(resolvedPath)) {
+                avatarPath = resolvedPath;
+            }
+        } else if (player.face.startsWith("http://") || player.face.startsWith("https://")) {
+            // IPFS/HTTP — пробуем разные шлюзы
+            const ipfsCid = extractIpfsCid(player.face);
+            const gatewayUrls = ipfsCid ? [
                 `https://ipfs.io/ipfs/${ipfsCid}`,
                 `https://cloudflare-ipfs.com/ipfs/${ipfsCid}`,
                 `https://dweb.link/ipfs/${ipfsCid}`,
                 `https://${ipfsCid}.ipfs.inbrowser.link`,
-            ] : []),
-        ];
+                `https://4everland.io/ipfs/${ipfsCid}`,
+                `https://nftstorage.link/ipfs/${ipfsCid}`,
+                `https://w3s.link/ipfs/${ipfsCid}`,
+            ] : [];
 
-        for (const url of urlsToTry) {
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 8000);
-                const resp = await fetch(url, { signal: controller.signal });
-                clearTimeout(timeout);
-                if (!resp.ok) continue;
-                const contentType = resp.headers.get("content-type") || "";
-                if (!contentType.startsWith("image/")) continue;
-                const buf = Buffer.from(await resp.arrayBuffer());
-                if (buf.length < 100) continue;
+            const urlsToTry = [player.face, ...gatewayUrls];
+            for (const url of urlsToTry) {
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 8000);
+                    const resp = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeout);
+                    if (!resp.ok) continue;
+                    const contentType = resp.headers.get("content-type") || "";
+                    if (!contentType.startsWith("image/")) continue;
+                    const buf = Buffer.from(await resp.arrayBuffer());
+                    if (buf.length < 100) continue;
 
-                // Сохраняем во временный файл
-                const tmpDir = path.resolve("./tmp/avatars");
-                fs.mkdirSync(tmpDir, { recursive: true });
-                avatarPath = path.join(tmpDir, `${fileName}_avatar.png`);
-                fs.writeFileSync(avatarPath, buf);
-                break;
-            } catch {
-                // пробуем следующий шлюз
+                    const tmpDir = path.resolve("./tmp/avatars");
+                    fs.mkdirSync(tmpDir, { recursive: true });
+                    avatarPath = path.join(tmpDir, `${fileName}_avatar.png`);
+                    fs.writeFileSync(avatarPath, buf);
+                    break;
+                } catch { /* пробуем следующий */ }
+            }
+        } else {
+            // Локальный файл (assets/cards/...)
+            const resolvedPath = path.resolve(player.face);
+            if (fs.existsSync(resolvedPath)) {
+                avatarPath = resolvedPath;
             }
         }
     }
 
-    // Если аватар загружен — читаем из файла, иначе прозрачный фон
+    // Читаем аватар: с диска или прозрачный фон
     let playerBuffer: Buffer;
     const sharpInstance = (await import("sharp")).default;
     if (avatarPath && fs.existsSync(avatarPath)) {
