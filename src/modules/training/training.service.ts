@@ -35,8 +35,6 @@ function pickRandomComplexes(count: number): string[] {
     return shuffled.slice(0, count);
 }
 
-export { TrainingError };
-
 export async function getRandomComplexes(): Promise<string[]> {
     return pickRandomComplexes(2);
 }
