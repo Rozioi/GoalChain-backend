@@ -112,6 +112,8 @@ export declare function getScoutResults(app: FastifyInstance, userId: string): P
             emotion: string | null;
             rarity: string | null;
             imageUrl: string | null;
+            isRealPlayer: boolean;
+            realPlayerTemplateId: string | null;
             ownerId: string | null;
             isOnRent: boolean;
             rentPrice: number | null;

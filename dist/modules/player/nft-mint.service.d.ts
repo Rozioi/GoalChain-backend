@@ -64,6 +64,8 @@ export declare const nftMintService: {
         emotion: string | null;
         rarity: string | null;
         imageUrl: string | null;
+        isRealPlayer: boolean;
+        realPlayerTemplateId: string | null;
         ownerId: string | null;
         isOnRent: boolean;
         rentPrice: number | null;
@@ -132,6 +134,8 @@ export declare const nftMintService: {
         emotion: string | null;
         rarity: string | null;
         imageUrl: string | null;
+        isRealPlayer: boolean;
+        realPlayerTemplateId: string | null;
         ownerId: string | null;
         isOnRent: boolean;
         rentPrice: number | null;
@@ -226,6 +230,8 @@ export declare const nftMintService: {
             emotion: string | null;
             rarity: string | null;
             imageUrl: string | null;
+            isRealPlayer: boolean;
+            realPlayerTemplateId: string | null;
             ownerId: string | null;
             isOnRent: boolean;
             rentPrice: number | null;

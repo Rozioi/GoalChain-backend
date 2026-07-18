@@ -138,4 +138,59 @@ export const adminController = {
             return reply.status(400).send({ error: err.message });
         }
     },
+
+    listRealPlayerTemplates: async (
+        request: FastifyRequest,
+        reply: FastifyReply,
+    ) => {
+        const templates = await adminService.getRealPlayerTemplates(
+            request.server,
+        );
+        return reply.send(templates);
+    },
+
+    listReleasedRealPlayers: async (
+        request: FastifyRequest,
+        reply: FastifyReply,
+    ) => {
+        const players = await adminService.getReleasedRealPlayers(
+            request.server,
+        );
+        return reply.send(players);
+    },
+
+    releaseRealPlayer: async (
+        request: FastifyRequest<{ Params: { templateId: string } }>,
+        reply: FastifyReply,
+    ) => {
+        try {
+            const player = await adminService.releaseRealPlayerByTemplate(
+                request.server,
+                request.params.templateId,
+            );
+            return reply.status(201).send(player);
+        } catch (err: any) {
+            return reply.status(400).send({ error: err.message });
+        }
+    },
+
+    // ── Config ──
+    getConfigs: async (request: FastifyRequest, reply: FastifyReply) => {
+        const { getConfigs } = await import("./admin-config.service");
+        const configs = await getConfigs(request.server);
+        return reply.send(configs);
+    },
+
+    setConfig: async (
+        request: FastifyRequest<{ Body: { key: string; value: string } }>,
+        reply: FastifyReply,
+    ) => {
+        try {
+            const { setConfig } = await import("./admin-config.service");
+            await setConfig(request.server, request.body.key, request.body.value);
+            return reply.send({ success: true });
+        } catch (err: any) {
+            return reply.status(400).send({ error: err.message });
+        }
+    },
 };

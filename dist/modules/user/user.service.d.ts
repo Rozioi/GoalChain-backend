@@ -149,6 +149,8 @@ export declare function syncTelegramProfile(app: FastifyInstance, userId: string
                 emotion: string | null;
                 rarity: string | null;
                 imageUrl: string | null;
+                isRealPlayer: boolean;
+                realPlayerTemplateId: string | null;
                 ownerId: string | null;
                 isOnRent: boolean;
                 rentPrice: number | null;
@@ -270,6 +272,8 @@ export declare function getUserProfile(app: FastifyInstance, userId: string): Pr
                 emotion: string | null;
                 rarity: string | null;
                 imageUrl: string | null;
+                isRealPlayer: boolean;
+                realPlayerTemplateId: string | null;
                 ownerId: string | null;
                 isOnRent: boolean;
                 rentPrice: number | null;

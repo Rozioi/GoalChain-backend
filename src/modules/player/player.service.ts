@@ -7,7 +7,8 @@ async function getPlayerImage(app: FastifyInstance, playerId: string) {
 
   if (!player) throw new Error("Player not found");
 
-  return player.imageUrl;
+  // Если карточка не сгенерирована — показываем IPFS-аватар
+  return player.imageUrl || player.face;
 }
 
 async function getPlayerById(app: FastifyInstance, playerId: string) {

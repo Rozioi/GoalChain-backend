@@ -55,6 +55,23 @@ async function adminRoutes(app: FastifyInstance) {
         },
         adminController.broadcast,
     );
+
+    app.get(
+        "/admin/real-players/templates",
+        adminController.listRealPlayerTemplates,
+    );
+    app.get(
+        "/admin/real-players/players",
+        adminController.listReleasedRealPlayers,
+    );
+    app.post(
+        "/admin/real-players/release/:templateId",
+        adminController.releaseRealPlayer,
+    );
+
+    // ── Config ──
+    app.get("/admin/config", adminController.getConfigs);
+    app.put("/admin/config", adminController.setConfig);
 }
 
 export default adminRoutes;

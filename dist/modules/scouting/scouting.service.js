@@ -9,6 +9,7 @@ exports.collectScoutResult = collectScoutResult;
 const constants_1 = require("../../config/constants");
 const env_1 = require("../../config/env");
 const player_generator_1 = require("../player/player.generator");
+const real_player_pool_1 = require("../player/real-player.pool");
 const core_1 = require("@ton/core");
 /**
  * Подготовка MASTER скаута — только возвращает данные для TON-транзакции.
@@ -167,20 +168,28 @@ async function syncScoutStates(app, userId) {
             const ovrMax = Math.max(ovrMin, Math.min(baseMax + levelBoost, 99));
             // OVR равномерно в диапазоне (всегда успех)
             const ovr = ovrMin + Math.floor(Math.random() * (ovrMax - ovrMin + 1));
-            const generated = await (0, player_generator_1.generatePlayer)({
-                role: scout.targetRole || undefined,
-                ovrMin: ovr,
-                ovrMax: ovr,
-                seed: `scout-${scout.id}`,
-            });
-            const player = await app.prisma.player.create({
-                data: {
-                    ...generated,
-                    ownerId: scout.userId,
-                    age: Math.floor(Math.random() * (scout.ageMax - scout.ageMin + 1) +
-                        scout.ageMin),
-                },
-            });
+            const realPlayer = await (0, real_player_pool_1.tryAcquireRealPlayerFromPool)(app, scout.userId, scout.targetRole || undefined);
+            let player;
+            if (realPlayer) {
+                player = realPlayer;
+            }
+            else {
+                const generated = await (0, player_generator_1.generatePlayer)({
+                    role: scout.targetRole || undefined,
+                    ovrMin: ovr,
+                    ovrMax: ovr,
+                    seed: `scout-${scout.id}`,
+                });
+                player = await app.prisma.player.create({
+                    data: {
+                        ...generated,
+                        ownerId: scout.userId,
+                        age: Math.floor(Math.random() *
+                            (scout.ageMax - scout.ageMin + 1) +
+                            scout.ageMin),
+                    },
+                });
+            }
             await app.prisma.scoutResult.create({
                 data: {
                     scoutId: scout.id,

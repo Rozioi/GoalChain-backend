@@ -25,6 +25,7 @@ model User {
   level         Int     @default(1)
   experience    Int     @default(0)
   isAdmin       Boolean @default(false)
+  isBanned      Boolean @default(false)
   scoutingLevel Int     @default(1)
   scoutingExp   Int     @default(0)
   referralCode  String  @unique
@@ -189,6 +190,9 @@ model Player {
   rarity     String? @default("common")
   imageUrl   String?
 
+  isRealPlayer         Boolean @default(false)
+  realPlayerTemplateId String?
+
   ownerId   String?
   isOnRent  Boolean  @default(false)
   rentPrice Int?
@@ -202,6 +206,8 @@ model Player {
   matchEvents   MatchEvent[]
   rent          PlayerRent?
   rentContracts RentContract[]
+
+  @@index([isRealPlayer, ownerId])
 }
 
 model PlayerRent {
@@ -724,4 +730,10 @@ model EconomyLog {
 
   @@index([userId, createdAt])
   @@index([source, createdAt])
+}
+
+model AppConfig {
+  id    String @id @default("default")
+  key   String @unique
+  value String
 }

@@ -5,8 +5,13 @@ exports.getDraftOptions = getDraftOptions;
 exports.pickDraftPlayers = pickDraftPlayers;
 exports.completeDraft = completeDraft;
 const player_generator_1 = require("../player/player.generator");
+const real_player_pool_1 = require("../player/real-player.pool");
 const synergy_engine_1 = require("../player/synergy.engine");
 const constants_1 = require("../../config/constants");
+// Default formation slot order for 4-4-2
+const DEFAULT_FORMATION_SLOTS = [
+    "st1", "st2", "lm", "cm1", "cm2", "rm", "lb", "cb1", "cb2", "rb", "gk",
+];
 const STEP_CONFIG = {
     GK: {
         role: "GOALKEEPER",
@@ -86,20 +91,26 @@ async function getDraftOptions(app, userId, step) {
     const config = STEP_CONFIG[stepUpper];
     if (!config)
         throw new app_error_1.AppError(`Invalid draft step: ${stepUpper}`, 400);
-    console.log("final step: ", config);
-    const generatedPlayers = await (0, player_generator_1.generateMultiplePlayers)(config.count, {
+    const realPlayer = await (0, real_player_pool_1.tryAcquireRealPlayerFromPool)(app, userId, config.role);
+    const generatedPlayers = await (0, player_generator_1.generateMultiplePlayers)(realPlayer ? config.count - 1 : config.count, {
         role: config.role,
         ovrMin: constants_1.DRAFT.STARTER_OVR_MIN,
         ovrMax: constants_1.DRAFT.STARTER_OVR_MAX,
         seed: `draft-${session.id}-${stepUpper}`,
     });
-    console.log(generatedPlayers);
     const options = await app.prisma.$transaction(async (tx) => {
         const createdOptions = [];
+        const playersToLink = [];
+        if (realPlayer) {
+            playersToLink.push(realPlayer);
+        }
         for (const gp of generatedPlayers) {
             const player = await tx.player.create({
                 data: { ...gp, ownerId: userId },
             });
+            playersToLink.push(player);
+        }
+        for (const player of playersToLink) {
             const option = await tx.draftOption.create({
                 data: {
                     draftSessionId: session.id,
@@ -115,7 +126,6 @@ async function getDraftOptions(app, userId, step) {
         }
         return createdOptions;
     });
-    // Re-fetch session so session.options includes newly created options
     const updatedSession = await app.prisma.draftSession.findUnique({
         where: { id: session.id },
         include: { options: { include: { player: true } } },
@@ -166,11 +176,9 @@ async function pickDraftPlayers(app, userId, optionIds) {
         const config = STEP_CONFIG[currentStep];
         if (!config)
             throw new app_error_1.AppError("Draft is in reserve/done phase", 400);
-        // Validate provided optionIds belong to this session
         let foundOptions = await app.prisma.draftOption.findMany({
             where: { id: { in: optionIds }, draftSessionId: session.id },
         });
-        // Tolerant fallback: if client passed player IDs instead of draftOption IDs, try resolving
         if (foundOptions.length !== optionIds.length) {
             const alt = await app.prisma.draftOption.findMany({
                 where: {
@@ -179,17 +187,14 @@ async function pickDraftPlayers(app, userId, optionIds) {
                 },
             });
             if (alt.length > 0) {
-                // build mapping from playerId -> draftOption.id
                 const playerToOption = new Map();
                 for (const a of alt)
                     playerToOption.set(a.playerId, a.id);
                 const remapped = optionIds.map((id) => playerToOption.get(id) || id);
-                // re-check
                 foundOptions = await app.prisma.draftOption.findMany({
                     where: { id: { in: remapped }, draftSessionId: session.id },
                 });
                 if (foundOptions.length === remapped.length) {
-                    // accept remapped optionIds going forward
                     optionIds = remapped;
                 }
             }
@@ -202,7 +207,6 @@ async function pickDraftPlayers(app, userId, optionIds) {
             }, "pickDraftPlayers: invalid optionIds");
             throw new app_error_1.AppError("One or more optionIds are invalid for this draft session", 400);
         }
-        // Prevent double-pick: ensure none of them are already picked
         const alreadyPicked = foundOptions.filter((o) => o.isPicked);
         if (alreadyPicked.length > 0) {
             app.log.warn({
@@ -211,7 +215,6 @@ async function pickDraftPlayers(app, userId, optionIds) {
             }, "pickDraftPlayers: option already picked");
             throw new app_error_1.AppError("One or more options were already picked", 409);
         }
-        // Atomic guarded update - mark selected options as picked only if still not picked
         const updateRes = await app.prisma.draftOption.updateMany({
             where: {
                 id: { in: optionIds },
@@ -221,7 +224,6 @@ async function pickDraftPlayers(app, userId, optionIds) {
             data: { isPicked: true },
         });
         if (!updateRes || updateRes.count !== optionIds.length) {
-            // Race or partial update - surface conflict
             const refreshed = await app.prisma.draftOption.findMany({
                 where: { id: { in: optionIds }, draftSessionId: session.id },
             });
@@ -231,7 +233,6 @@ async function pickDraftPlayers(app, userId, optionIds) {
             app.log.warn({ nowPicked, sessionId: session.id }, "pickDraftPlayers: partial update or race");
             throw new app_error_1.AppError(`Failed to pick some options (may be already picked by another user): ${nowPicked.join(", ")}`, 409);
         }
-        // Count picked and maybe advance step
         const pickedInStep = await app.prisma.draftOption.count({
             where: {
                 draftSessionId: session.id,
@@ -249,7 +250,6 @@ async function pickDraftPlayers(app, userId, optionIds) {
             nextStep = config.next;
             completedStep = true;
         }
-        // Re-fetch session to return authoritative state to client
         const freshSession = await app.prisma.draftSession.findUnique({
             where: { id: session.id },
             include: { options: { include: { player: true } } },
@@ -294,24 +294,33 @@ async function completeDraft(app, userId, clubName) {
                 { role: "FORWARD", count: constants_1.DRAFT.RESERVE_FWD },
             ];
             const reserves = [];
+            let reserveRealUsed = false;
             for (const rc of reserveConfig) {
-                const generated = await (0, player_generator_1.generateMultiplePlayers)(rc.count, {
-                    role: rc.role,
-                    ovrMin: constants_1.DRAFT.RESERVE_OVR_MIN,
-                    ovrMax: constants_1.DRAFT.RESERVE_OVR_MAX,
-                    seed: `reserve-${session.id}-${rc.role}`,
-                });
-                for (const gp of generated) {
-                    const player = await tx.player.create({
-                        data: { ...gp, ownerId: userId },
-                    });
+                for (let i = 0; i < rc.count; i++) {
+                    let player = null;
+                    if (!reserveRealUsed) {
+                        player = await (0, real_player_pool_1.tryAcquireRealPlayerFromPool)(app, userId, rc.role);
+                        if (player)
+                            reserveRealUsed = true;
+                    }
+                    if (!player) {
+                        const generated = await (0, player_generator_1.generatePlayer)({
+                            role: rc.role,
+                            ovrMin: constants_1.DRAFT.RESERVE_OVR_MIN,
+                            ovrMax: constants_1.DRAFT.RESERVE_OVR_MAX,
+                            seed: `reserve-${session.id}-${rc.role}-${i}`,
+                        });
+                        player = await tx.player.create({
+                            data: { ...generated, ownerId: userId },
+                        });
+                    }
                     reserves.push(player);
                 }
             }
             const cleanClubName = clubName?.trim();
             const team = await tx.team.create({
                 data: {
-                    name: cleanClubName || `${user?.clubName || "Player"} Team`,
+                    name: cleanClubName || `${user?.clubName || "Player"}`,
                     userId,
                 },
             });
@@ -328,12 +337,13 @@ async function completeDraft(app, userId, clubName) {
                     app.log.warn({ i, player, teamId: team.id }, "completeDraft: skipping invalid starter");
                     continue;
                 }
+                const slotKey = DEFAULT_FORMATION_SLOTS[i] || `slot-${i}`;
                 await tx.teamPlayer.create({
                     data: {
                         teamId: team.id,
                         playerId: player.id,
                         isStarter: true,
-                        positionInFormation: i.toString(),
+                        positionInFormation: slotKey,
                     },
                 });
             }

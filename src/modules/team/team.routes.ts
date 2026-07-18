@@ -17,7 +17,10 @@ async function teamRoutes(app: FastifyInstance) {
                 tags: ["Team"],
                 body: {
                     type: "object",
-                    required: ["starters"],
+                    anyOf: [
+                        { required: ["starters"] },
+                        { required: ["starterIds"] },
+                    ],
                     properties: {
                         starters: {
                             type: "array",
@@ -29,6 +32,12 @@ async function teamRoutes(app: FastifyInstance) {
                                     slotKey: { type: "string" },
                                 },
                             },
+                            minItems: 11,
+                            maxItems: 11,
+                        },
+                        starterIds: {
+                            type: "array",
+                            items: { type: "string" },
                             minItems: 11,
                             maxItems: 11,
                         },

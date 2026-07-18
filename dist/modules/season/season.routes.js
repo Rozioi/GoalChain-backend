@@ -11,6 +11,12 @@ async function seasonRoutes(app) {
     app.get("/season/standings/:seasonId", {
         schema: {
             tags: ["Season"],
+            querystring: {
+                type: "object",
+                properties: {
+                    filter: { type: "string", enum: ["GLOBAL", "FRIENDS"] },
+                },
+            },
         },
     }, season_controller_1.seasonController.standings);
     app.post("/season/register", {
@@ -18,11 +24,5 @@ async function seasonRoutes(app) {
             tags: ["Season"],
         },
     }, season_controller_1.seasonController.register);
-    app.post("/season/play", {
-        schema: {
-            tags: ["Season"],
-            summary: "Сыграть сезонный матч",
-        },
-    }, season_controller_1.seasonController.play);
 }
 exports.default = seasonRoutes;

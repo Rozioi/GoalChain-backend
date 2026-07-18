@@ -1,5 +1,13 @@
 import { FastifyInstance } from "fastify";
-export declare function startTraining(app: FastifyInstance, userId: string, playerId: string, stat: string): Promise<{
+declare class TrainingError extends Error {
+    code: string;
+    details?: Record<string, any>;
+    constructor(message: string, code: string, details?: Record<string, any>);
+}
+export { TrainingError };
+export { TrainingError };
+export declare function getRandomComplexes(): Promise<string[]>;
+export declare function startTraining(app: FastifyInstance, userId: string, playerId: string, complexId: string): Promise<{
     training: {
         id: string;
         createdAt: Date;
@@ -11,10 +19,14 @@ export declare function startTraining(app: FastifyInstance, userId: string, play
         stat: string;
         boost: number;
     };
-    stat: string;
+    complexId: string;
+    complexLabel: string;
+    stats: string[];
     boost: number;
     cost: number;
-    newStatValue: number;
+    newStatValues: {
+        [x: string]: number;
+    };
 }>;
 export declare function getTrainingCost(app: FastifyInstance, userId: string, playerId: string): Promise<{
     cost: number;
@@ -27,6 +39,7 @@ export declare function getTrainingCost(app: FastifyInstance, userId: string, pl
     isNft: boolean;
     cooldownEndsAt: Date | null;
     lastTrainedStat: string | null;
+    lastTrainedStats: string[];
     trainingLevel: number;
     trainingLevelMax: number;
     trainingExperience: number;

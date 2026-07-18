@@ -22,6 +22,8 @@ import eventRoutes from "./modules/event/event.routes";
 import taskRoutes from "./modules/task/task.routes";
 import adminTaskRoutes from "./modules/task/admin.task.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import adminPlayerRoutes from "./modules/admin-player/admin-player.routes";
+import adminTeamRoutes from "./modules/admin-team/admin-team.routes";
 import playerRoutes from "./modules/player/player.routes";
 import pressurePlugin from "./plugins/pressure.plugin";
 import cachingPlugin from "./plugins/caching.plugin";
@@ -59,6 +61,8 @@ export function buildApp() {
   app.register(taskRoutes, { prefix: "/api/v1" });
   app.register(adminTaskRoutes, { prefix: "/api/v1" });
   app.register(adminRoutes, { prefix: "/api/v1" });
+  app.register(adminPlayerRoutes, { prefix: "/api/v1" });
+  app.register(adminTeamRoutes, { prefix: "/api/v1" });
   app.register(playerRoutes, { prefix: "/api/v1" });
   app.register(fastifyStatic, {
     root: path.join(__dirname, "../public"), // путь к твоей папке public
@@ -69,6 +73,33 @@ export function buildApp() {
     status: "ok",
     timestamp: new Date().toISOString(),
   }));
+
+  // Public config endpoint (no auth) for maintenance mode check
+  app.get("/api/v1/config/public", async (req) => {
+    const { getConfig } = await import("./modules/admin/admin-config.service");
+    const maintenance = await getConfig(req.server, "MAINTENANCE_MODE");
+    const message = await getConfig(req.server, "MAINTENANCE_MESSAGE");
+
+    // Если передан initData — проверяем, является ли пользователь админом
+    let isAdmin = false;
+    const query = req.query as Record<string, string>;
+    if (query.initData) {
+      try {
+        const parsed = JSON.parse(Buffer.from(query.initData, "base64").toString());
+        if (parsed.telegramId) {
+          const user = await req.server.prisma.user.findUnique({
+            where: { telegramId: parsed.telegramId },
+            select: { isAdmin: true },
+          });
+          isAdmin = user?.isAdmin ?? false;
+        }
+      } catch {
+        // ignore invalid initData
+      }
+    }
+
+    return { maintenance: maintenance === "true", message, isAdmin };
+  });
 
   return app;
 }

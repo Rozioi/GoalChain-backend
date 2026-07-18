@@ -24,7 +24,7 @@ export const nftMetadataService = {
         return {
             name: `${player.name} ${player.surname || ""}`.trim(),
             description: `Professional Football Player Card - ${player.position} (${player.overallRating} OVR) - GoalChain`,
-            image: player.imageUrl || "",
+            image: player.imageUrl || player.face || "",
             attributes,
         };
     },

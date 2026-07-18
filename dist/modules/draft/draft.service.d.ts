@@ -73,6 +73,8 @@ export declare function getDraftOptions(app: FastifyInstance, userId: string, st
                 emotion: string | null;
                 rarity: string | null;
                 imageUrl: string | null;
+                isRealPlayer: boolean;
+                realPlayerTemplateId: string | null;
                 ownerId: string | null;
                 isOnRent: boolean;
                 rentPrice: number | null;
@@ -168,6 +170,8 @@ export declare function pickDraftPlayers(app: FastifyInstance, userId: string, o
                 emotion: string | null;
                 rarity: string | null;
                 imageUrl: string | null;
+                isRealPlayer: boolean;
+                realPlayerTemplateId: string | null;
                 ownerId: string | null;
                 isOnRent: boolean;
                 rentPrice: number | null;

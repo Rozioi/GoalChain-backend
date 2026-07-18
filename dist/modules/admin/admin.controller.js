@@ -100,4 +100,21 @@ exports.adminController = {
             return reply.status(400).send({ error: err.message });
         }
     },
+    listRealPlayerTemplates: async (request, reply) => {
+        const templates = await adminService.getRealPlayerTemplates(request.server);
+        return reply.send(templates);
+    },
+    listReleasedRealPlayers: async (request, reply) => {
+        const players = await adminService.getReleasedRealPlayers(request.server);
+        return reply.send(players);
+    },
+    releaseRealPlayer: async (request, reply) => {
+        try {
+            const player = await adminService.releaseRealPlayerByTemplate(request.server, request.params.templateId);
+            return reply.status(201).send(player);
+        }
+        catch (err) {
+            return reply.status(400).send({ error: err.message });
+        }
+    },
 };

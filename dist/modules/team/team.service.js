@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMyTeam = getMyTeam;
 exports.updateLineup = updateLineup;
+exports.substitutePlayer = substitutePlayer;
 exports.getTeamRating = getTeamRating;
 const synergy_engine_1 = require("../player/synergy.engine");
 async function getMyTeam(app, userId) {
@@ -43,30 +44,25 @@ async function getMyTeam(app, userId) {
         publicOvr,
     };
 }
-async function updateLineup(app, userId, starterIds, formation) {
+async function updateLineup(app, userId, starters, formation) {
     const team = await app.prisma.team.findFirst({
         where: { userId, isEvent: false },
         include: { players: { include: { player: true } } },
     });
     if (!team)
         throw new Error("No team found");
-    if (starterIds.length !== 11)
+    if (starters.length !== 11)
         throw new Error("Must have exactly 11 starters");
     const teamPlayerIds = team.players.map((tp) => tp.playerId);
-    for (const id of starterIds) {
-        if (!teamPlayerIds.includes(id)) {
-            throw new Error(`Player ${id} is not on your team`);
+    for (const s of starters) {
+        if (!teamPlayerIds.includes(s.playerId)) {
+            throw new Error(`Player ${s.playerId} is not on your team`);
         }
     }
-    // Валидация: ровно один GK в стартовом составе, и только GK может быть вратарём
-    const playersMap = new Map(team.players.map((tp) => [tp.playerId, tp.player]));
+    // Валидация: ровно один GK в стартовом составе
     let gkCount = 0;
-    for (const playerId of starterIds) {
-        const player = playersMap.get(playerId);
-        if (!player)
-            throw new Error(`Player ${playerId} not found in team`);
-        const isGk = player.position === "GOALKEEPER" || player.role === "GOALKEEPER";
-        if (isGk)
+    for (const s of starters) {
+        if (s.slotKey === "gk")
             gkCount++;
     }
     if (gkCount !== 1) {
@@ -76,13 +72,12 @@ async function updateLineup(app, userId, starterIds, formation) {
         where: { teamId: team.id },
         data: { isStarter: false, positionInFormation: null },
     });
-    for (let i = 0; i < starterIds.length; i++) {
-        const playerId = starterIds[i];
+    for (const s of starters) {
         await app.prisma.teamPlayer.update({
-            where: { teamId_playerId: { teamId: team.id, playerId } },
+            where: { teamId_playerId: { teamId: team.id, playerId: s.playerId } },
             data: {
                 isStarter: true,
-                positionInFormation: i.toString(),
+                positionInFormation: s.slotKey,
             },
         });
     }
@@ -92,8 +87,9 @@ async function updateLineup(app, userId, starterIds, formation) {
             data: { formation },
         });
     }
+    const starterPlayerIds = starters.map((s) => s.playerId);
     const starterPlayers = await app.prisma.player.findMany({
-        where: { id: { in: starterIds } },
+        where: { id: { in: starterPlayerIds } },
     });
     const rating = (0, synergy_engine_1.calculateTeamRating)(starterPlayers.map((p) => ({
         position: p.position,
@@ -105,7 +101,49 @@ async function updateLineup(app, userId, starterIds, formation) {
         where: { id: team.id },
         data: { rating },
     });
-    // Возвращаем обновлённую команду
+    return await getMyTeam(app, userId);
+}
+async function substitutePlayer(app, userId, outPlayerId, inPlayerId, slotKey) {
+    const team = await app.prisma.team.findFirst({
+        where: { userId, isEvent: false },
+        include: { players: { include: { player: true } } },
+    });
+    if (!team)
+        throw new Error("No team found");
+    const outTP = team.players.find((tp) => tp.playerId === outPlayerId);
+    const inTP = team.players.find((tp) => tp.playerId === inPlayerId);
+    if (!outTP)
+        throw new Error("Player to substitute out not found in team");
+    if (!inTP)
+        throw new Error("Player to substitute in not found in team");
+    if (!outTP.isStarter)
+        throw new Error("Player to substitute out is not a starter");
+    if (inTP.isStarter)
+        throw new Error("Player to substitute in is already a starter");
+    // Swap: out → bench, in → starter with the slotKey
+    await app.prisma.teamPlayer.update({
+        where: { teamId_playerId: { teamId: team.id, playerId: outPlayerId } },
+        data: { isStarter: false, positionInFormation: null },
+    });
+    await app.prisma.teamPlayer.update({
+        where: { teamId_playerId: { teamId: team.id, playerId: inPlayerId } },
+        data: { isStarter: true, positionInFormation: slotKey },
+    });
+    // Recalc team rating
+    const starters = await app.prisma.teamPlayer.findMany({
+        where: { teamId: team.id, isStarter: true },
+        include: { player: true },
+    });
+    const rating = (0, synergy_engine_1.calculateTeamRating)(starters.map((tp) => ({
+        position: tp.player.position,
+        role: tp.player.role,
+        style: tp.player.style,
+        overallRating: tp.player.overallRating,
+    })));
+    await app.prisma.team.update({
+        where: { id: team.id },
+        data: { rating },
+    });
     return await getMyTeam(app, userId);
 }
 async function getTeamRating(app, userId) {

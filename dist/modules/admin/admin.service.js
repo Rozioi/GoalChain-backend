@@ -10,6 +10,9 @@ exports.listSeasons = listSeasons;
 exports.endSeason = endSeason;
 exports.deleteUser = deleteUser;
 exports.deleteUserTeam = deleteUserTeam;
+exports.getRealPlayerTemplates = getRealPlayerTemplates;
+exports.getReleasedRealPlayers = getReleasedRealPlayers;
+exports.releaseRealPlayerByTemplate = releaseRealPlayerByTemplate;
 async function getGlobalStats(app) {
     const [userCount, teamCount, matchCount, totalCoins] = await Promise.all([
         app.prisma.user.count(),
@@ -85,6 +88,7 @@ async function listSeasons(app) {
 const season_service_1 = require("../season/season.service");
 const broadcast_service_1 = require("./broadcast.service");
 Object.defineProperty(exports, "broadcastMessage", { enumerable: true, get: function () { return broadcast_service_1.broadcastMessage; } });
+const real_player_service_1 = require("../player/real-player.service");
 async function endSeason(app, seasonId) {
     return (0, season_service_1.endSeason)(app, seasonId);
 }
@@ -109,4 +113,13 @@ async function deleteUserTeam(app, userId) {
         }),
     ]);
     return { success: true };
+}
+async function getRealPlayerTemplates(app) {
+    return (0, real_player_service_1.listRealPlayerTemplates)(app);
+}
+async function getReleasedRealPlayers(app) {
+    return (0, real_player_service_1.listReleasedRealPlayers)(app);
+}
+async function releaseRealPlayerByTemplate(app, templateId) {
+    return (0, real_player_service_1.releaseRealPlayer)(app, templateId);
 }

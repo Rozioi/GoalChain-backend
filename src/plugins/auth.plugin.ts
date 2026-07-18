@@ -25,6 +25,15 @@ export default fp(async (app) => {
     async function (req: FastifyRequest, reply: FastifyReply) {
       try {
         await req.jwtVerify();
+
+        // Проверка бана
+        const user = await app.prisma.user.findUnique({
+          where: { id: req.user.userId },
+          select: { isBanned: true },
+        });
+        if (user?.isBanned) {
+          return reply.status(403).send({ error: "Your account has been banned" });
+        }
       } catch (err) {
         reply.status(401).send({ error: "Unauthorized" });
       }

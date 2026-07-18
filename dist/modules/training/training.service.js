@@ -1,22 +1,42 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.TrainingError = void 0;
+exports.getRandomComplexes = getRandomComplexes;
 exports.startTraining = startTraining;
 exports.getTrainingCost = getTrainingCost;
 const constants_1 = require("../../config/constants");
 const synergy_engine_1 = require("../player/synergy.engine");
 const playerImage_together_1 = require("../player/playerImage.together");
-async function startTraining(app, userId, playerId, stat) {
-    const validStats = [
-        "pace",
-        "shooting",
-        "passing",
-        "dribbling",
-        "defending",
-        "physical",
-    ];
-    if (!validStats.includes(stat)) {
-        throw new Error(`Invalid stat: ${stat}. Must be one of: ${validStats.join(", ")}`);
+class TrainingError extends Error {
+    constructor(message, code, details) {
+        super(message);
+        this.code = code;
+        this.details = details;
+        this.name = "TrainingError";
     }
+}
+exports.TrainingError = TrainingError;
+// Training complexes: each trains 2 stats
+const TRAINING_COMPLEXES = {
+    PHYSICAL: { stats: ["pace", "physical"], label: "Физическая подготовка" },
+    TECHNIQUE: { stats: ["passing", "dribbling"], label: "Техника" },
+    ATTACK: { stats: ["shooting", "dribbling"], label: "Завершение атак" },
+    DEFENSE: { stats: ["defending", "physical"], label: "Оборона" },
+};
+const COMPLEX_IDS = Object.keys(TRAINING_COMPLEXES); // ["PHYSICAL", "TECHNIQUE", "ATTACK", "DEFENSE"]
+function pickRandomComplexes(count) {
+    const shuffled = [...COMPLEX_IDS].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+}
+async function getRandomComplexes() {
+    return pickRandomComplexes(2);
+}
+async function startTraining(app, userId, playerId, complexId) {
+    const complex = TRAINING_COMPLEXES[complexId];
+    if (!complex) {
+        throw new Error(`Invalid complex: ${complexId}. Must be one of: ${COMPLEX_IDS.join(", ")}`);
+    }
+    const [stat1, stat2] = complex.stats;
     const teamPlayer = await app.prisma.teamPlayer.findFirst({
         where: {
             player: { id: playerId },
@@ -24,19 +44,20 @@ async function startTraining(app, userId, playerId, stat) {
         },
         include: { player: true },
     });
-    if (!teamPlayer)
-        throw new Error("Player not on your team");
+    if (!teamPlayer) {
+        throw new TrainingError("Player not on your team", "NO_TEAM");
+    }
     const playerWithRent = await app.prisma.player.findUnique({
         where: { id: playerId },
         include: { rent: true },
     });
     if (playerWithRent?.rent?.isRented &&
         playerWithRent.rent.rentedById !== userId) {
-        throw new Error("Cannot train a player that is currently rented out");
+        throw new TrainingError("Cannot train a rented out player", "RENTED_OUT");
     }
     if (teamPlayer.player.injuryEndsAt &&
         new Date() < new Date(teamPlayer.player.injuryEndsAt)) {
-        throw new Error(`Player is traumatized until ${teamPlayer.player.injuryEndsAt.toISOString()}`);
+        throw new TrainingError("Player is traumatized", "TRAUMATIZED", { endsAt: teamPlayer.player.injuryEndsAt.toISOString() });
     }
     const lastTraining = await app.prisma.training.findFirst({
         where: { userId, playerId, status: "COMPLETED" },
@@ -45,17 +66,18 @@ async function startTraining(app, userId, playerId, stat) {
     if (lastTraining) {
         const cooldownEnd = new Date(lastTraining.createdAt.getTime() + constants_1.TRAINING.COOLDOWN_MS);
         if (new Date() < cooldownEnd) {
-            throw new Error(`Training on cooldown. Available at ${cooldownEnd.toISOString()}`);
+            throw new TrainingError("Training on cooldown", "COOLDOWN", { cooldownEndsAt: cooldownEnd.toISOString() });
         }
     }
     const maxOvr = teamPlayer.player.potentialMax || 99;
     const currentOvr = teamPlayer.player.overallRating;
     if (currentOvr >= maxOvr) {
-        throw new Error(`Player has reached their maximum potential (${maxOvr} OVR)`);
+        throw new TrainingError("Player reached max potential", "MAX_POTENTIAL", { maxOvr });
     }
-    const currentStatValue = teamPlayer.player[stat];
-    if (currentStatValue >= maxOvr) {
-        throw new Error(`${stat} is already at maximum (${maxOvr})`);
+    const currentStatValue1 = teamPlayer.player[stat1];
+    const currentStatValue2 = teamPlayer.player[stat2];
+    if (currentStatValue1 >= maxOvr && currentStatValue2 >= maxOvr) {
+        throw new TrainingError(`Both stats (${stat1}, ${stat2}) are already at maximum (${maxOvr})`, "STAT_MAXED", { stat1, stat2, maxOvr });
     }
     const trainingCount = await app.prisma.training.count({
         where: { userId, playerId },
@@ -63,13 +85,15 @@ async function startTraining(app, userId, playerId, stat) {
     const cost = Math.floor(constants_1.TRAINING.BASE_COST * Math.pow(constants_1.TRAINING.COST_MULTIPLIER, trainingCount));
     const user = await app.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.coins < cost) {
-        throw new Error(`Not enough coins. Need ${cost}, have ${user?.coins || 0}`);
+        throw new TrainingError("Not enough coins", "INSUFFICIENT_FUNDS", { required: cost, balance: user?.coins || 0 });
     }
     const boost = constants_1.TRAINING.BOOST;
-    // Пересчитываем OVR из параметров после тренировки
+    const newVal1 = Math.min(maxOvr, currentStatValue1 + boost);
+    const newVal2 = Math.min(maxOvr, currentStatValue2 + boost);
     const updatedStats = {
         ...teamPlayer.player,
-        [stat]: currentStatValue + boost,
+        [stat1]: newVal1,
+        [stat2]: newVal2,
     };
     const newOvr = Math.min(maxOvr, (0, synergy_engine_1.calculatePlayerOverall)(updatedStats));
     const newXp = (teamPlayer.player.trainingExperience || 0) + constants_1.TRAINING.XP_PER_TRAINING;
@@ -88,7 +112,7 @@ async function startTraining(app, userId, playerId, stat) {
             data: {
                 userId,
                 playerId,
-                stat,
+                stat: complexId,
                 boost,
                 cost,
                 status: "COMPLETED",
@@ -102,7 +126,8 @@ async function startTraining(app, userId, playerId, stat) {
         app.prisma.player.update({
             where: { id: playerId },
             data: {
-                [stat]: { increment: boost },
+                [stat1]: newVal1,
+                [stat2]: newVal2,
                 overallRating: newOvr,
                 trainingLevel: newLevel,
                 trainingExperience: newExp,
@@ -110,7 +135,7 @@ async function startTraining(app, userId, playerId, stat) {
             },
         }),
     ]);
-    // Перегенерация карточки (фоново — не блокируем ответ)
+    // Перегенерация карточки (после транзакции, чтобы не блокировать её)
     (0, playerImage_together_1.regeneratePlayerCard)(playerId, app)
         .then((newImageUrl) => {
         if (newImageUrl) {
@@ -149,10 +174,12 @@ async function startTraining(app, userId, playerId, stat) {
     }
     return {
         training,
-        stat,
+        complexId,
+        complexLabel: complex.label,
+        stats: [stat1, stat2],
         boost,
         cost,
-        newStatValue: currentStatValue + boost,
+        newStatValues: { [stat1]: newVal1, [stat2]: newVal2 },
     };
 }
 async function getTrainingCost(app, userId, playerId) {
@@ -190,6 +217,9 @@ async function getTrainingCost(app, userId, playerId) {
         isNft: teamPlayer?.player.isNft || false,
         cooldownEndsAt,
         lastTrainedStat: lastTraining?.stat || null,
+        lastTrainedStats: lastTraining?.stat
+            ? (TRAINING_COMPLEXES[lastTraining.stat]?.stats || [])
+            : [],
         trainingLevel: teamPlayer?.player.trainingLevel || 1,
         trainingLevelMax: constants_1.TRAINING.MAX_TRAINING_LEVEL,
         trainingExperience: teamPlayer?.player.trainingExperience || 0,

@@ -65,6 +65,7 @@ export async function updateUser(
         level?: number;
         username?: string;
         isAdmin?: boolean;
+        isBanned?: boolean;
     },
 ) {
     return app.prisma.user.update({
@@ -109,6 +110,11 @@ export async function listSeasons(app: FastifyInstance) {
 
 import { endSeason as finishSeason } from "../season/season.service";
 import { broadcastMessage } from "./broadcast.service";
+import {
+    listRealPlayerTemplates,
+    listReleasedRealPlayers,
+    releaseRealPlayer,
+} from "../player/real-player.service";
 
 export { broadcastMessage };
 
@@ -141,4 +147,19 @@ export async function deleteUserTeam(app: FastifyInstance, userId: string) {
     ]);
 
     return { success: true };
+}
+
+export async function getRealPlayerTemplates(app: FastifyInstance) {
+    return listRealPlayerTemplates(app);
+}
+
+export async function getReleasedRealPlayers(app: FastifyInstance) {
+    return listReleasedRealPlayers(app);
+}
+
+export async function releaseRealPlayerByTemplate(
+    app: FastifyInstance,
+    templateId: string,
+) {
+    return releaseRealPlayer(app, templateId);
 }

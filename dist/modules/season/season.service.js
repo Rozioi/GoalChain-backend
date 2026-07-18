@@ -83,7 +83,40 @@ async function getCurrentSeason(app) {
         },
     });
 }
-async function getSeasonStandings(app, seasonId) {
+async function getSeasonStandings(app, seasonId, userId, filter) {
+    if (filter === "FRIENDS" && userId) {
+        // Получаем реферралов пользователя через Referral модель
+        const referrals = await app.prisma.referral.findMany({
+            where: { inviterId: userId },
+            select: { inviteeId: true },
+        });
+        const friendIds = [
+            userId,
+            ...referrals.map((r) => r.inviteeId),
+        ];
+        const friendTeams = await app.prisma.team.findMany({
+            where: { userId: { in: friendIds }, isEvent: false },
+            select: { id: true },
+        });
+        const teamIds = friendTeams.map((t) => t.id);
+        return app.prisma.seasonStanding.findMany({
+            where: { seasonId, teamId: { in: teamIds } },
+            include: {
+                team: {
+                    include: {
+                        user: {
+                            select: {
+                                username: true,
+                                clubName: true,
+                                firstName: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: [{ points: "desc" }, { goalsFor: "desc" }],
+        });
+    }
     return app.prisma.seasonStanding.findMany({
         where: { seasonId },
         include: {
@@ -93,6 +126,7 @@ async function getSeasonStandings(app, seasonId) {
                         select: {
                             username: true,
                             clubName: true,
+                            firstName: true,
                         },
                     },
                 },
@@ -103,10 +137,11 @@ async function getSeasonStandings(app, seasonId) {
 }
 async function registerForSeason(app, userId) {
     const season = await app.prisma.season.findFirst({
-        where: { status: "UPCOMING" },
+        where: { status: { in: ["UPCOMING", "ACTIVE"] } },
+        orderBy: { startDate: "desc" },
     });
     if (!season)
-        throw new Error("No upcoming season");
+        throw new Error("No active or upcoming season");
     const team = await app.prisma.team.findFirst({
         where: { userId, isEvent: false },
     });
@@ -117,6 +152,7 @@ async function registerForSeason(app, userId) {
     });
     if (existing)
         throw new Error("Already registered for this season");
+    // догоняем — played пока 0, но команда уже в таблице
     const standing = await app.prisma.seasonStanding.create({
         data: {
             seasonId: season.id,
@@ -252,38 +288,34 @@ async function playSeasonMatch(app, userId) {
     });
     if (!opponentStanding)
         throw new Error("No opponents found in this season");
-    const { randomUUID } = await Promise.resolve().then(() => __importStar(require("crypto")));
-    const { simulateMatch } = await Promise.resolve().then(() => __importStar(require("../match/match.simulator")));
-    const { getTeamForMatch } = await Promise.resolve().then(() => __importStar(require("../match/match-team.service")));
-    const { handleMatchCompletion } = await Promise.resolve().then(() => __importStar(require("../match/match-completion.service")));
-    const seed = randomUUID();
-    const homeTeamData = await getTeamForMatch(app, team.id);
-    const awayTeamData = await getTeamForMatch(app, opponentStanding.team.id);
-    const result = simulateMatch(homeTeamData, awayTeamData, seed);
-    const match = await app.prisma.match.create({
+    const { startInstantBotMatch } = await Promise.resolve().then(() => __importStar(require("../match/match-live.service")));
+    const { match } = await startInstantBotMatch(app, userId, team.id, opponentStanding.team.id);
+    // Update match type and seasonId after creation
+    await app.prisma.match.update({
+        where: { id: match.id },
         data: {
             type: "SEASON",
-            status: "COMPLETED",
-            homeUserId: userId,
-            awayUserId: opponentStanding.team.userId,
-            homeTeamId: team.id,
-            awayTeamId: opponentStanding.team.id,
-            homeScore: result.homeScore,
-            awayScore: result.awayScore,
-            seed,
             seasonId,
+            awayUserId: opponentStanding.team.userId,
+            isBot: false,
         },
     });
-    await updateStandings(app, seasonId, team.id, result.homeScore, result.awayScore, result.winner === "home"
-        ? "win"
-        : result.winner === "draw"
-            ? "draw"
-            : "loss");
-    await updateStandings(app, seasonId, opponentStanding.team.id, result.awayScore, result.homeScore, result.winner === "away"
-        ? "win"
-        : result.winner === "draw"
-            ? "draw"
-            : "loss");
-    await handleMatchCompletion(app, match, result, seed);
-    return { match, result };
+    return {
+        match,
+        matchId: match.id,
+        status: "IN_PROGRESS",
+        isBot: false,
+        preloaderData: {
+            homePlayer: {
+                id: userId,
+                name: team.name ?? "Home",
+                points: standing.points,
+            },
+            awayPlayer: {
+                id: opponentStanding.team.userId,
+                name: opponentStanding.team.name ?? "Away",
+                points: opponentStanding.points,
+            },
+        },
+    };
 }

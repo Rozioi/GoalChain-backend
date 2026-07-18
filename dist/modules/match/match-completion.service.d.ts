@@ -36,6 +36,7 @@ export declare function handleMatchCompletion(app: FastifyInstance, match: {
     homeTeamId: string;
     awayTeamId?: string | null;
     isBot?: boolean;
+    seasonId?: string | null;
 }, result: MatchResult, seed: string): Promise<MatchCompletionRewards>;
 export declare function formatMatchEvents(events: Array<{
     type: string;

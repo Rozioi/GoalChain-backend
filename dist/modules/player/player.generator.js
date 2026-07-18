@@ -41,20 +41,12 @@ exports.generateMultiplePlayers = generateMultiplePlayers;
 const seedrandom_1 = __importDefault(require("seedrandom"));
 const client_1 = require("@prisma/client");
 const constants_1 = require("../../config/constants");
+const player_avatar_1 = require("./player.avatar");
 function generateImagePrompt(player) {
-    return `
-    Pixel art 16-bit SNES football player headshot,
-    ${player.name} ${player.surname},
-    ${player.nationality} national kit,
-    full frontal view, looking at camera,
-    white background, sharp pixels, retro game
-  `
-        .replace(/\s+/g, " ")
-        .trim();
+    return "";
 }
 function generateImageUrlFromPrompt(prompt) {
-    const seed = Math.floor(Math.random() * 1000000);
-    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true&seed=${seed}`;
+    return "";
 }
 const FACES = [
     "face_1",
@@ -330,29 +322,37 @@ async function generatePlayer(options = {}) {
         defendingBonus: 0,
         physicalBonus: 0,
     };
-    // Генерация портрета — fileName на основе имени, чтобы при перегенерации перезаписывался
-    const fileName = `${name}_${surname}`
-        .toLowerCase()
-        .replace(/[^a-z0-9_]+/g, "_");
-    const { generatePlayerImage } = await Promise.resolve().then(() => __importStar(require("./playerImage.together")));
-    const generatedImage = await generatePlayerImage({
-        name,
-        surname,
-        nationality,
-        club,
-        clubId,
-        overallRating,
-        position,
-        pace: playerData.pace,
-        shooting: playerData.shooting,
-        passing: playerData.passing,
-        dribbling: playerData.dribbling,
-        defending: playerData.defending,
-        physical: playerData.physical,
-    }, rarity, fileName);
+    // IPFS avatar URL for generated players
+    const face = (0, player_avatar_1.getGeneratedPlayerAvatarUrl)(clubId, nationality, rng);
+    let imageUrl = "";
+    try {
+        const avatarBuffer = await (0, player_avatar_1.loadAvatarBufferWithFallback)(face);
+        const { assembleCardFromPlayerBuffer } = await Promise.resolve().then(() => __importStar(require("./playerImage.together")));
+        const cardData = {
+            name,
+            surname,
+            nationality,
+            club,
+            clubId,
+            overallRating,
+            position,
+            pace: playerData.pace,
+            shooting: playerData.shooting,
+            passing: playerData.passing,
+            dribbling: playerData.dribbling,
+            defending: playerData.defending,
+            physical: playerData.physical,
+        };
+        const fileName = `${name}_${surname}`.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+        imageUrl = await assembleCardFromPlayerBuffer(avatarBuffer, cardData, rarity, fileName) || "";
+    }
+    catch (err) {
+        console.error("Failed to generate player card:", err);
+    }
     return {
         ...playerData,
-        imageUrl: generatedImage || "https://i.ibb.co/XxP14GR9/result-card.png",
+        face,
+        imageUrl,
     };
 }
 async function generateMultiplePlayers(count, options = {}) {
@@ -364,6 +364,5 @@ async function generateMultiplePlayers(count, options = {}) {
         });
         players.push(player);
     }
-    console.log("sadsad", players);
     return players;
 }

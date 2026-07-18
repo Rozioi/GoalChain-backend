@@ -45,5 +45,8 @@ async function adminRoutes(app) {
             },
         },
     }, admin_controller_1.adminController.broadcast);
+    app.get("/admin/real-players/templates", admin_controller_1.adminController.listRealPlayerTemplates);
+    app.get("/admin/real-players/players", admin_controller_1.adminController.listReleasedRealPlayers);
+    app.post("/admin/real-players/release/:templateId", admin_controller_1.adminController.releaseRealPlayer);
 }
 exports.default = adminRoutes;

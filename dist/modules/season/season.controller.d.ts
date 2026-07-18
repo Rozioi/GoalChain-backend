@@ -5,7 +5,9 @@ export declare const seasonController: {
         Params: {
             seasonId: string;
         };
+        Querystring: {
+            filter?: "GLOBAL" | "FRIENDS";
+        };
     }>, reply: FastifyReply): Promise<void>;
     register(req: FastifyRequest, reply: FastifyReply): Promise<void>;
-    play(req: FastifyRequest, reply: FastifyReply): Promise<void>;
 };

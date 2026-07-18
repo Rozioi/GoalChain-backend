@@ -85,6 +85,10 @@ export declare const NFT: {
     COLLECTION_ADDRESS: string;
     MINT_LOCK_DURATION_MS: number;
 };
+export declare const REAL_PLAYER: {
+    /** Chance (0–1) to drop a real player from the free pool during scouting/draft */
+    DROP_CHANCE: number;
+};
 export declare const SCOUTING: {
     MAX_ACTIVE_SCOUTS: number;
     DURATION_MS: number;
@@ -141,4 +145,21 @@ export declare const PLAYER_FIRST_NAMES: string[];
 export declare const PLAYER_LAST_NAMES: string[];
 export declare const PLAYER_NATIONALITIES: readonly ["FR", "DE", "GB", "ES", "IT", "NL", "PT", "BE", "HR", "NO", "DK", "SE", "CH", "AT", "PL", "UA", "TR", "GR", "IE", "CZ", "SK", "HU", "RS", "SI", "GE", "BY", "LT", "LV", "EE", "FI", "BR", "AR", "UY", "CO", "CL", "EC", "PY", "PE", "BO", "VE", "SN", "EG", "MA", "NG", "DZ", "CM", "CI", "GH", "TN", "ML", "JP", "KR", "SA", "IR", "AU", "AE", "QA", "UZ", "CN", "US", "MX", "CA", "CR", "JM", "PA"];
 export type NationalityCode = (typeof PLAYER_NATIONALITIES)[number];
-export declare const PLAYER_CLUBS: string[];
+export declare const PLAYER_CLUBS: readonly ["Chelsea", "Manchester City", "Real Madrid", "Barcelona", "Bayern Munich", "Arsenal", "Inter Milan", "Manchester United", "PSG", "Liverpool", "Borussia Dortmund", "Monaco", "Juventus", "AC Milan"];
+export declare const PLAYER_CLUBS_CODES: {
+    readonly Chelsea: "che";
+    readonly "Manchester City": "mci";
+    readonly "Real Madrid": "rma";
+    readonly Barcelona: "bar";
+    readonly "Bayern Munich": "fcb";
+    readonly Arsenal: "ars";
+    readonly "Inter Milan": "int";
+    readonly "Manchester United": "mun";
+    readonly PSG: "psg";
+    readonly Liverpool: "liv";
+    readonly "Borussia Dortmund": "bvb";
+    readonly Monaco: "asm";
+    readonly Juventus: "juv";
+    readonly "AC Milan": "acm";
+};
+export type ClubCode = (typeof PLAYER_CLUBS_CODES)[keyof typeof PLAYER_CLUBS_CODES];

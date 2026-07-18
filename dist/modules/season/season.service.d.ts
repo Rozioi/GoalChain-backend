@@ -27,10 +27,11 @@ export declare function getCurrentSeason(app: FastifyInstance): Promise<{
         goalsAgainst: number;
     }[];
 } | null>;
-export declare function getSeasonStandings(app: FastifyInstance, seasonId: string): Promise<({
+export declare function getSeasonStandings(app: FastifyInstance, seasonId: string, userId?: string, filter?: "GLOBAL" | "FRIENDS"): Promise<({
     team: {
         user: {
             username: string | null;
+            firstName: string | null;
             clubName: string | null;
         };
     } & {
@@ -42,6 +43,7 @@ export declare function getSeasonStandings(app: FastifyInstance, seasonId: strin
         formation: string;
         userId: string;
         isEvent: boolean;
+        isBot: boolean;
         eventId: string | null;
     };
 } & {
@@ -119,6 +121,7 @@ export declare function playSeasonMatch(app: FastifyInstance, userId: string): P
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        isBot: boolean;
         eventId: string | null;
         status: import(".prisma/client").$Enums.MatchStatus;
         type: import(".prisma/client").$Enums.MatchType;
@@ -126,7 +129,6 @@ export declare function playSeasonMatch(app: FastifyInstance, userId: string): P
         awayUserId: string | null;
         homeTeamId: string;
         awayTeamId: string | null;
-        isBot: boolean;
         homeScore: number | null;
         awayScore: number | null;
         seed: string | null;
@@ -145,5 +147,19 @@ export declare function playSeasonMatch(app: FastifyInstance, userId: string): P
         inviteId: string | null;
         seasonId: string | null;
     };
-    result: import("../match/match.simulator").MatchResult;
+    matchId: string;
+    status: "IN_PROGRESS";
+    isBot: boolean;
+    preloaderData: {
+        homePlayer: {
+            id: string;
+            name: string;
+            points: number;
+        };
+        awayPlayer: {
+            id: string;
+            name: string;
+            points: number;
+        };
+    };
 }>;

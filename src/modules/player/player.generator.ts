@@ -3,10 +3,13 @@ import { Position, PlayerRole, PlayerStyle } from "@prisma/client";
 import {
     PLAYER_FIRST_NAMES,
     PLAYER_LAST_NAMES,
+    SURNAMES_BY_REGION,
+    NATIONALITY_TO_SURNAME_REGION,
     DRAFT,
     PLAYER_NATIONALITIES,
     PLAYER_CLUBS,
 } from "../../config/constants";
+import { getGeneratedPlayerAvatarUrl } from "./player.avatar";
 
 interface GenerateOptions {
     position?: Position;
@@ -74,47 +77,6 @@ function generateImageUrlFromPrompt(prompt: string): string {
     return "";
 }
 
-// Map PLAYER_CLUBS index (1-based) -> unreal folder short name
-const CLUB_SHORT_MAP: Record<number, string> = {
-    1: "che", // Chelsea
-    2: "mci", // Manchester City
-    3: "rma", // Real Madrid
-    4: "fcb", // Barcelona
-    5: "bcb", // Bayern Munich
-    6: "arc", // Arsenal
-    7: "int", // Inter Milan
-    8: "mun", // Manchester United
-    9: "psg", // PSG
-    10: "liv", // Liverpool
-    11: "asm", // Borussia Dortmund
-    12: "asm", // Monaco
-    13: "juv", // Juventus
-    14: "acm", // AC Milan
-};
-
-// Nationality -> ethnicity folder
-const ETHNICITY_MAP: Record<string, string[]> = {
-    eur: ["FR", "DE", "GB", "ES", "IT", "NL", "PT", "BE", "HR", "NO", "DK", "SE", "CH", "AT", "PL", "UA", "RU", "BY"],
-    afr: ["SN", "EG", "MA", "NG", "DZ", "CM", "CI", "GH", "ZA", "KE"],
-    lat: ["BR", "AR", "UY", "CO", "CL", "EC", "MX", "PE"],
-    asi: ["JP", "KR", "SA", "IR", "AU", "UZ", "CN", "IN"],
-    ara: ["AE", "QA", "SA", "OM", "KW", "BH", "JO", "LB"],
-};
-
-function getEthnicityKey(nationality: string): string {
-    for (const [key, countries] of Object.entries(ETHNICITY_MAP)) {
-        if (countries.includes(nationality)) return key;
-    }
-    return "eur";
-}
-
-function getUnrealAvatarPath(clubId: number, nationality: string, rng: RNG): string {
-    const clubShort = CLUB_SHORT_MAP[clubId] || "rma";
-    const ethnicity = getEthnicityKey(nationality);
-    const variant = randomInt(rng, 0, 4);
-    return `unreal/${clubShort}/${ethnicity}/${clubShort}_${ethnicity}_0${variant}.png`;
-}
-
 const FACES = [
     "face_1",
     "face_2",
@@ -178,9 +140,12 @@ function pickRandom<T>(rng: RNG, arr: readonly T[]): T {
     return arr[Math.floor(rng() * arr.length)];
 }
 
-function generateName(rng: RNG): { name: string; surname: string } {
+function generateName(rng: RNG, nationality: string): { name: string; surname: string } {
     const name = pickRandom(rng, PLAYER_FIRST_NAMES);
-    const surname = pickRandom(rng, PLAYER_LAST_NAMES);
+    // Выбираем фамилию по региону национальности
+    const region = NATIONALITY_TO_SURNAME_REGION[nationality] || "slavic";
+    const surnames = SURNAMES_BY_REGION[region] || SURNAMES_BY_REGION.slavic;
+    const surname = pickRandom(rng, surnames);
     return { name, surname };
 }
 
@@ -411,7 +376,7 @@ export async function generatePlayer(
               ? "silver"
               : "bronze";
 
-    const { name, surname } = generateName(rng);
+    const { name, surname } = generateName(rng, nationality);
 
     const playerData = {
         name,
@@ -450,35 +415,31 @@ export async function generatePlayer(
         physicalBonus: 0,
     };
 
-    // Unreal avatar path
-    const face = getUnrealAvatarPath(clubId, nationality, rng);
+    // Обрезаем все статы до 99 (страховка от баффов стиля и ошибок)
+    const clampStat = (v: number) => {
+        if (v > 99 || v < 1) {
+            console.warn(`[clampStat] Value ${v} out of range, clamping to 1..99`);
+        }
+        return Math.min(99, Math.max(1, v));
+    };
+    playerData.overallRating = clampStat(playerData.overallRating);
+    playerData.pace = clampStat(playerData.pace);
+    playerData.shooting = clampStat(playerData.shooting);
+    playerData.passing = clampStat(playerData.passing);
+    playerData.dribbling = clampStat(playerData.dribbling);
+    playerData.defending = clampStat(playerData.defending);
+    playerData.physical = clampStat(playerData.physical);
+    playerData.goalkeeping = clampStat(playerData.goalkeeping);
+    playerData.potentialMin = clampStat(playerData.potentialMin);
+    playerData.potentialMax = clampStat(playerData.potentialMax);
 
-    // Generate card with unreal avatar
+    // IPFS avatar URL for generated players
+    const face = getGeneratedPlayerAvatarUrl(clubId, nationality, rng);
+
+    // Пытаемся сгенерировать карточку игрока (pixel art + статистика)
+    // Если не получилось — используем IPFS-аватар
     let imageUrl = "";
     try {
-        const fs = await import("fs");
-        const path = await import("path");
-        const avatarPath = path.resolve(`./assets/${face}`);
-        let avatarBuffer: Buffer | null = null;
-
-        if (fs.existsSync(avatarPath)) {
-            avatarBuffer = fs.readFileSync(avatarPath);
-        }
-
-        if (!avatarBuffer) {
-            const fallbackPath = path.resolve("./assets/player.png");
-            if (fs.existsSync(fallbackPath)) {
-                avatarBuffer = fs.readFileSync(fallbackPath);
-            }
-        }
-
-        if (!avatarBuffer) {
-            const sharp = (await import("sharp")).default;
-            avatarBuffer = await sharp({
-                create: { width: 512, height: 512, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
-            }).png().toBuffer();
-        }
-
         const { assembleCardFromPlayerBuffer } = await import("./playerImage.together");
         const cardData = {
             name,
@@ -494,11 +455,15 @@ export async function generatePlayer(
             dribbling: playerData.dribbling,
             defending: playerData.defending,
             physical: playerData.physical,
+            face,
         };
-        const fileName = `${name}_${surname}`.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
-        imageUrl = await assembleCardFromPlayerBuffer(avatarBuffer, cardData, rarity, fileName) || "";
+        const safeName = `${name}_${surname}`.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+        const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const fileName = `${safeName}_${uniqueSuffix}`;
+        imageUrl = await assembleCardFromPlayerBuffer(cardData, rarity, fileName) || "";
     } catch (err) {
-        console.error("Failed to generate player card:", err);
+        console.error("Failed to generate player card, falling back to IPFS avatar:", err);
+        imageUrl = face;
     }
 
     return {
@@ -520,6 +485,5 @@ export async function generateMultiplePlayers(
         });
         players.push(player);
     }
-    console.log("sadsad", players);
     return players;
 }

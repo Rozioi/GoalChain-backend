@@ -8,12 +8,12 @@ async function trainingRoutes(app) {
             tags: ["Training"],
             body: {
                 type: "object",
-                required: ["playerId", "stat"],
+                required: ["playerId", "complexId"],
                 properties: {
                     playerId: { type: "string" },
-                    stat: {
+                    complexId: {
                         type: "string",
-                        enum: ["pace", "shooting", "passing", "dribbling", "defending", "physical"],
+                        enum: ["PHYSICAL", "TECHNIQUE", "ATTACK", "DEFENSE"],
                     },
                 },
             },
@@ -24,5 +24,10 @@ async function trainingRoutes(app) {
             tags: ["Training"],
         },
     }, training_controller_1.trainingController.cost);
+    app.get("/training/complexes/:playerId", {
+        schema: {
+            tags: ["Training"],
+        },
+    }, training_controller_1.trainingController.complexes);
 }
 exports.default = trainingRoutes;

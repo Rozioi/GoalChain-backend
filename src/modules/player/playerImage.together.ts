@@ -3,6 +3,23 @@ import path from "path";
 import sharp from "sharp";
 import { Resvg } from "@resvg/resvg-js";
 import type { FastifyInstance } from "fastify";
+import { env } from "../../config/env";
+
+// ─── Извлекает CID из любого IPFS-URL ─────────────────────────────
+// Поддерживает форматы:
+//   https://ipfs.io/ipfs/{cid}/file
+//   https://{cid}.ipfs.inbrowser.link/file
+//   https://blush-giant-planarian-701.mypinata.cloud/ipfs/{cid}/file
+//   /ipfs/{cid}/file
+function extractIpfsCid(url: string): string | null {
+    // ipfs/{cid} — стандартный шлюз
+    const m1 = url.match(/ipfs\/([a-zA-Z0-9]+)/);
+    if (m1) return m1[1];
+    // {cid}.ipfs.inbrowser.link — subdomain gateway
+    const m2 = url.match(/([a-zA-Z0-9]+)\.ipfs\./);
+    if (m2) return m2[1];
+    return null;
+}
 
 // ─── Входные данные для карточки ──────────────────────────────────
 export interface PlayerCardData {
@@ -19,6 +36,7 @@ export interface PlayerCardData {
     dribbling: number;
     defending: number;
     physical: number;
+    face?: string;
 }
 
 // ─── Константы ────────────────────────────────────────────────────
@@ -77,13 +95,65 @@ function buildTextOverlay(player: PlayerCardData): string {
 
 // ─── Общая сборка слоев карточки ──────────────────────────────────
 export async function assembleCardFromPlayerBuffer(
-    playerImageBuffer: Buffer,
     player: PlayerCardData,
     rarity: string,
     fileName: string
 ): Promise<string> {
-    // 1. Пикселизация игрока
-    const pixelatedPlayer = await sharp(playerImageBuffer)
+    // 1. Загружаем аватар по IPFS с fallback через разные шлюзы
+    //    Сохраняем во временный файл, чтобы sharp работал быстрее
+    let avatarPath: string | null = null;
+    if (player.face && (player.face.startsWith("http://") || player.face.startsWith("https://"))) {
+        const ipfsCid = extractIpfsCid(player.face);
+        const urlsToTry = [
+            player.face,
+            ...(ipfsCid ? [
+                `https://ipfs.io/ipfs/${ipfsCid}`,
+                `https://cloudflare-ipfs.com/ipfs/${ipfsCid}`,
+                `https://dweb.link/ipfs/${ipfsCid}`,
+                `https://${ipfsCid}.ipfs.inbrowser.link`,
+            ] : []),
+        ];
+
+        for (const url of urlsToTry) {
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 8000);
+                const resp = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeout);
+                if (!resp.ok) continue;
+                const contentType = resp.headers.get("content-type") || "";
+                if (!contentType.startsWith("image/")) continue;
+                const buf = Buffer.from(await resp.arrayBuffer());
+                if (buf.length < 100) continue;
+
+                // Сохраняем во временный файл
+                const tmpDir = path.resolve("./tmp/avatars");
+                fs.mkdirSync(tmpDir, { recursive: true });
+                avatarPath = path.join(tmpDir, `${fileName}_avatar.png`);
+                fs.writeFileSync(avatarPath, buf);
+                break;
+            } catch {
+                // пробуем следующий шлюз
+            }
+        }
+    }
+
+    // Если аватар загружен — читаем из файла, иначе прозрачный фон
+    let playerBuffer: Buffer;
+    const sharpInstance = (await import("sharp")).default;
+    if (avatarPath && fs.existsSync(avatarPath)) {
+        playerBuffer = await sharpInstance(avatarPath).png().toBuffer();
+    } else {
+        playerBuffer = await sharpInstance({
+            create: {
+                width: 256, height: 256, channels: 4,
+                background: { r: 0, g: 0, b: 0, alpha: 0 },
+            },
+        }).png().toBuffer();
+    }
+
+    // 2. Пикселизация
+    const pixelatedPlayer = await sharp(playerBuffer)
         .ensureAlpha()
         .resize(150, 150, { kernel: "nearest", fit: "inside" })
         .resize(600, 600, {
@@ -145,10 +215,21 @@ export async function assembleCardFromPlayerBuffer(
         finalBuffer = await sharp(bgPng).composite(overlays).png().toBuffer();
     }
 
-    // 5. Сохранение
+    // 5. Сохранение карточки в файл
     const outputPath = path.resolve(`${CARD_DIR}${fileName}.png`);
+    fs.mkdirSync(CARD_DIR, { recursive: true });
     fs.writeFileSync(outputPath, finalBuffer);
-    return `https://goalchain-backend-production.up.railway.app/generated-players/${fileName}.png`;
+
+    // 6. Удаляем временный файл аватара
+    if (avatarPath) {
+        try { fs.unlinkSync(avatarPath); } catch { /* не критично */ }
+    }
+
+    // Локально — отдаём через локальный сервер, на Railway — через домен
+    const baseUrl = env.NODE_ENV === "production"
+        ? "https://goalchain-backend-production.up.railway.app"
+        : `http://localhost:${env.PORT}`;
+    return `${baseUrl}/generated-players/${fileName}.png`;
 }
 
 // ─── Перегенерация карточки игрока ────────────────────────────────
@@ -178,38 +259,17 @@ export async function regeneratePlayerCard(
         dribbling: player.dribbling,
         defending: player.defending,
         physical: player.physical,
+        face: player.face || undefined,
     };
 
     const rarity = player.rarity || "bronze";
-    const fileName = `${player.name}_${player.surname}`
+    const safeName = `${player.name}_${player.surname}`
         .toLowerCase()
         .replace(/[^a-z0-9_]+/g, '_');
+    const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const fileName = `${safeName}_${uniqueSuffix}`;
 
-    // Load unreal avatar from player.face
-    const facePath = player.face || "";
-    const avatarPath = path.resolve(`./assets/${facePath}`);
-    let playerBuffer: Buffer | null = null;
-
-    if (fs.existsSync(avatarPath)) {
-        try {
-            playerBuffer = fs.readFileSync(avatarPath);
-        } catch {}
-    }
-
-    if (!playerBuffer) {
-        const fallbackPath = path.resolve("./assets/player.png");
-        if (fs.existsSync(fallbackPath)) {
-            playerBuffer = fs.readFileSync(fallbackPath);
-        }
-    }
-
-    if (!playerBuffer) {
-        playerBuffer = await sharp({
-            create: { width: 512, height: 512, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
-        }).png().toBuffer();
-    }
-
-    const imageUrl = await assembleCardFromPlayerBuffer(playerBuffer, cardData, rarity, fileName);
+    const imageUrl = await assembleCardFromPlayerBuffer(cardData, rarity, fileName);
     if (!imageUrl) return null;
 
     return imageUrl;

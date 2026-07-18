@@ -38,21 +38,26 @@ const BOT_CLUB_NAMES = [
 ];
 
 const BOT_USERNAMES = [
-    "bot_pro",
-    "bot_king",
-    "bot_striker",
-    "bot_legend",
-    "bot_ace",
-    "bot_champ",
-    "bot_wizard",
-    "bot_titan",
-    "bot_phenom",
-    "bot_maestro",
-    "bot_shadow",
-    "bot_blitz",
-    "bot_vortex",
-    "bot_nova",
-    "bot_phantom",
+    "ProGamer",
+    "KingPlayer",
+    "StarStriker",
+    "LegendWin",
+    "AcePlayer",
+    "ChampionX",
+    "MagicWizard",
+    "TitanFC",
+    "PhenomX",
+    "GameMaestro",
+    "ShadowPlay",
+    "BlitzKing",
+    "VortexPro",
+    "NovaStar",
+    "PhantomX",
+    "GoldenFoot",
+    "IronWill",
+    "SilverStorm",
+    "CrimsonKing",
+    "NeonFlash",
 ];
 
 function pickRandom<T>(arr: readonly T[]): T {
@@ -132,18 +137,18 @@ export async function generateBotTeam(
         const allPlayers = [...gk, ...def, ...mid, ...fwd];
 
         let botUser = await app.prisma.user.findUnique({
-            where: { telegramId: "bot-system" },
+            where: { telegramId: "system-bot-pool" },
         });
 
         if (!botUser) {
             const randomUsername = pickRandom(BOT_USERNAMES);
             botUser = await app.prisma.user.create({
                 data: {
-                    telegramId: "bot-system",
+                    telegramId: "system-bot-pool",
                     username: randomUsername,
-                    clubName: "Bot System",
+                    clubName: "Pro Academy",
                     clubIcon: "1",
-                    referralCode: "BOT-SYSTEM-CODE",
+                    referralCode: "SYS-POOL-" + Date.now(),
                 },
             });
         }

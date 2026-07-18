@@ -58,4 +58,11 @@ export declare const adminController: {
             photoBase64?: string;
         };
     }>, reply: FastifyReply) => Promise<never>;
+    listRealPlayerTemplates: (request: FastifyRequest, reply: FastifyReply) => Promise<never>;
+    listReleasedRealPlayers: (request: FastifyRequest, reply: FastifyReply) => Promise<never>;
+    releaseRealPlayer: (request: FastifyRequest<{
+        Params: {
+            templateId: string;
+        };
+    }>, reply: FastifyReply) => Promise<never>;
 };

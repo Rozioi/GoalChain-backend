@@ -3,6 +3,7 @@ import { PlayerRole } from "@prisma/client";
 import { SCOUTING } from "../../config/constants";
 import { env } from "../../config/env";
 import { generatePlayer } from "../player/player.generator";
+import { tryAcquireRealPlayerFromPool } from "../player/real-player.pool";
 import { beginCell, toNano } from "@ton/core";
 
 /**
@@ -77,7 +78,7 @@ export async function confirmMasterScoutPayment(
     const tierConfig = SCOUTING.TIERS.MASTER;
     if (!tierConfig) throw new Error("Invalid scouting tier");
 
-    const endsAt = new Date();
+    const endsAt = new Date(Date.now() - 1000);
 
     const scout = await app.prisma.scout.create({
         data: {
@@ -157,7 +158,8 @@ export async function hireScount(
         );
     }
 
-    const endsAt = new Date();
+    // Ставим endsAt в прошлое, чтобы скаут завершился сразу
+    const endsAt = new Date(Date.now() - 1000);
 
     const [scout] = await app.prisma.$transaction([
         app.prisma.scout.create({
@@ -227,23 +229,37 @@ export async function syncScoutStates(app: FastifyInstance, userId: string) {
                 const ovr =
                     ovrMin + Math.floor(Math.random() * (ovrMax - ovrMin + 1));
 
-                const generated = await generatePlayer({
-                    role: (scout.targetRole as PlayerRole) || undefined,
-                    ovrMin: ovr,
-                    ovrMax: ovr,
-                    seed: `scout-${scout.id}`,
-                });
+                const realPlayer = await tryAcquireRealPlayerFromPool(
+                    app,
+                    scout.userId,
+                    (scout.targetRole as PlayerRole) || undefined,
+                    ovrMin,
+                    ovrMax,
+                );
 
-                const player = await app.prisma.player.create({
-                    data: {
-                        ...generated,
-                        ownerId: scout.userId,
-                        age: Math.floor(
-                            Math.random() * (scout.ageMax - scout.ageMin + 1) +
-                                scout.ageMin,
-                        ),
-                    },
-                });
+                let player;
+                if (realPlayer) {
+                    player = realPlayer;
+                } else {
+                    const generated = await generatePlayer({
+                        role: (scout.targetRole as PlayerRole) || undefined,
+                        ovrMin: ovr,
+                        ovrMax: ovr,
+                        seed: `scout-${scout.id}`,
+                    });
+
+                    player = await app.prisma.player.create({
+                        data: {
+                            ...generated,
+                            ownerId: scout.userId,
+                            age: Math.floor(
+                                Math.random() *
+                                    (scout.ageMax - scout.ageMin + 1) +
+                                    scout.ageMin,
+                            ),
+                        },
+                    });
+                }
 
                 await app.prisma.scoutResult.create({
                     data: {

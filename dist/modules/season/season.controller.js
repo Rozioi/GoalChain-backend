@@ -15,7 +15,7 @@ exports.seasonController = {
     },
     async standings(req, reply) {
         try {
-            const standings = await (0, season_service_1.getSeasonStandings)(req.server, req.params.seasonId);
+            const standings = await (0, season_service_1.getSeasonStandings)(req.server, req.params.seasonId, req.user.userId, req.query.filter);
             reply.send(standings);
         }
         catch (err) {
@@ -25,15 +25,6 @@ exports.seasonController = {
     async register(req, reply) {
         try {
             const result = await (0, season_service_1.registerForSeason)(req.server, req.user.userId);
-            reply.send(result);
-        }
-        catch (err) {
-            reply.status(400).send({ error: err.message });
-        }
-    },
-    async play(req, reply) {
-        try {
-            const result = await (0, season_service_1.playSeasonMatch)(req.server, req.user.userId);
             reply.send(result);
         }
         catch (err) {

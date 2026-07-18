@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PLAYER_CLUBS = exports.PLAYER_NATIONALITIES = exports.PLAYER_LAST_NAMES = exports.PLAYER_FIRST_NAMES = exports.RENT = exports.REFERRAL = exports.SEASON = exports.SCOUTING = exports.NFT = exports.TRAINING = exports.INVITE = exports.MATCH = exports.DIVISION_TIERS = exports.ENERGY = exports.DRAFT = void 0;
+exports.PLAYER_CLUBS_CODES = exports.PLAYER_CLUBS = exports.PLAYER_NATIONALITIES = exports.PLAYER_LAST_NAMES = exports.PLAYER_FIRST_NAMES = exports.RENT = exports.REFERRAL = exports.SEASON = exports.SCOUTING = exports.REAL_PLAYER = exports.NFT = exports.TRAINING = exports.INVITE = exports.MATCH = exports.DIVISION_TIERS = exports.ENERGY = exports.DRAFT = void 0;
 // ─── DRAFT ──────────────────────────────────────────────────────
 exports.DRAFT = {
     STARTER_GK_OPTIONS: 4,
@@ -73,6 +73,10 @@ exports.NFT = {
     MIN_MATCHES_FOR_MINT: 100,
     COLLECTION_ADDRESS: process.env.TON_COLLECTION_ADDRESS || "",
     MINT_LOCK_DURATION_MS: 10 * 60 * 1000, // 10 minutes lock
+};
+exports.REAL_PLAYER = {
+    /** Chance (0–1) to drop a real player from the free pool during scouting/draft */
+    DROP_CHANCE: parseFloat(process.env.REAL_PLAYER_DROP_CHANCE || "0.08"),
 };
 exports.SCOUTING = {
     MAX_ACTIVE_SCOUTS: 3,
@@ -344,24 +348,34 @@ exports.PLAYER_NATIONALITIES = [
     "PA", // Panama
 ];
 exports.PLAYER_CLUBS = [
-    "Real Madrid",
+    "Chelsea",
     "Manchester City",
-    "Liverpool FC",
-    "FC Barcelona",
+    "Real Madrid",
+    "Barcelona",
     "Bayern Munich",
-    "Paris Saint-Germain",
+    "Arsenal",
     "Inter Milan",
-    "Arsenal FC",
-    "Bayer Leverkusen",
-    "AC Milan",
+    "Manchester United",
+    "PSG",
+    "Liverpool",
     "Borussia Dortmund",
-    "Atletico Madrid",
+    "Monaco",
     "Juventus",
-    "Chelsea FC",
-    "Tottenham Hotspur",
-    "Benfica",
-    "Napoli",
-    "Ajax",
-    "Sporting CP",
-    "Aston Villa",
+    "AC Milan",
 ];
+exports.PLAYER_CLUBS_CODES = {
+    "Chelsea": "che",
+    "Manchester City": "mci",
+    "Real Madrid": "rma",
+    "Barcelona": "bar",
+    "Bayern Munich": "fcb",
+    "Arsenal": "ars",
+    "Inter Milan": "int",
+    "Manchester United": "mun",
+    "PSG": "psg",
+    "Liverpool": "liv",
+    "Borussia Dortmund": "bvb",
+    "Monaco": "asm",
+    "Juventus": "juv",
+    "AC Milan": "acm",
+};
