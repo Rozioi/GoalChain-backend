@@ -437,8 +437,8 @@ export async function generatePlayer(
     const face = getGeneratedPlayerAvatarUrl(clubId, nationality, rng);
 
     // Пытаемся сгенерировать карточку игрока (pixel art + статистика)
-    // Если не получилось — используем IPFS-аватар
-    let imageUrl = "";
+    // Если не получилось — используем face как imageUrl
+    let imageUrl = face;
     try {
         const { assembleCardFromPlayerBuffer } = await import("./playerImage.together");
         const cardData = {
@@ -460,10 +460,12 @@ export async function generatePlayer(
         const safeName = `${name}_${surname}`.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
         const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const fileName = `${safeName}_${uniqueSuffix}`;
-        imageUrl = await assembleCardFromPlayerBuffer(cardData, rarity, fileName) || "";
+        const cardUrl = await assembleCardFromPlayerBuffer(cardData, rarity, fileName);
+        if (cardUrl) {
+            imageUrl = cardUrl;
+        }
     } catch (err) {
-        console.error("Failed to generate player card, falling back to IPFS avatar:", err);
-        imageUrl = face;
+        console.error("Failed to generate player card, using face avatar:", err);
     }
 
     return {

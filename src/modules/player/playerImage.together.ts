@@ -104,7 +104,7 @@ export async function assembleCardFromPlayerBuffer(
     if (player.face) {
         if (player.face.startsWith("/cards/")) {
             // Локальный файл из assets/cards
-            const resolvedPath = path.resolve(`./assets${player.face}`);
+            const resolvedPath = path.join(process.cwd(), `assets${player.face}`);
             if (fs.existsSync(resolvedPath)) {
                 avatarPath = resolvedPath;
             }
@@ -142,10 +142,12 @@ export async function assembleCardFromPlayerBuffer(
                 } catch { /* пробуем следующий */ }
             }
         } else {
-            // Локальный файл (assets/cards/...)
+            // Локальный файл — абсолютный или относительный путь
             const resolvedPath = path.resolve(player.face);
             if (fs.existsSync(resolvedPath)) {
                 avatarPath = resolvedPath;
+            } else {
+                console.warn(`[assembleCard] Avatar file not found (else): ${resolvedPath}`);
             }
         }
     }
