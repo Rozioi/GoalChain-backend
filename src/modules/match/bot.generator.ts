@@ -77,10 +77,14 @@ export async function generateBotTeam(
         `[BotGenerator] Generating new bot team for target rating ${targetRating}`,
     );
 
-    // Всегда генерируем новых игроков с диапазоном, привязанным к рейтингу игрока.
-    // Игроки могут быть чуть сильнее или чуть слабее — ±5 OVR от рейтинга цели.
-    const ovrMin = Math.max(40, Math.round(targetRating - 5));
-    const ovrMax = Math.min(99, Math.round(targetRating + 5));
+    // targetRating — это team.rating, который считается через calculateTeamRating
+    // (средний OVR + бонус синергии) и может быть > 99.
+    // Нормализуем до реального OVR игрока (1-99).
+    // Бот должен быть примерно на уровне игрока: ±5 OVR.
+    const playerOvr = Math.round(targetRating);
+    const baseOvr = Math.min(playerOvr, 99);
+    const ovrMin = Math.max(40, Math.round(baseOvr - 5));
+    const ovrMax = Math.min(99, Math.round(baseOvr + 5));
 
     // Случайный seed для разнообразия
     const seed = `bot-${targetRating}-${Date.now()}-${Math.random()}`;
