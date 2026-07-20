@@ -103,6 +103,10 @@ export function calculateTeamSynergy(players: SynergyPlayer[]): SynergyResult {
     return { totalBonus, details };
 }
 
+/**
+ * Рейтинг команды = средний OVR стартового состава + бонус синергии.
+ * Используется для матчей и отображения на поле.
+ */
 export function calculateTeamRating(players: SynergyPlayer[]): number {
     if (players.length === 0) return 0;
 
@@ -113,12 +117,23 @@ export function calculateTeamRating(players: SynergyPlayer[]): number {
     return Math.round((avgOvr + synergy.totalBonus) * 10) / 10;
 }
 
-/** Средний OVR всего состава (старт + скамейка), без синергии */
-export function calculatePublicRating(players: SynergyPlayer[]): number {
+/**
+ * Средний OVR состава (старт + резерв), без синергии.
+ * Показывает общий уровень команды с учётом всей глубины состава.
+ */
+export function calculateSquadRating(players: SynergyPlayer[]): number {
     if (players.length === 0) return 0;
     const avgOvr =
         players.reduce((sum, p) => sum + p.overallRating, 0) / players.length;
     return Math.round(avgOvr * 10) / 10;
+}
+
+/**
+ * Средний OVR стартового состава, без синергии.
+ * Устарело — используйте calculateSquadRating для полной картины.
+ */
+export function calculatePublicRating(players: SynergyPlayer[]): number {
+    return calculateSquadRating(players);
 }
 
 /**

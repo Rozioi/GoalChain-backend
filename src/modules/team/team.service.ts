@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import {
     calculatePublicRating,
     calculateTeamRating,
+    calculateSquadRating,
     calculateTeamSynergy,
 } from "../player/synergy.engine";
 
@@ -106,12 +107,12 @@ export async function updateLineup(
         });
     }
 
-    const starterPlayerIds = starters.map((s) => s.playerId);
-    const starterPlayers = await app.prisma.player.findMany({
-        where: { id: { in: starterPlayerIds } },
+    // Считаем средний OVR всего состава (старт + резерв)
+    const allPlayers = await app.prisma.player.findMany({
+        where: { id: { in: team.players.map((tp: any) => tp.playerId) } },
     });
-    const rating = calculateTeamRating(
-        starterPlayers.map((p: any) => ({
+    const rating = calculateSquadRating(
+        allPlayers.map((p: any) => ({
             position: p.position,
             role: p.role,
             style: p.style,
@@ -160,14 +161,14 @@ export async function substitutePlayer(
         data: { isStarter: true, positionInFormation: slotKey },
     });
 
-    // Recalc team rating
-    const starters = await app.prisma.teamPlayer.findMany({
-        where: { teamId: team.id, isStarter: true },
+    // Recalc team rating (весь состав)
+    const allTeamPlayers = await app.prisma.teamPlayer.findMany({
+        where: { teamId: team.id },
         include: { player: true },
     });
 
-    const rating = calculateTeamRating(
-        starters.map((tp: any) => ({
+    const rating = calculateSquadRating(
+        allTeamPlayers.map((tp: any) => ({
             position: tp.player.position,
             role: tp.player.role,
             style: tp.player.style,
@@ -188,7 +189,6 @@ export async function getTeamRating(app: FastifyInstance, userId: string) {
         where: { userId, isEvent: false },
         include: {
             players: {
-                where: { isStarter: true },
                 include: { player: true },
             },
         },
@@ -196,14 +196,25 @@ export async function getTeamRating(app: FastifyInstance, userId: string) {
 
     if (!team) throw new Error("No team found");
 
-    const starters = team.players.map((tp: any) => ({
+    // Стартовый состав — для синергии
+    const starters = team.players
+        .filter((tp: any) => tp.isStarter)
+        .map((tp: any) => ({
+            position: tp.player.position,
+            role: tp.player.role,
+            style: tp.player.style,
+            overallRating: tp.player.overallRating,
+        }));
+
+    // Весь состав — для общего рейтинга
+    const allPlayers = team.players.map((tp: any) => ({
         position: tp.player.position,
         role: tp.player.role,
         style: tp.player.style,
         overallRating: tp.player.overallRating,
     }));
 
-    const rating = calculateTeamRating(starters);
+    const rating = calculateSquadRating(allPlayers);
     const synergy = calculateTeamSynergy(starters);
 
     return { rating, synergy, formation: team.formation };

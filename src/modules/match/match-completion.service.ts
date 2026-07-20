@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { updateTaskProgress } from "../task/task.service";
-import { calculateTeamRating } from "../player/synergy.engine";
+import { calculateTeamRating, calculateSquadRating } from "../player/synergy.engine";
 import { syncUserEnergy, consumeEnergy } from "../user/energy.service";
 import {
     calculateMatchRewards,
@@ -221,17 +221,13 @@ export async function handleMatchCompletion(
                 include: { players: { include: { player: true } } },
             });
             if (!team) return;
-            const starters = team.players
-                .filter((tp) => tp.isStarter)
-                .map((tp) => ({
-                    position: tp.player.position,
-                    role: tp.player.role,
-                    style: tp.player.style,
-                    overallRating: tp.player.overallRating,
-                }));
-            const newRating = calculateTeamRating(
-                starters as Parameters<typeof calculateTeamRating>[0],
-            );
+            const allPlayers = team.players.map((tp) => ({
+                position: tp.player.position,
+                role: tp.player.role,
+                style: tp.player.style,
+                overallRating: tp.player.overallRating,
+            }));
+            const newRating = calculateSquadRating(allPlayers);
             await app.prisma.team.update({
                 where: { id: teamId },
                 data: { rating: newRating },

@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { TRAINING } from "../../config/constants";
 import {
-    calculateTeamRating,
+    calculateSquadRating,
     calculatePlayerOverall,
 } from "../player/synergy.engine";
 import { regeneratePlayerCard } from "../player/playerImage.together";
@@ -218,20 +218,19 @@ export async function startTraining(
             where: { id: teamPlayer.teamId },
             include: {
                 players: {
-                    where: { isStarter: true },
                     include: { player: true },
                 },
             },
         });
 
         if (team) {
-            const starters = team.players.map((tp: any) => ({
+            const allTeamPlayers = team.players.map((tp: any) => ({
                 position: tp.player.position,
                 role: tp.player.role,
                 style: tp.player.style,
                 overallRating: tp.player.overallRating,
             }));
-            const rating = calculateTeamRating(starters);
+            const rating = calculateSquadRating(allTeamPlayers);
             await app.prisma.team.update({
                 where: { id: team.id },
                 data: { rating },

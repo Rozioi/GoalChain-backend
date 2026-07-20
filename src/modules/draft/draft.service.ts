@@ -4,7 +4,7 @@ import { generateMultiplePlayers, generatePlayer, GeneratedPlayer } from "../pla
 import { tryAcquireRealPlayerFromPool } from "../player/real-player.pool";
 import {
     calculateTeamSynergy,
-    calculateTeamRating,
+    calculateSquadRating,
 } from "../player/synergy.engine";
 import { DRAFT } from "../../config/constants";
 import { AppError } from "../../utils/app-error";
@@ -374,8 +374,10 @@ export async function completeDraft(
                 });
             }
 
-            const rating = calculateTeamRating(
-                starters.map((p: any) => ({
+            // Считаем рейтинг с учётом всего состава (старт + резерв)
+            const allDrafted = [...starters, ...reserveToCreate];
+            const rating = calculateSquadRating(
+                allDrafted.map((p: any) => ({
                     position: p.position,
                     role: p.role,
                     style: p.style,
