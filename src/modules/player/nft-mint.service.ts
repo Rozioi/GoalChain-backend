@@ -305,41 +305,63 @@ export const nftMintService = {
             throw new Error("Player is not in minting process");
         }
 
-        // Если есть txHash — пользователь оплатил, создаём NFT через Getgems API
-        if (txHash) {
-            const collectionAddress = getCollectionAddress();
-            const apiKey = getMintingApiKey();
+        let nftAddress: string | null = null;
+        let getgemsUrl: string | null = null;
 
-            if (collectionAddress && apiKey) {
-                try {
-                    const result = await mintViaGetgemsApi(
-                        collectionAddress,
-                        walletAddress,
-                        playerId,
-                        player,
-                    );
-                    app.log.info(
-                        `[NFT Mint] Created via Getgems: ${result.nftAddress}`,
-                    );
-                } catch (err: any) {
-                    app.log.error(
-                        "[NFT Mint] Getgems API error (non-fatal):",
-                        err,
-                    );
-                    // Продолжаем даже если Getgems API упал
-                }
+        const collectionAddress = getCollectionAddress();
+        const apiKey = getMintingApiKey();
+        const canMintViaGetgems = !!collectionAddress && !!apiKey;
+
+        if (canMintViaGetgems) {
+            // --- КРИТИЧЕСКИ ВАЖНО: вызываем Getgems API и проверяем успех ---
+            // Если Getgems API вернул ошибку, мы НЕ отмечаем игрока как NFT.
+            // Бэкенд не должен верить фронтенду на слово — только API коллекции.
+            try {
+                const result = await mintViaGetgemsApi(
+                    collectionAddress,
+                    walletAddress,
+                    playerId,
+                    player,
+                );
+                nftAddress = result.nftAddress;
+                getgemsUrl = result.url;
+                app.log.info(
+                    `[NFT Mint] Created via Getgems: ${nftAddress}`,
+                );
+            } catch (err: any) {
+                app.log.error(
+                    "[NFT Mint] Getgems API error — mint ABORTED:",
+                    err,
+                );
+                // Разблокируем игрока, чтобы дать шанс повторить попытку
+                await app.prisma.player.update({
+                    where: { id: playerId },
+                    data: { mintingStatus: "none", lockedAt: null },
+                });
+                throw new Error(
+                    `Getgems minting failed: ${err.message}. Player has been unlocked — please try again.`,
+                );
             }
+        } else if (isMintUnlocked() || process.env.NODE_ENV !== "production") {
+            // Dev mode: allow minting without Getgems
+            nftAddress = walletAddress;
+        } else {
+            throw new Error(
+                "Cannot mint: TON_COLLECTION_ADDRESS and GETGEMS_MINTING_API_KEY must be configured",
+            );
         }
 
-        const tokenId = txHash
-            ? `gc-${txHash.slice(0, 16)}`
+        // Если есть txHash, используем его для генерации tokenId,
+        // но только если Getgems API уже подтвердил создание NFT
+        const tokenId = nftAddress
+            ? `gc-${nftAddress.slice(-16)}`
             : `gc-${playerId.slice(0, 8)}-${Date.now()}`;
 
         const updated = await app.prisma.player.update({
             where: { id: playerId },
             data: {
                 tokenId,
-                nftAddress: walletAddress,
+                nftAddress, // теперь это реальный адрес NFT, а не кошелька пользователя
                 mintedAt: new Date(),
                 isNft: true,
                 mintingStatus: "converted_to_nft",
@@ -347,7 +369,7 @@ export const nftMintService = {
             },
         });
 
-        return { player: updated, tokenId };
+        return { player: updated, tokenId, nftAddress, getgemsUrl };
     },
 
     /**
