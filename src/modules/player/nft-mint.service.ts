@@ -121,14 +121,16 @@ async function pollMintUntilComplete(
             `[Getgems] Status check response: status=${statusResult.status}, address=${statusResult.address}`,
         );
 
-        if (statusResult.status === "completed") {
+        // Getgems может вернуть "completed" или "ready" — оба означают успех
+        if (statusResult.status === "completed" || statusResult.status === "ready") {
             if (!statusResult.address) {
                 throw new Error(
                     "Getgems mint completed but no NFT address returned",
                 );
             }
 
-            // URL формируем после получения адреса
+            // URL берём из ответа или формируем сами
+            // В ответе статуса может быть url на корневом уровне
             const baseUrl = getMintingApiBaseUrl().replace("/public-api/minting", "");
             const url = `${baseUrl}/collection/${collectionAddress}/${statusResult.address}`;
 

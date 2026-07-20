@@ -117,6 +117,9 @@ export async function startLiveMatch(app: FastifyInstance, matchId: string) {
     if (!match || !match.awayTeamId) throw new Error("Match not ready");
     if (match.status !== "READY") return;
 
+    // Небольшая задержка, чтобы оба клиента успели присоединиться к WS комнате
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     const seed = randomUUID();
     const { homeTeamData, awayTeamData } = await loadTeamsForMatch(
         app,
