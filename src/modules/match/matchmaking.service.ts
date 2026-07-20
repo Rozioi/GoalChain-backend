@@ -33,10 +33,10 @@ export async function startMatchmaking(app: FastifyInstance, userId: string) {
             status: "SEARCHING",
             userId: { not: userId },
             expiresAt: { gt: new Date() },
-            // pointsSnapshot: {
-            //   gte: user.points - ratingRange,
-            //   lte: user.points + ratingRange,
-            // },
+            pointsSnapshot: {
+                gte: user.points - ratingRange,
+                lte: user.points + ratingRange,
+            },
         },
         orderBy: { createdAt: "asc" },
     });

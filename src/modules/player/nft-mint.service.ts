@@ -30,15 +30,16 @@ function getMintingApiBaseUrl(): string {
 }
 
 /**
- * Создаёт NFT через Getgems Minting API.
- * Возвращает адрес созданной NFT и ссылку на getgems.
+ * Отправляет запрос на создание NFT через Getgems Minting API.
+ * Бросает ошибку если запрос не был принят в очередь.
+ * Возвращает requestId для дальнейшей проверки статуса.
  */
-async function mintViaGetgemsApi(
+async function submitMintRequest(
     collectionAddress: string,
     ownerAddress: string,
     playerId: string,
     player: any,
-): Promise<{ nftAddress: string; url: string }> {
+): Promise<{ requestId: string }> {
     const apiKey = getMintingApiKey();
     if (!apiKey) {
         throw new Error("GETGEMS_MINTING_API_KEY is not configured");
@@ -88,18 +89,72 @@ async function mintViaGetgemsApi(
         throw new Error(`Getgems minting failed: ${errMsg}`);
     }
 
-    if (!data?.success || !data?.response?.address) {
+    // Проверяем, что запрос принят в очередь (status === "in_queue")
+    // или сразу выполнен (status === "completed")
+    if (!data?.success) {
         throw new Error("Getgems minting returned unexpected response");
     }
 
-    return {
-        nftAddress: data.response.address,
-        url: data.response.url || "",
-    };
+    return { requestId };
+}
+
+/**
+ * Ожидает завершения минта через Getgems API с повторными попытками.
+ * Getgems возвращает адрес NFT на корневом уровне response,
+ * а статус — в response.response.status.
+ * Возвращает адрес созданной NFT и ссылку на getgems.
+ */
+async function pollMintUntilComplete(
+    collectionAddress: string,
+    requestId: string,
+    maxAttempts: number = 30,
+    delayMs: number = 2000,
+): Promise<{ nftAddress: string; url: string }> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        console.log(
+            `[Getgems] Polling mint status (attempt ${attempt}/${maxAttempts})...`,
+        );
+
+        const statusResult = await checkMintStatus(collectionAddress, requestId);
+
+        console.log(
+            `[Getgems] Status check response: status=${statusResult.status}, address=${statusResult.address}`,
+        );
+
+        if (statusResult.status === "completed") {
+            if (!statusResult.address) {
+                throw new Error(
+                    "Getgems mint completed but no NFT address returned",
+                );
+            }
+
+            // URL формируем после получения адреса
+            const baseUrl = getMintingApiBaseUrl().replace("/public-api/minting", "");
+            const url = `${baseUrl}/collection/${collectionAddress}/${statusResult.address}`;
+
+            return {
+                nftAddress: statusResult.address,
+                url,
+            };
+        }
+
+        if (statusResult.status === "failed") {
+            throw new Error("Getgems minting failed (status: failed)");
+        }
+
+        // status === "in_queue" или другой промежуточный статус — ждём
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
+    throw new Error(
+        `Getgems minting timed out after ${maxAttempts * delayMs}ms`,
+    );
 }
 
 /**
  * Проверяет статус минта через Getgems API.
+ * Адрес NFT может лежать как в data.response.address,
+ * так и на корневом уровне data.address (разные версии API).
  */
 async function checkMintStatus(
     collectionAddress: string,
@@ -117,15 +172,19 @@ async function checkMintStatus(
     );
 
     const data = await response.json();
+
+    console.log("[Getgems] Status check raw data:", JSON.stringify(data, null, 2));
+
     if (!data?.success) {
         throw new Error("Failed to check mint status");
     }
 
-    return {
-        status: data.response.status,
-        address: data.response.address,
-        ownerAddress: data.response.ownerAddress,
-    };
+    // Getgems может возвращать address как на корневом уровне, так и в response
+    const status = data?.response?.status || data?.status || "unknown";
+    const address = data?.response?.address || data?.address || undefined;
+    const ownerAddress = data?.response?.ownerAddress || data?.ownerAddress || undefined;
+
+    return { status, address, ownerAddress };
 }
 
 export const nftMintService = {
@@ -313,24 +372,38 @@ export const nftMintService = {
         const canMintViaGetgems = !!collectionAddress && !!apiKey;
 
         if (canMintViaGetgems) {
-            // --- КРИТИЧЕСКИ ВАЖНО: вызываем Getgems API и проверяем успех ---
-            // Если Getgems API вернул ошибку, мы НЕ отмечаем игрока как NFT.
-            // Бэкенд не должен верить фронтенду на слово — только API коллекции.
+            // --- КРИТИЧЕСКИ ВАЖНО: ---
+            // 1. Отправляем запрос на минт в Getgems API
+            // 2. Ждём завершения минта (поллинг статуса до "completed")
+            // 3. Только после получения реального NFT-адреса отмечаем игрока в БД
+            //
+            // Бэкенд НЕ верит фронтенду на слово — только API коллекции.
             try {
-                const result = await mintViaGetgemsApi(
+                const { requestId } = await submitMintRequest(
                     collectionAddress,
                     walletAddress,
                     playerId,
                     player,
                 );
+
+                app.log.info(
+                    `[NFT Mint] Request submitted, requestId=${requestId}, polling for completion...`,
+                );
+
+                const result = await pollMintUntilComplete(
+                    collectionAddress,
+                    requestId,
+                );
+
                 nftAddress = result.nftAddress;
                 getgemsUrl = result.url;
+
                 app.log.info(
-                    `[NFT Mint] Created via Getgems: ${nftAddress}`,
+                    `[NFT Mint] Successfully minted NFT: ${nftAddress}`,
                 );
             } catch (err: any) {
                 app.log.error(
-                    "[NFT Mint] Getgems API error — mint ABORTED:",
+                    "[NFT Mint] Getgems minting failed — mint ABORTED:",
                     err,
                 );
                 // Разблокируем игрока, чтобы дать шанс повторить попытку
@@ -345,14 +418,16 @@ export const nftMintService = {
         } else if (isMintUnlocked() || process.env.NODE_ENV !== "production") {
             // Dev mode: allow minting without Getgems
             nftAddress = walletAddress;
+            app.log.info(
+                `[NFT Mint] Dev mode — using wallet address as NFT address: ${nftAddress}`,
+            );
         } else {
             throw new Error(
                 "Cannot mint: TON_COLLECTION_ADDRESS and GETGEMS_MINTING_API_KEY must be configured",
             );
         }
 
-        // Если есть txHash, используем его для генерации tokenId,
-        // но только если Getgems API уже подтвердил создание NFT
+        // Генерируем tokenId из реального NFT-адреса, полученного от Getgems
         const tokenId = nftAddress
             ? `gc-${nftAddress.slice(-16)}`
             : `gc-${playerId.slice(0, 8)}-${Date.now()}`;

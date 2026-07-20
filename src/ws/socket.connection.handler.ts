@@ -110,7 +110,8 @@ async function restoreUserRooms(
   });
 
   for (const invite of pendingInvites) {
-      const inviteLink = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME || "goalchaintest_bot"}/startapp?startapp=match_${invite.id}`;
+      const { buildTelegramAppUrl } = await import("../utils/telegram-link");
+      const inviteLink = buildTelegramAppUrl(`match_${invite.id}`);
 
     if (invite.recipientId === userId) {
       const sender = await app.prisma.user.findUnique({

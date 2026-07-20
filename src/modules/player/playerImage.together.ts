@@ -4,6 +4,10 @@ import sharp from "sharp";
 import { Resvg } from "@resvg/resvg-js";
 import type { FastifyInstance } from "fastify";
 import { env } from "../../config/env";
+import {
+    getDefaultAvatarFallbackPath,
+    resolveLocalCardAvatarPath,
+} from "./player.avatar";
 
 // ─── Извлекает CID из любого IPFS-URL ─────────────────────────────
 // Поддерживает форматы:
@@ -93,78 +97,116 @@ function buildTextOverlay(player: PlayerCardData): string {
     </svg>`.trim();
 }
 
+// ─── Загрузка буфера аватара для сборки карточки ─────────────────
+async function loadCardAvatarBuffer(
+    player: PlayerCardData,
+    fileName: string,
+): Promise<{ buffer: Buffer; tempAvatarPath: string | null }> {
+    const sharpInstance = (await import("sharp")).default;
+    let tempAvatarPath: string | null = null;
+
+    const toBuffer = async (filePath: string) =>
+        sharpInstance(filePath).png().toBuffer();
+
+    // 1. Локальные generated-аватары (/cards/...)
+    const localPath = resolveLocalCardAvatarPath(player.face);
+    if (localPath) {
+        return { buffer: await toBuffer(localPath), tempAvatarPath: null };
+    }
+
+    // 2. IPFS / HTTP
+    if (
+        player.face &&
+        (player.face.startsWith("http://") || player.face.startsWith("https://"))
+    ) {
+        const ipfsCid = extractIpfsCid(player.face);
+        const gatewayUrls = ipfsCid
+            ? [
+                  `https://ipfs.io/ipfs/${ipfsCid}`,
+                  `https://cloudflare-ipfs.com/ipfs/${ipfsCid}`,
+                  `https://dweb.link/ipfs/${ipfsCid}`,
+                  `https://${ipfsCid}.ipfs.inbrowser.link`,
+                  `https://4everland.io/ipfs/${ipfsCid}`,
+                  `https://nftstorage.link/ipfs/${ipfsCid}`,
+                  `https://w3s.link/ipfs/${ipfsCid}`,
+              ]
+            : [];
+
+        const urlsToTry = [player.face, ...gatewayUrls];
+        for (const url of urlsToTry) {
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 8000);
+                const resp = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeout);
+                if (!resp.ok) continue;
+
+                const contentType = resp.headers.get("content-type") || "";
+                if (!contentType.startsWith("image/")) continue;
+
+                const buf = Buffer.from(await resp.arrayBuffer());
+                if (buf.length < 100) continue;
+
+                const tmpDir = path.resolve("./tmp/avatars");
+                fs.mkdirSync(tmpDir, { recursive: true });
+                tempAvatarPath = path.join(tmpDir, `${fileName}_avatar.png`);
+                fs.writeFileSync(tempAvatarPath, buf);
+                return {
+                    buffer: await toBuffer(tempAvatarPath),
+                    tempAvatarPath,
+                };
+            } catch {
+                /* пробуем следующий gateway */
+            }
+        }
+    }
+
+    // 3. Абсолютный/относительный локальный путь
+    if (player.face) {
+        const resolvedPath = path.resolve(player.face);
+        if (fs.existsSync(resolvedPath)) {
+            return {
+                buffer: await toBuffer(resolvedPath),
+                tempAvatarPath: null,
+            };
+        }
+        console.warn(`[assembleCard] Avatar file not found: ${resolvedPath}`);
+    }
+
+    // 4. Общий fallback — player.png
+    const fallbackPath = getDefaultAvatarFallbackPath();
+    if (fs.existsSync(fallbackPath)) {
+        console.warn(
+            `[assembleCard] Using default avatar fallback for face=${player.face || "empty"}`,
+        );
+        return { buffer: await toBuffer(fallbackPath), tempAvatarPath: null };
+    }
+
+    console.warn(
+        `[assembleCard] No avatar found, card will be rendered without portrait (face=${player.face || "empty"})`,
+    );
+    const transparent = await sharpInstance({
+        create: {
+            width: 256,
+            height: 256,
+            channels: 4,
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+        },
+    })
+        .png()
+        .toBuffer();
+
+    return { buffer: transparent, tempAvatarPath: null };
+}
+
 // ─── Общая сборка слоев карточки ──────────────────────────────────
 export async function assembleCardFromPlayerBuffer(
     player: PlayerCardData,
     rarity: string,
     fileName: string
 ): Promise<string> {
-    // 1. Загружаем аватар — с локального диска или по IPFS
-    let avatarPath: string | null = null;
-    if (player.face) {
-        if (player.face.startsWith("/cards/")) {
-            // Локальный файл из assets/cards
-            const resolvedPath = path.join(process.cwd(), `assets${player.face}`);
-            if (fs.existsSync(resolvedPath)) {
-                avatarPath = resolvedPath;
-            }
-        } else if (player.face.startsWith("http://") || player.face.startsWith("https://")) {
-            // IPFS/HTTP — пробуем разные шлюзы
-            const ipfsCid = extractIpfsCid(player.face);
-            const gatewayUrls = ipfsCid ? [
-                `https://ipfs.io/ipfs/${ipfsCid}`,
-                `https://cloudflare-ipfs.com/ipfs/${ipfsCid}`,
-                `https://dweb.link/ipfs/${ipfsCid}`,
-                `https://${ipfsCid}.ipfs.inbrowser.link`,
-                `https://4everland.io/ipfs/${ipfsCid}`,
-                `https://nftstorage.link/ipfs/${ipfsCid}`,
-                `https://w3s.link/ipfs/${ipfsCid}`,
-            ] : [];
-
-            const urlsToTry = [player.face, ...gatewayUrls];
-            for (const url of urlsToTry) {
-                try {
-                    const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 8000);
-                    const resp = await fetch(url, { signal: controller.signal });
-                    clearTimeout(timeout);
-                    if (!resp.ok) continue;
-                    const contentType = resp.headers.get("content-type") || "";
-                    if (!contentType.startsWith("image/")) continue;
-                    const buf = Buffer.from(await resp.arrayBuffer());
-                    if (buf.length < 100) continue;
-
-                    const tmpDir = path.resolve("./tmp/avatars");
-                    fs.mkdirSync(tmpDir, { recursive: true });
-                    avatarPath = path.join(tmpDir, `${fileName}_avatar.png`);
-                    fs.writeFileSync(avatarPath, buf);
-                    break;
-                } catch { /* пробуем следующий */ }
-            }
-        } else {
-            // Локальный файл — абсолютный или относительный путь
-            const resolvedPath = path.resolve(player.face);
-            if (fs.existsSync(resolvedPath)) {
-                avatarPath = resolvedPath;
-            } else {
-                console.warn(`[assembleCard] Avatar file not found (else): ${resolvedPath}`);
-            }
-        }
-    }
-
-    // Читаем аватар: с диска или прозрачный фон
-    let playerBuffer: Buffer;
-    const sharpInstance = (await import("sharp")).default;
-    if (avatarPath && fs.existsSync(avatarPath)) {
-        playerBuffer = await sharpInstance(avatarPath).png().toBuffer();
-    } else {
-        playerBuffer = await sharpInstance({
-            create: {
-                width: 256, height: 256, channels: 4,
-                background: { r: 0, g: 0, b: 0, alpha: 0 },
-            },
-        }).png().toBuffer();
-    }
+    const { buffer: playerBuffer, tempAvatarPath } =
+        await loadCardAvatarBuffer(player, fileName);
 
     // 2. Пикселизация
     const pixelatedPlayer = await sharp(playerBuffer)
@@ -178,7 +220,7 @@ export async function assembleCardFromPlayerBuffer(
         .png()
         .toBuffer();
 
-    // 2. Текстовый слой
+    // 3. Текстовый слой
     const textSvg = buildTextOverlay(player);
     const textPng = renderSvg(textSvg);
 
@@ -234,9 +276,13 @@ export async function assembleCardFromPlayerBuffer(
     fs.mkdirSync(CARD_DIR, { recursive: true });
     fs.writeFileSync(outputPath, finalBuffer);
 
-    // 6. Удаляем временный файл аватара
-    if (avatarPath) {
-        try { fs.unlinkSync(avatarPath); } catch { /* не критично */ }
+    // 6. Удаляем только временный файл (не трогаем assets/cards!)
+    if (tempAvatarPath) {
+        try {
+            fs.unlinkSync(tempAvatarPath);
+        } catch {
+            /* не критично */
+        }
     }
 
     // Локально — отдаём через локальный сервер, на Railway — через домен

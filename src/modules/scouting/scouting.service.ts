@@ -107,12 +107,10 @@ export async function confirmMasterScoutPayment(
     const user = await app.prisma.user.findUnique({ where: { id: userId } });
     const scoutingLevel = user?.scoutingLevel || 1;
 
-    // Запускаем генерацию в фоне
-    processScoutResult(app, scout.id, scoutingLevel, targetRole, ageMin, ageMax).catch((err) => {
-        app.log.error({ scoutId: scout.id, err }, "Background master scouting failed");
-    });
+    // Генерируем игрока синхронно и сразу возвращаем результат
+    const result = await processScoutResult(app, scout.id, scoutingLevel, targetRole, ageMin, ageMax);
 
-    return scout;
+    return result;
 }
 
 export async function hireScount(
@@ -190,12 +188,10 @@ export async function hireScount(
         }),
     ]);
 
-    // Запускаем генерацию игрока в фоне, не дожидаясь
-    processScoutResult(app, scout.id, user.scoutingLevel, targetRole, ageMin, ageMax).catch((err) => {
-        app.log.error({ scoutId: scout.id, err }, "Background scouting failed");
-    });
+    // Генерируем игрока синхронно и сразу возвращаем результат
+    const result = await processScoutResult(app, scout.id, user.scoutingLevel, targetRole, ageMin, ageMax);
 
-    return scout;
+    return result;
 }
 
 async function processScoutResult(
@@ -206,68 +202,83 @@ async function processScoutResult(
     ageMin?: number | null,
     ageMax?: number | null,
 ) {
-    try {
-        const scout = await app.prisma.scout.findUnique({ where: { id: scoutId } });
-        if (!scout || scout.status !== "ACTIVE") return;
-
-        const tierConfig = (SCOUTING.TIERS as any)[scout.tier] || SCOUTING.TIERS.COMMON;
-        const levelBoost = Math.floor((scoutingLevel - 1) / 2);
-
-        const [baseMin, baseMax] = tierConfig.OVR_RANGE;
-        const ovrMin = Math.max(45, Math.min(baseMin + levelBoost, 99));
-        const ovrMax = Math.max(ovrMin, Math.min(baseMax + levelBoost, 99));
-        const ovr = ovrMin + Math.floor(Math.random() * (ovrMax - ovrMin + 1));
-
-        const realPlayer = await tryAcquireRealPlayerFromPool(
-            app,
-            scout.userId,
-            (scout.targetRole as PlayerRole) || undefined,
-            ovrMin,
-            ovrMax,
-        );
-
-        let player;
-        if (realPlayer) {
-            player = realPlayer;
-        } else {
-            const generated = await generatePlayer({
-                role: (scout.targetRole as PlayerRole) || undefined,
-                ovrMin: ovr,
-                ovrMax: ovr,
-                seed: `scout-${scout.id}`,
-            });
-
-            player = await app.prisma.player.create({
-                data: {
-                    ...generated,
-                    ownerId: scout.userId,
-                    age: Math.floor(
-                        Math.random() * ((ageMax || 35) - (ageMin || 16) + 1) + (ageMin || 16),
-                    ),
-                },
-            });
-
-            if (!player.imageUrl) {
-                await app.prisma.player.update({
-                    where: { id: player.id },
-                    data: { imageUrl: generated.face },
-                });
-            }
-        }
-
-        await app.prisma.scoutResult.create({
-            data: { scoutId: scout.id, playerId: player.id },
-        });
-
-        await app.prisma.scout.update({
-            where: { id: scout.id },
-            data: { status: "COMPLETED" },
-        });
-
-        app.log.info({ scoutId, playerId: player.id }, "Scout result processed");
-    } catch (err: any) {
-        app.log.error({ scoutId, err }, "Failed to process scout result");
+    const scout = await app.prisma.scout.findUnique({
+        where: { id: scoutId },
+        include: { results: { include: { player: true } } },
+    });
+    if (!scout || scout.status !== "ACTIVE") {
+        // Если уже завершён — возвращаем существующие результаты
+        return {
+            scout,
+            player: scout?.results?.[0]?.player || null,
+        };
     }
+
+    const tierConfig = (SCOUTING.TIERS as any)[scout.tier] || SCOUTING.TIERS.COMMON;
+    const levelBoost = Math.floor((scoutingLevel - 1) / 2);
+
+    const [baseMin, baseMax] = tierConfig.OVR_RANGE;
+    const ovrMin = Math.max(45, Math.min(baseMin + levelBoost, 99));
+    const ovrMax = Math.max(ovrMin, Math.min(baseMax + levelBoost, 99));
+    const ovr = ovrMin + Math.floor(Math.random() * (ovrMax - ovrMin + 1));
+
+    const realPlayer = await tryAcquireRealPlayerFromPool(
+        app,
+        scout.userId,
+        (scout.targetRole as PlayerRole) || undefined,
+        ovrMin,
+        ovrMax,
+    );
+
+    let player;
+    if (realPlayer) {
+        player = realPlayer;
+    } else {
+        const generated = await generatePlayer({
+            role: (scout.targetRole as PlayerRole) || undefined,
+            ovrMin: ovr,
+            ovrMax: ovr,
+            seed: `scout-${scout.id}`,
+        });
+
+        player = await app.prisma.player.create({
+            data: {
+                ...generated,
+                ownerId: scout.userId,
+                age: Math.floor(
+                    Math.random() * ((ageMax || 35) - (ageMin || 16) + 1) + (ageMin || 16),
+                ),
+            },
+        });
+
+        if (!player.imageUrl) {
+            await app.prisma.player.update({
+                where: { id: player.id },
+                data: { imageUrl: generated.face },
+            });
+        }
+    }
+
+    // Создаём результат и обновляем статус скаута
+    await app.prisma.scoutResult.create({
+        data: { scoutId: scout.id, playerId: player.id },
+    });
+
+    await app.prisma.scout.update({
+        where: { id: scout.id },
+        data: { status: "COMPLETED" },
+    });
+
+    app.log.info({ scoutId, playerId: player.id }, "Scout result processed");
+
+    return {
+        scout: {
+            ...scout,
+            status: "COMPLETED",
+            results: [{ player }],
+        },
+        player,
+    };
 }
 
 export async function syncScoutStates(app: FastifyInstance, userId: string) {

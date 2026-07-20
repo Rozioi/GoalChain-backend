@@ -15,6 +15,8 @@ export const env = {
     TON_PAYMENT_ADDRESS: process.env.TON_PAYMENT_ADDRESS || "",
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
     WEBAPP_URL: process.env.WEBAPP_URL || "",
+    TELEGRAM_BOT_USERNAME: process.env.TELEGRAM_BOT_USERNAME || "goalchainbot",
+    TELEGRAM_APP_NAME: process.env.TELEGRAM_APP_NAME || "play",
     NETWORK: process.env.NETWORK || "mainnet",
     NFT_MINT_UNLOCKED: process.env.NFT_MINT_UNLOCKED || "",
 };

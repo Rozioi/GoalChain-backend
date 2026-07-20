@@ -9,10 +9,10 @@ import {
 import { ServerEvent } from "../../ws/types";
 import { isUserOnline } from "../../ws/socket.connection.handler";
 import { createMatchFromInvite } from "./match-live.service";
+import { buildTelegramAppUrl } from "../../utils/telegram-link";
 
 function buildInviteLink(inviteId: string) {
-  const botName = process.env.TELEGRAM_BOT_USERNAME || "goalchaintest_bot";
-  return `https://t.me/${botName}/startapp?startapp=match_${inviteId}`;
+  return buildTelegramAppUrl(`match_${inviteId}`);
 }
 
 async function assertNoDuplicateInvite(
