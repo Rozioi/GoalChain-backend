@@ -34,6 +34,19 @@ export async function addPlayerToTeam(
     throw new Error("Player already belongs to a team");
   }
 
+  // Получаем команду, чтобы узнать владельца
+  const team = await app.prisma.team.findUnique({
+    where: { id: teamId },
+    select: { userId: true },
+  });
+  if (!team) throw new Error("Team not found");
+
+  // Назначаем владельца игроку
+  await app.prisma.player.update({
+    where: { id: playerId },
+    data: { ownerId: team.userId },
+  });
+
   return app.prisma.teamPlayer.create({
     data: {
       teamId,
