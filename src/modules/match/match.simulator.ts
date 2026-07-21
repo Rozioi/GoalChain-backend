@@ -1,4 +1,5 @@
 import seedrandom from "seedrandom";
+import { getFatigueDrain, checkFatigueInjury, getFatigueModifiers } from "./fatigue.system";
 
 export interface PlayerStats {
     id: string;
@@ -90,8 +91,8 @@ function getLineStrength(
             for (const [stat, weight] of Object.entries(weights)) {
                 val += (p as any)[stat] * weight;
             }
-            const fatigueFactor = pressingType === "INTENSIVE" ? 2.5 : 1.0;
-            val *= p.formValue * (1 - (p.fatigue * fatigueFactor) / 200);
+            const mods = getFatigueModifiers(p.fatigue);
+            val *= p.formValue * mods.effectivenessMultiplier;
             return sum + val * pressingMult;
         }, 0) / linePlayers.length
     );
@@ -197,28 +198,15 @@ export function simulateMatch(
     };
 
     for (let minute = 1; minute <= totalMinutes; minute++) {
-        // 0. Update fatigue for all active players
-        const homeFatigueRate =
-            currentHomePressing === "INTENSIVE"
-                ? 1.0
-                : currentHomePressing === "MEDIUM"
-                  ? 0.5
-                  : 0.25;
-        const awayFatigueRate =
-            currentAwayPressing === "INTENSIVE"
-                ? 1.0
-                : currentAwayPressing === "MEDIUM"
-                  ? 0.5
-                  : 0.25;
-
-        homeActive.forEach(
-            (p) =>
-                (p.fatigue = Math.min(100, (p.fatigue || 0) + homeFatigueRate)),
-        );
-        awayActive.forEach(
-            (p) =>
-                (p.fatigue = Math.min(100, (p.fatigue || 0) + awayFatigueRate)),
-        );
+        // 0. Update fatigue for all active players using the fatigue system
+        homeActive.forEach((p) => {
+            const drain = getFatigueDrain(p.fatigue, currentHomePressing);
+            p.fatigue = Math.min(100, (p.fatigue || 0) + drain);
+        });
+        awayActive.forEach((p) => {
+            const drain = getFatigueDrain(p.fatigue, currentAwayPressing);
+            p.fatigue = Math.min(100, (p.fatigue || 0) + drain);
+        });
 
         const currentSubs = manualSubstitutions.filter(
             (s) => s.minute === minute,
@@ -351,10 +339,15 @@ export function simulateMatch(
                   : 1.0;
 
         if (actionRoll < 0.03) {
-            const injuryChance = pressing === "INTENSIVE" ? 0.04 : 0.03;
-            if (rng() < (injuryChance / 0.03) * actionRoll) {
-                const playerIdx = Math.floor(rng() * active.length);
-                const player = active[playerIdx];
+            // Pick a random active player for injury check
+            const playerIdx = Math.floor(rng() * active.length);
+            const player = active[playerIdx];
+
+            // Use fatigue-based injury check with action base chance depending on pressing
+            const baseChance = pressing === "INTENSIVE" ? 0.04 : 0.03;
+            const isInjured = checkFatigueInjury(player.fatigue, rng, baseChance);
+
+            if (isInjured) {
 
                 events.push({
                     minute,
