@@ -70,6 +70,8 @@ export interface MatchResult {
     homeStats: { possession: number; shots: number; shotsOnTarget: number };
     awayStats: { possession: number; shots: number; shotsOnTarget: number };
     overtime: boolean;
+    /** Final fatigue values for all players who participated */
+    playerFatigue: Array<{ playerId: string; fatigue: number }>;
 }
 
 function getLineStrength(
@@ -567,6 +569,12 @@ export function simulateMatch(
             shotsOnTarget: awayShotsOnTarget,
         },
         overtime,
+        playerFatigue: [
+            ...homeActive.map((p) => ({ playerId: p.id, fatigue: p.fatigue })),
+            ...awayActive.map((p) => ({ playerId: p.id, fatigue: p.fatigue })),
+            ...homeBench.map((p) => ({ playerId: p.id, fatigue: p.fatigue })),
+            ...awayBench.map((p) => ({ playerId: p.id, fatigue: p.fatigue })),
+        ],
     };
 }
 

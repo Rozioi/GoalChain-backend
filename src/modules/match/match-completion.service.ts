@@ -22,6 +22,8 @@ interface MatchResult {
         playerOutName?: string;
         description: string;
     }>;
+    /** Final fatigue for each player who participated */
+    playerFatigue?: Array<{ playerId: string; fatigue: number }>;
 }
 
 export interface PlayerMatchRewards {
@@ -236,6 +238,20 @@ export async function handleMatchCompletion(
             app.log.warn({ err, teamId }, "Failed to recalc team rating");
         }
     };
+
+    // Сохраняем fatigue для всех игроков, участвовавших в матче
+    if (result.playerFatigue) {
+        for (const pf of result.playerFatigue) {
+            try {
+                await app.prisma.player.update({
+                    where: { id: pf.playerId },
+                    data: { fatigue: Math.round(pf.fatigue) },
+                });
+            } catch {
+                // Игрок может быть удалён или быть ботом — игнорируем
+            }
+        }
+    }
 
     await recalcTeam(match.homeTeamId);
     await recalcTeam(match.awayTeamId);
