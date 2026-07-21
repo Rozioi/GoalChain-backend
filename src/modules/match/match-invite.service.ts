@@ -192,10 +192,14 @@ export async function acceptInvite(
     type: "CHALLENGE",
   });
 
-  emitToUser(invite.senderId, ServerEvent.INVITE_ACCEPTED, {
-    inviteId,
+  // Шлём MATCH_READY обоим игрокам, чтобы они присоединились к комнате и отправили ready
+  emitToUser(invite.senderId, ServerEvent.MATCH_READY, {
     matchId: match.id,
+    inviteId,
     acceptedBy: userId,
+  });
+  emitToUser(userId, ServerEvent.MATCH_READY, {
+    matchId: match.id,
   });
 
   if (app.io) {
