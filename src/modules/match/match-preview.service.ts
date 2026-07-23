@@ -100,5 +100,10 @@ export async function buildMatchPreview(
     ? await buildTeamPreview(app, match.awayTeamId, match.isBot)
     : null;
 
+  // Если противник — бот, даём ему на 3 points больше, чем у человека
+  if (away?.isBot && home) {
+    away.points = home.points + 3;
+  }
+
   return { home, away };
 }

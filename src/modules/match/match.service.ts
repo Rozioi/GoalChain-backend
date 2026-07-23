@@ -46,7 +46,7 @@ export async function playBotMatch(app: FastifyInstance, userId: string) {
             awayPlayer: {
                 id: "bot",
                 name: botResult.team.name ?? "Bot",
-                points: user.points + 10,
+                points: user.points + 3,
             },
         },
     };
