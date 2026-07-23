@@ -341,11 +341,9 @@ export function simulateMatch(
                   : 1.0;
 
         if (actionRoll < 0.03) {
-            // Pick a random active player for injury check
             const playerIdx = Math.floor(rng() * active.length);
             const player = active[playerIdx];
 
-            // Use fatigue-based injury check with action base chance depending on pressing
             const baseChance = pressing === "INTENSIVE" ? 0.04 : 0.03;
             const isInjured = checkFatigueInjury(player.fatigue, rng, baseChance);
 
@@ -424,9 +422,13 @@ export function simulateMatch(
                 }
             }
         } else if (actionRoll < 0.2) {
+          const playerIdx = Math.floor(rng() * active.length);
+          const player = active[playerIdx];
             events.push({
                 minute,
-                type: "foul",
+              type: "foul",
+              playerId: player.id,
+              playerName: player.name,
                 team: team === "home" ? "away" : "home",
                 description: `Foul by ${team === "home" ? "away" : "home"} player.`,
             });
@@ -461,7 +463,7 @@ export function simulateMatch(
             } else if (shotQuality < goalChance + 0.25) {
                 if (isHomeAction) homeShotsOnTarget++;
                 else awayShotsOnTarget++;
-                // Находим GK команды, которая совершила сейв
+
                 const saveTeam = isHomeAction ? awayActive : homeActive;
                 const gk = saveTeam.find((p: any) => p.role === "GOALKEEPER");
                 events.push({
