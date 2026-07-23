@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { recalculateFatigue, applyFatigueRegenToPlayer } from "../match/fatigue.system";
 
 async function getPlayerImage(app: FastifyInstance, playerId: string) {
   const player = await app.prisma.player.findUnique({
@@ -18,6 +19,9 @@ async function getPlayerById(app: FastifyInstance, playerId: string) {
 
   if (!player) throw new Error("Player not found");
 
-  return player;
+  // Apply passive fatigue regen based on time since last update
+  const updatedPlayer = await applyFatigueRegenToPlayer(app, player);
+
+  return updatedPlayer;
 }
 export { getPlayerImage, getPlayerById };

@@ -10,6 +10,13 @@
  * The bar display uses getStaminaPercent() which inverts: 100% fresh = 0 fatigue.
  */
 
+/**
+ * Fatigue regen rate: +10 points per full hour of rest without a match.
+ * Fatigue regen is calculated based on time elapsed since the player's
+ * last update (updatedAt), so even offline players recover naturally.
+ */
+export const FATIGUE_REGEN_PER_HOUR = 10;
+
 /** Fatigue thresholds */
 export const FATIGUE = {
     WHITE_MAX: 33,
@@ -179,5 +186,72 @@ export function getFatigueZoneLabel(fatigue: number): string {
             return "medium";
         case "red":
             return "low";
+    }
+}
+
+// ----- Fatigue regen (passive recovery over time) -----
+
+/**
+ * Calculate how many hours have passed since the given date.
+ */
+function hoursSince(date: Date): number {
+    const diffMs = Date.now() - date.getTime();
+    return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60)));
+}
+
+/**
+ * Calculate the effective fatigue after passive regen.
+ * Each full hour of rest restores FATIGUE_REGEN_PER_HOUR points.
+ *
+ * @param storedFatigue - fatigue value stored in DB (as of last update)
+ * @param lastUpdatedAt - player.updatedAt timestamp
+ * @returns recalculated fatigue (never below 0)
+ */
+export function recalculateFatigue(
+    storedFatigue: number,
+    lastUpdatedAt: Date,
+): number {
+    const hours = hoursSince(lastUpdatedAt);
+    const regen = hours * FATIGUE_REGEN_PER_HOUR;
+    return Math.max(0, storedFatigue - regen);
+}
+
+/**
+ * Update a player's fatigue in the database to reflect passive regen.
+ * This persists the recalculated value and resets updatedAt so future
+ * regen calculations start from this moment.
+ *
+ * @returns the player object with updated fatigue
+ */
+export async function applyFatigueRegenToPlayer(
+    app: { prisma: { player: { update: Function } } },
+    player: { id: string; fatigue: number; updatedAt: Date },
+): Promise<{ id: string; fatigue: number; updatedAt: Date }> {
+    const currentFatigue = recalculateFatigue(player.fatigue, player.updatedAt);
+    if (currentFatigue === player.fatigue) return player;
+
+    return app.prisma.player.update({
+        where: { id: player.id },
+        data: { fatigue: currentFatigue },
+    });
+}
+
+/**
+ * Apply passive fatigue regen to every player in a team roster.
+ * Call this before loading teams for a match, so the simulator
+ * works with up-to-date fatigue values.
+ */
+export async function applyFatigueRegenToTeam(
+    app: { prisma: { player: { update: Function } } },
+    players: Array<{ id: string; fatigue: number; updatedAt: Date }>,
+): Promise<void> {
+    for (const player of players) {
+        const currentFatigue = recalculateFatigue(player.fatigue, player.updatedAt);
+        if (currentFatigue !== player.fatigue) {
+            await app.prisma.player.update({
+                where: { id: player.id },
+                data: { fatigue: currentFatigue },
+            });
+        }
     }
 }
