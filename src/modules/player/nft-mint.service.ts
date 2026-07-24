@@ -325,7 +325,7 @@ export const nftMintService = {
         // Средства идут на TON_PAYMENT_ADDRESS как комиссия за минт
         // NFT создаётся через Getgems API в confirmMint
         const metadata = nftMetadataService.generatePlayerMetadata(player);
-        const mintAmount = toNano("1.000");
+        const mintAmount = toNano("0.01");
         const paymentAddress =
             process.env.TON_PAYMENT_ADDRESS ||
             "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ";
