@@ -24,4 +24,17 @@ async function getPlayerById(app: FastifyInstance, playerId: string) {
 
   return updatedPlayer;
 }
-export { getPlayerImage, getPlayerById };
+async function getPlayerInfoById(app: FastifyInstance, playerId: string) {
+  const player = await app.prisma.player.findUnique({
+    where: { id: playerId },
+  });
+
+  if (!player) throw new Error("Player not found");
+
+  return {
+    name: player.name,
+    surname: player.surname,
+
+  };
+}
+export { getPlayerImage, getPlayerById, getPlayerInfoById };

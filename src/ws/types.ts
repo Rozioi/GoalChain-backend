@@ -4,6 +4,7 @@ export enum ClientEvent {
   MATCHMAKING_START = "matchmaking:start",
   MATCHMAKING_CANCEL = "matchmaking:cancel",
   TACTICS_UPDATE = "match:tactics",
+  JOIN_MATCH = "match:join",
   PING = "ping",
 }
 
@@ -31,6 +32,15 @@ export enum ServerEvent {
   MATCH_FINISHED = "match:finished",
   PLAYER_DISCONNECTED = "match:player_disconnected",
   PLAYER_RECONNECTED = "match:player_reconnected",
+
+  // Handshake for friendly matches
+  PLAYER_JOINED = "match:player_joined",
+  PLAYER_LEFT = "match:player_left",
+  MATCH_CANCELLED = "match:cancelled",
+  MATCH_COUNTDOWN = "match:countdown",
+
+  // Reconnect — full match state
+  MATCH_STATE_SYNC = "match:state_sync",
 
   // System
   CONNECTED = "connected",

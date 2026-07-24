@@ -7,7 +7,15 @@ import {
   userRoom,
 } from "./socket.emitter";
 import { ClientEvent, ServerEvent } from "./types";
-import { markPlayerReady, updateLiveTactics } from "../modules/match/match-live.service";
+import {
+  updateLiveTactics,
+} from "../modules/match/match-live.service";
+import {
+  playerJoinsMatchRoom,
+  playerReadyForMatch,
+  playerDisconnectedFromMatch,
+  buildMatchStateSync,
+} from "../modules/match/match-room-manager";
 
 const connectedUsers = new Map<string, Set<string>>(); // userId → socketIds
 
@@ -32,9 +40,23 @@ export function registerConnectionHandlers(app: FastifyInstance, io: Server) {
       socket.emit(ServerEvent.PONG, { ts: Date.now() });
     });
 
+    // ── New: Join match room (for invite/making challenges) ──
+    socket.on(ClientEvent.JOIN_MATCH, async (payload: { matchId: string }) => {
+      try {
+        // Join the WS room for this match
+        socket.join(matchRoom(payload.matchId));
+
+        // Register player in the in-memory room manager
+        await playerJoinsMatchRoom(app, payload.matchId, userId);
+      } catch (err: any) {
+        socket.emit(ServerEvent.ERROR, { message: err.message });
+      }
+    });
+
+    // ── New: Player ready for match ──
     socket.on(ClientEvent.MATCH_READY, async (payload: { matchId: string }) => {
       try {
-        await markPlayerReady(app, userId, payload.matchId);
+        await playerReadyForMatch(app, payload.matchId, userId);
       } catch (err: any) {
         socket.emit(ServerEvent.ERROR, { message: err.message });
       }
@@ -86,6 +108,15 @@ async function restoreUserRooms(
 
   if (activeMatch) {
     socket.join(matchRoom(activeMatch.id));
+
+    // If match is in progress, send full state sync (current minute, past events)
+    if (activeMatch.status === "IN_PROGRESS") {
+      const syncState = await buildMatchStateSync(app, activeMatch.id, userId);
+      if (syncState) {
+        socket.emit(ServerEvent.MATCH_STATE_SYNC, syncState);
+      }
+    }
+
     socket.emit(ServerEvent.PLAYER_RECONNECTED, { matchId: activeMatch.id });
 
     const opponentId =
@@ -151,6 +182,10 @@ async function handleUserDisconnect(app: FastifyInstance, userId: string) {
       matchId: activeMatch.id,
       userId,
     });
+
+    // Notify the in-memory room manager
+    const { playerDisconnectedFromMatch } = await import("../modules/match/match-room-manager");
+    playerDisconnectedFromMatch(activeMatch.id, userId);
   }
 }
 

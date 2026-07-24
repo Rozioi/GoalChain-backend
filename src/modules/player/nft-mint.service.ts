@@ -443,6 +443,8 @@ export const nftMintService = {
                 isNft: true,
                 mintingStatus: "converted_to_nft",
                 lockedAt: null,
+                inLineup: false,
+                squadPosition: null,
             },
         });
 

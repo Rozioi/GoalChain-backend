@@ -196,6 +196,8 @@ model Player {
   ownerId   String?
   isOnRent  Boolean  @default(false)
   rentPrice Int?
+  inLineup  Boolean  @default(false)
+  squadPosition String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -323,6 +325,7 @@ enum MatchType {
 }
 
 enum MatchStatus {
+  WAITING
   READY
   IN_PROGRESS
   COMPLETED

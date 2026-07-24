@@ -8,6 +8,7 @@ export default async function playerRoutes(app: FastifyInstance) {
     app.post("/players/import", playerController.importFromApi);
     app.get("/players/image/:id", playerController.getPlayerImage);
     app.get("/player/:id", playerController.getPlayerById);
+    app.get("/player/info/:id", playerController.getPlayerById);
     app.get("/player/:id/nft-metadata", playerController.getNftMetadata);
     app.post("/players/populate", playerController.populate);
 

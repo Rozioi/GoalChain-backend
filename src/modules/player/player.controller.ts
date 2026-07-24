@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { FootballApiService } from "./football-api.service";
-import { getPlayerImage, getPlayerById } from "./player.service";
+import { getPlayerImage, getPlayerById,getPlayerInfoById } from "./player.service";
 import { nftMintService } from "./nft-mint.service";
 
 export const playerController = {
@@ -57,6 +57,23 @@ export const playerController = {
             const { id } = req.params;
             const image = await getPlayerById(req.server, id);
             reply.send(image);
+        } catch (err: any) {
+            req.server.log.error(err);
+            reply.status(500).send({ error: err.message });
+        }
+  },
+  async getPlayerInfoById(
+        req: FastifyRequest<{
+            Params: {
+                id: string;
+            };
+        }>,
+        reply: FastifyReply,
+    ) {
+        try {
+            const { id } = req.params;
+            const info = await getPlayerInfoById(req.server, id);
+            reply.send(info);
         } catch (err: any) {
             req.server.log.error(err);
             reply.status(500).send({ error: err.message });

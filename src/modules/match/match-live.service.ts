@@ -15,6 +15,11 @@ import {
 } from "./match-completion.service";
 import { loadTeamsForMatch, simulateMatch } from "./match-team.service";
 import type { MatchEvent } from "./match.simulator";
+import {
+    createMatchRoom,
+    destroyMatchRoom,
+    getMatchRoom,
+} from "./match-room-manager";
 
 const activeRunners = new Map<string, NodeJS.Timeout>();
 
@@ -29,7 +34,7 @@ export async function createMatchFromInvite(
         type: MatchType;
     },
 ) {
-    return app.prisma.match.create({
+    const match = await app.prisma.match.create({
         data: {
             type: params.type,
             status: "READY",
@@ -40,6 +45,11 @@ export async function createMatchFromInvite(
             inviteId: params.inviteId,
         },
     });
+
+    // Create in-memory room for real-time state
+    createMatchRoom(match.id, params.homeUserId, params.awayUserId);
+
+    return match;
 }
 
 export async function createPvPMatch(
@@ -62,6 +72,9 @@ export async function createPvPMatch(
             awayTeamId: params.awayTeamId,
         },
     });
+
+    // Create in-memory room for real-time state
+    createMatchRoom(match.id, params.homeUserId, params.awayUserId);
 
     if (app.io) {
         app.io.in(userRoom(params.homeUserId)).socketsJoin(matchRoom(match.id));
@@ -115,10 +128,6 @@ export async function markPlayerReady(
 export async function startLiveMatch(app: FastifyInstance, matchId: string) {
     const match = await app.prisma.match.findUnique({ where: { id: matchId } });
     if (!match || !match.awayTeamId) throw new Error("Match not ready");
-    if (match.status !== "READY") return;
-
-    // Небольшая задержка, чтобы оба клиента успели присоединиться к WS комнате
-    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     const seed = randomUUID();
     const { homeTeamData, awayTeamData } = await loadTeamsForMatch(
@@ -129,8 +138,10 @@ export async function startLiveMatch(app: FastifyInstance, matchId: string) {
         match.awayPressingType,
     );
 
+    // Simulate full match results (deterministic by seed)
     const result = simulateMatch(homeTeamData, awayTeamData, seed);
 
+    // Update match record in DB with seed and zero score
     await app.prisma.match.update({
         where: { id: matchId },
         data: {
@@ -143,9 +154,13 @@ export async function startLiveMatch(app: FastifyInstance, matchId: string) {
         },
     });
 
+    const room = getMatchRoom(matchId);
+    const startedAt = room?.startedAt ?? Date.now();
+
     const startedPayload = {
         matchId,
         seed,
+        startedAt,
         homeUserId: match.homeUserId,
         awayUserId: match.awayUserId,
     };
@@ -322,6 +337,12 @@ export async function startInstantBotMatch(
             awayReady: true,
         },
     });
+
+    // Create in-memory room for bot (both ready + connected)
+    const room = createMatchRoom(match.id, userId, null);
+    room.status = "READY" as any;
+    room.home.ready = true;
+    room.home.connected = true;
 
     if (app.io) {
         app.io.in(userRoom(userId)).socketsJoin(matchRoom(match.id));

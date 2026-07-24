@@ -9,6 +9,7 @@ import {
 import { ServerEvent } from "../../ws/types";
 import { isUserOnline } from "../../ws/socket.connection.handler";
 import { createMatchFromInvite } from "./match-live.service";
+import { createMatchRoom } from "./match-room-manager";
 import { buildTelegramAppUrl } from "../../utils/telegram-link";
 
 function buildInviteLink(inviteId: string) {
@@ -192,6 +193,9 @@ export async function acceptInvite(
     type: "CHALLENGE",
   });
 
+  // Create in-memory room for real-time handshake
+  createMatchRoom(match.id, invite.senderId, userId);
+
   // Шлём MATCH_READY обоим игрокам, чтобы они присоединились к комнате и отправили ready
   emitToUser(invite.senderId, ServerEvent.MATCH_READY, {
     matchId: match.id,
@@ -206,6 +210,13 @@ export async function acceptInvite(
     app.io.in(userRoom(invite.senderId)).socketsJoin(matchRoom(match.id));
     app.io.in(userRoom(userId)).socketsJoin(matchRoom(match.id));
   }
+
+  // Notify sender that opponent has joined
+  emitToUser(invite.senderId, ServerEvent.PLAYER_JOINED, {
+    matchId: match.id,
+    userId,
+    bothConnected: true,
+  });
 
   return { inviteId, matchId: match.id, match };
 }
