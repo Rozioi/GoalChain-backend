@@ -22,6 +22,7 @@ import eventRoutes from "./modules/event/event.routes";
 import taskRoutes from "./modules/task/task.routes";
 import adminTaskRoutes from "./modules/task/admin.task.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import adminAnalyticsRoutes from "./modules/admin-analytics/analytics.routes";
 import adminPlayerRoutes from "./modules/admin-player/admin-player.routes";
 import adminTeamRoutes from "./modules/admin-team/admin-team.routes";
 import playerRoutes from "./modules/player/player.routes";
@@ -61,6 +62,7 @@ export function buildApp() {
   app.register(taskRoutes, { prefix: "/api/v1" });
   app.register(adminTaskRoutes, { prefix: "/api/v1" });
   app.register(adminRoutes, { prefix: "/api/v1" });
+  app.register(adminAnalyticsRoutes, { prefix: "/api/v1" });
   app.register(adminPlayerRoutes, { prefix: "/api/v1" });
   app.register(adminTeamRoutes, { prefix: "/api/v1" });
   app.register(playerRoutes, { prefix: "/api/v1" });
@@ -74,6 +76,23 @@ export function buildApp() {
     prefix: "/cards/",
     decorateReply: false,
   });
+  // Track funnel click (no auth)
+  app.get(
+    "/api/v1/track/funnel/:trackingLink",
+    async (req) => {
+      const { trackFunnelClick } = await import("./modules/admin-analytics/funnel.service");
+      const params = req.params as { trackingLink: string };
+      const query = req.query as Record<string, string>;
+      await trackFunnelClick(
+        req.server,
+        params.trackingLink,
+        query.step || "open",
+        query.telegramId,
+      );
+      return { success: true };
+    },
+  );
+
   // health endoint
   app.get("/api/v1/health", async () => ({
     status: "ok",

@@ -740,3 +740,43 @@ model AppConfig {
   key   String @unique
   value String
 }
+
+// ─── AD FUNNELS ──────────────────────────────────────────────────
+
+model AdFunnel {
+  id           String @id @default(uuid())
+  name         String
+  trackingLink String @unique
+  createdAt    DateTime @default(now())
+
+  clicks AdFunnelClick[]
+}
+
+model AdFunnelClick {
+  id         String   @id @default(uuid())
+  funnelId   String
+  telegramId String?
+  step       String   @default("open")
+  metadata   Json?
+
+  funnel AdFunnel @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([funnelId, step])
+  @@index([createdAt])
+}
+
+// ─── NFT MINT LOG ────────────────────────────────────────────────
+
+model NftMintLog {
+  id        String   @id @default(uuid())
+  playerId  String?
+  userId    String?
+  status    String   @default("minted") // "minting_process" | "minted" | "failed"
+  costTon   Float?   @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([status])
+}

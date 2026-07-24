@@ -195,7 +195,7 @@ export const adminController = {
     },
 
     // ── Analytics DAU ──
-    getDau: async (request: FastifyRequest, reply: FastifyReply) => {
+    тика : async (request: FastifyRequest, reply: FastifyReply) => {
         const { env } = await import("../../config/env");
 
         const POSTHOG_PERSONAL_KEY = env.POSTHOG_PERSONAL_KEY;
