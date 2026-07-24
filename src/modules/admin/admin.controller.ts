@@ -193,4 +193,84 @@ export const adminController = {
             return reply.status(400).send({ error: err.message });
         }
     },
+
+    // ── Analytics DAU ──
+    getDau: async (request: FastifyRequest, reply: FastifyReply) => {
+        const { env } = await import("../../config/env");
+
+        const POSTHOG_PERSONAL_KEY = env.POSTHOG_PERSONAL_KEY;
+        const PROJECT_ID = env.POSTHOG_PROJECT_ID;
+
+        if (!POSTHOG_PERSONAL_KEY || !PROJECT_ID) {
+            return reply.status(400).send({ error: "PostHog not configured" });
+        }
+
+        // In-memory cache (5 min TTL)
+        const cacheKey = `posthog:dau`;
+        const cached = (request.server as any)._dauCache as
+            | { timestamp: number; data: any }
+            | undefined;
+        const now = Date.now();
+        const CACHE_TTL = 5 * 60 * 1000;
+
+        if (cached && now - cached.timestamp < CACHE_TTL) {
+            return reply.send(cached.data);
+        }
+
+        try {
+            const response = await fetch(
+                `${env.POSTHOG_HOST}/api/projects/${PROJECT_ID}/query/`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${POSTHOG_PERSONAL_KEY}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        query: {
+                            kind: "HogQLQuery",
+                            query: `
+                                SELECT
+                                    toDate(timestamp) AS day,
+                                    count(distinct distinct_id) AS dau
+                                FROM events
+                                WHERE event = 'app_opened'
+                                  AND timestamp >= subtractDays(now(), 14)
+                                GROUP BY day
+                                ORDER BY day ASC
+                            `,
+                        },
+                    }),
+                },
+            );
+
+            if (!response.ok) {
+                const text = await response.text();
+                request.log.error(
+                    { status: response.status, body: text },
+                    "PostHog query failed",
+                );
+                return reply.status(502).send({ error: "PostHog query failed" });
+            }
+
+            const json: any = await response.json();
+
+            const formattedData = (json.results || []).map(
+                ([day, dau]: [string, number]) => ({
+                    day,
+                    dau,
+                }),
+            );
+
+            (request.server as any)._dauCache = {
+                timestamp: now,
+                data: formattedData,
+            };
+
+            return reply.send(formattedData);
+        } catch (err: any) {
+            request.log.error(err, "Failed to fetch DAU from PostHog");
+            return reply.status(500).send({ error: "Failed to fetch analytics" });
+        }
+    },
 };

@@ -72,6 +72,9 @@ async function adminRoutes(app: FastifyInstance) {
     // ── Config ──
     app.get("/admin/config", adminController.getConfigs);
     app.put("/admin/config", adminController.setConfig);
+
+    // ── Analytics ──
+    app.get("/admin/dau", adminController.getDau);
 }
 
 export default adminRoutes;

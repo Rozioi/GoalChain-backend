@@ -19,4 +19,7 @@ export const env = {
     TELEGRAM_APP_NAME: process.env.TELEGRAM_APP_NAME || "play",
     NETWORK: process.env.NETWORK || "mainnet",
     NFT_MINT_UNLOCKED: process.env.NFT_MINT_UNLOCKED || "",
+    POSTHOG_PERSONAL_KEY: process.env.POSTHOG_PERSONAL_KEY || "",
+    POSTHOG_PROJECT_ID: process.env.POSTHOG_PROJECT_ID || "",
+    POSTHOG_HOST: process.env.POSTHOG_HOST || "https://eu.posthog.com",
 };
